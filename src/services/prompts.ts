@@ -221,7 +221,7 @@ export function buildPrompt(agentId: PromptAgentId, context: AgentContext): stri
       return buildClientMessagePrompt({
         firmName: "",
         lawyerName: "",
-        docType: context.docType,
+        docType: context.docType ?? "상담 요약 리포트",
         caseDesc: context.caseDesc,
       });
   }
