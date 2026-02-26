@@ -244,15 +244,7 @@ export default function CheckpointPage() {
     return a && (a.text.trim() || a.files.length > 0 || a.audioBlob);
   }).length;
 
-  // 필수 카테고리(증거확보, 사실관계) 답변 여부 확인
-  const requiredAnswered = checkQuestions
-    .filter((q) => q.category === "증거확보" || q.category === "사실관계")
-    .every((q) => {
-      const a = answers.get(q.id);
-      return a && (a.text.trim() || a.files.length > 0 || a.audioBlob);
-    });
-
-  const canProceed = checkQuestions.length > 0 && requiredAnswered && answeredCount >= 3;
+  const canProceed = checkQuestions.length > 0;
 
   /** 다음 단계로 이동 */
   const handleNext = () => {
@@ -285,14 +277,6 @@ export default function CheckpointPage() {
     "절차확인": "bg-warning/15 text-warning",
   };
 
-  const categoryRequired: Record<string, boolean> = {
-    "증거확보": true,
-    "사실관계": true,
-    "법리검토": false,
-    "전략수립": false,
-    "절차확인": false,
-  };
-
   return (
     <AppLayout title="체크포인트" subtitle={`${state.clientName} - ${state.docType}`}>
       <div className="max-w-3xl">
@@ -302,8 +286,7 @@ export default function CheckpointPage() {
             선배 변호사의 체크리스트
           </p>
           <p className="text-xs text-gold/70">
-            의뢰인이 상담실에 있는 지금, 문서 작성에 필요한 정보를 빠짐없이 확보하세요.
-            텍스트 입력, 파일 첨부, 음성 녹음으로 답변할 수 있습니다.
+            추가 정보가 있으면 입력하세요. 답변 없이도 기존 상담 내용만으로 문서를 생성할 수 있습니다.
           </p>
         </div>
 
@@ -337,7 +320,6 @@ export default function CheckpointPage() {
               const answer = getAnswer(q.id);
               const isExpanded = expandedId === q.id;
               const hasAnswer = answer.text.trim() || answer.files.length > 0 || answer.audioBlob;
-              const isRequired = categoryRequired[q.category] ?? false;
               const isRecordingThis = recording.questionId === q.id && recording.isRecording;
 
               return (
@@ -378,9 +360,6 @@ export default function CheckpointPage() {
                         >
                           {q.category}
                         </span>
-                        {isRequired && (
-                          <span className="text-[10px] text-error font-medium">필수</span>
-                        )}
                       </div>
                       <p className="text-sm font-medium text-text-primary">{q.question}</p>
                     </div>
@@ -531,12 +510,7 @@ export default function CheckpointPage() {
 
         {/* 하단 안내 + 진행 버튼 */}
         {checkQuestions.length > 0 && (
-          <div className="mt-6 space-y-3">
-            {!canProceed && (
-              <p className="text-xs text-text-dim text-center">
-                필수 항목(증거확보, 사실관계)에 답변하고 최소 3개 질문에 응답하면 진행할 수 있습니다.
-              </p>
-            )}
+          <div className="mt-6">
             <div className="flex justify-end">
               <button
                 disabled={!canProceed}
