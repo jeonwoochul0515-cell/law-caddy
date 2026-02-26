@@ -1,0 +1,276 @@
+// 문서 생성 워크플로우 훅
+// 체크포인트 질문 생성 → 변호사 응답 → 최종 문서 생성 → 의뢰인 메시지
+
+import { useState, useCallback } from "react";
+import { callClaude } from "../services/claude";
+import {
+  buildPrompt,
+  buildClientMessagePrompt,
+  type AgentContext,
+  type ClientMessageContext,
+} from "../services/prompts";
+import {
+  isDemoMode,
+  DEMO_CHECK_QUESTIONS,
+  DEMO_FINAL_DOCUMENT,
+  DEMO_CLIENT_MESSAGE,
+} from "../config/demo";
+import type { CheckQuestion } from "../types/document";
+
+/** 문서 생성 단계 */
+type DocumentStatus =
+  | "idle"
+  | "generating_questions"
+  | "checkpoint"
+  | "generating_document"
+  | "generating_message"
+  | "completed"
+  | "error";
+
+/** Claude API 사용 불가 시 데모 모드 폴백 여부 */
+const useDocumentDemoMode =
+  isDemoMode || !import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+/** 지연 헬퍼 */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** useDocument 반환 타입 */
+interface UseDocumentReturn {
+  /** 체크포인트 질문 목록 */
+  checkQuestions: CheckQuestion[];
+  /** 변호사의 체크포인트 응답 */
+  answers: Record<number, "yes" | "no" | "partial">;
+  /** 최종 생성된 문서 */
+  finalDocument: string;
+  /** 의뢰인 카카오톡 메시지 */
+  clientMessage: string;
+  /** 현재 상태 */
+  status: DocumentStatus;
+  /** 에러 메시지 */
+  error: string | null;
+  /** 체크포인트 질문 생성 */
+  generateCheckQuestions: (context: AgentContext) => Promise<void>;
+  /** 체크포인트 응답 저장 */
+  answerCheck: (id: number, answer: "yes" | "no" | "partial") => void;
+  /** 최종 문서 생성 (체크포인트 응답 포함) */
+  generateDocument: (
+    context: AgentContext,
+    checkAnswers: Record<number, "yes" | "no" | "partial">,
+  ) => Promise<void>;
+  /** 의뢰인 카카오톡 메시지 생성 */
+  generateClientMessage: (context: ClientMessageContext) => Promise<void>;
+  /** 상태 초기화 */
+  reset: () => void;
+}
+
+/**
+ * Claude 응답에서 JSON 배열을 파싱합니다.
+ * 응답이 마크다운 코드블록으로 감싸져 있는 경우도 처리합니다.
+ */
+function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
+  // 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
+  let cleaned = response.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+
+  // JSON 배열 부분만 추출 (앞뒤 텍스트 제거)
+  const jsonStart = cleaned.indexOf("[");
+  const jsonEnd = cleaned.lastIndexOf("]");
+  if (jsonStart === -1 || jsonEnd === -1) {
+    throw new Error("체크포인트 질문 응답에서 JSON 배열을 찾을 수 없습니다.");
+  }
+
+  const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
+  const parsed: unknown = JSON.parse(jsonStr);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("체크포인트 응답이 배열 형식이 아닙니다.");
+  }
+
+  // 각 항목의 구조 검증
+  return parsed.map((item: unknown, index: number) => {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      !("question" in item) ||
+      !("why" in item) ||
+      !("category" in item)
+    ) {
+      throw new Error(`체크포인트 질문 ${index + 1}번의 형식이 올바르지 않습니다.`);
+    }
+
+    const obj = item as Record<string, unknown>;
+    return {
+      id: typeof obj.id === "number" ? obj.id : index + 1,
+      question: String(obj.question),
+      why: String(obj.why),
+      category: String(obj.category) as CheckQuestion["category"],
+    };
+  });
+}
+
+/**
+ * 문서 생성 워크플로우 훅
+ *
+ * 워크플로우:
+ * 1. generateCheckQuestions → 체크포인트 질문 3~5개 생성
+ * 2. answerCheck → 변호사가 각 질문에 yes/no/partial 응답
+ * 3. generateDocument → 응답 반영하여 최종 문서 생성
+ * 4. generateClientMessage → 의뢰인 카카오톡 메시지 생성
+ */
+export default function useDocument(): UseDocumentReturn {
+  const [checkQuestions, setCheckQuestions] = useState<CheckQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<number, "yes" | "no" | "partial">>({});
+  const [finalDocument, setFinalDocument] = useState("");
+  const [clientMessage, setClientMessage] = useState("");
+  const [status, setStatus] = useState<DocumentStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  /** 체크포인트 질문 생성 */
+  const generateCheckQuestions = useCallback(
+    async (context: AgentContext): Promise<void> => {
+      setStatus("generating_questions");
+      setError(null);
+
+      try {
+        // 데모 모드: 목 체크포인트 질문 반환
+        if (useDocumentDemoMode) {
+          await delay(1500);
+          setCheckQuestions(DEMO_CHECK_QUESTIONS);
+          setAnswers({});
+          setStatus("checkpoint");
+          return;
+        }
+
+        const prompt = buildPrompt("docgen_questions", context);
+        const userMessage = `"${context.docType}" 문서 작성 전 확인 사항을 JSON 배열로 제시해 주세요.`;
+
+        const response = await callClaude(prompt, userMessage);
+        const questions = parseCheckQuestionsResponse(response);
+
+        setCheckQuestions(questions);
+        setAnswers({}); // 이전 응답 초기화
+        setStatus("checkpoint");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "체크포인트 질문 생성에 실패했습니다.";
+        setError(message);
+        setStatus("error");
+      }
+    },
+    [],
+  );
+
+  /** 체크포인트 응답 저장 */
+  const answerCheck = useCallback(
+    (id: number, answer: "yes" | "no" | "partial") => {
+      setAnswers((prev) => ({ ...prev, [id]: answer }));
+    },
+    [],
+  );
+
+  /** 최종 문서 생성 */
+  const generateDocument = useCallback(
+    async (
+      context: AgentContext,
+      checkAnswers: Record<number, "yes" | "no" | "partial">,
+    ): Promise<void> => {
+      setStatus("generating_document");
+      setError(null);
+
+      try {
+        // 데모 모드: 목 법률 문서 반환
+        if (useDocumentDemoMode) {
+          await delay(2000);
+          setFinalDocument(DEMO_FINAL_DOCUMENT);
+          setStatus("completed");
+          return;
+        }
+
+        // 체크포인트 응답을 컨텍스트에 포함
+        const contextWithAnswers: AgentContext = {
+          ...context,
+          checkAnswers,
+        };
+
+        const prompt = buildPrompt("docgen", contextWithAnswers);
+        const userMessage = `체크포인트 응답을 반영하여 "${context.docType}" 초안을 작성해 주세요.`;
+
+        const document = await callClaude(prompt, userMessage);
+        setFinalDocument(document);
+        setStatus("completed");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "문서 생성에 실패했습니다.";
+        setError(message);
+        setStatus("error");
+      }
+    },
+    [],
+  );
+
+  /** 의뢰인 카카오톡 메시지 생성 */
+  const generateClientMessage = useCallback(
+    async (context: ClientMessageContext): Promise<void> => {
+      setStatus("generating_message");
+      setError(null);
+
+      try {
+        // 데모 모드: 목 카카오톡 메시지 반환
+        if (useDocumentDemoMode) {
+          await delay(1000);
+          setClientMessage(DEMO_CLIENT_MESSAGE);
+          setStatus("completed");
+          return;
+        }
+
+        const prompt = buildClientMessagePrompt(context);
+        const userMessage = "의뢰인에게 보낼 카카오톡 메시지를 작성해 주세요.";
+
+        const message = await callClaude(prompt, userMessage);
+        setClientMessage(message);
+        setStatus("completed");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "의뢰인 메시지 생성에 실패했습니다.";
+        setError(message);
+        setStatus("error");
+      }
+    },
+    [],
+  );
+
+  /** 상태 초기화 */
+  const reset = useCallback(() => {
+    setCheckQuestions([]);
+    setAnswers({});
+    setFinalDocument("");
+    setClientMessage("");
+    setStatus("idle");
+    setError(null);
+  }, []);
+
+  return {
+    checkQuestions,
+    answers,
+    finalDocument,
+    clientMessage,
+    status,
+    error,
+    generateCheckQuestions,
+    answerCheck,
+    generateDocument,
+    generateClientMessage,
+    reset,
+  };
+}
