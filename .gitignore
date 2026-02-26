@@ -16,6 +16,10 @@ dist-ssr
 .env
 .env.local
 stt-backend/.env
+.dev.vars
+
+# Cloudflare
+.wrangler/
 
 # Editor directories and files
 .vscode/*

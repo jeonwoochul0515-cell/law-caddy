@@ -1,5 +1,5 @@
 // Anthropic Claude API 서비스
-// claude-sonnet-4-20250514 모델을 사용하여 법률 AI 에이전트 처리
+// Cloudflare Functions 프록시 또는 직접 호출 (로컬 개발 폴백)
 
 /** Claude API 응답 content 블록 타입 */
 interface ContentBlock {
@@ -30,84 +30,119 @@ interface ClaudeApiError {
   };
 }
 
+/** 프록시 에러 응답 */
+interface ProxyErrorResponse {
+  error: string;
+  detail?: string;
+}
+
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
 
 /**
- * Anthropic Claude API를 호출하여 응답을 받습니다.
- *
- * @param systemPrompt - 시스템 프롬프트 (에이전트 역할 정의)
- * @param userMessage - 사용자 메시지 (사건 정보 등)
- * @returns AI 응답 텍스트
- * @throws API 호출 실패 시 에러
+ * Claude API 응답에서 텍스트를 추출합니다.
  */
-export async function callClaude(
-  systemPrompt: string,
-  userMessage: string
-): Promise<string> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+function extractText(data: ClaudeApiResponse): string {
+  if (!data.content || data.content.length === 0) {
+    throw new Error("Claude API에서 빈 응답을 반환했습니다.");
+  }
 
-  if (!apiKey || typeof apiKey !== "string") {
+  const textContent = data.content
+    .filter((block): block is ContentBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n");
+
+  if (!textContent) {
+    throw new Error("Claude API 응답에 텍스트가 포함되지 않았습니다.");
+  }
+
+  return textContent;
+}
+
+/**
+ * 직접 Anthropic API를 호출합니다 (로컬 개발 폴백).
+ */
+async function callClaudeDirect(
+  systemPrompt: string,
+  userMessage: string,
+  apiKey: string,
+): Promise<string> {
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": API_VERSION,
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json()) as ClaudeApiError;
+    const errorMessage =
+      errorBody?.error?.message ?? `HTTP ${response.status} ${response.statusText}`;
+    throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+  }
+
+  const data = (await response.json()) as ClaudeApiResponse;
+  return extractText(data);
+}
+
+/**
+ * Cloudflare Functions 프록시를 통해 호출합니다 (프로덕션).
+ */
+async function callClaudeProxy(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<string> {
+  const response = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ systemPrompt, userMessage }),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json()) as ProxyErrorResponse;
     throw new Error(
-      "Anthropic API 키가 설정되지 않았습니다. VITE_ANTHROPIC_API_KEY 환경변수를 확인하세요."
+      `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
     );
   }
 
+  const data = (await response.json()) as ClaudeApiResponse;
+  return extractText(data);
+}
+
+/**
+ * Anthropic Claude API를 호출하여 응답을 받습니다.
+ * - VITE_ANTHROPIC_API_KEY가 있으면: 직접 호출 (로컬 개발)
+ * - 없으면: /api/claude 프록시 사용 (Cloudflare Pages 프로덕션)
+ */
+export async function callClaude(
+  systemPrompt: string,
+  userMessage: string,
+): Promise<string> {
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": API_VERSION,
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: userMessage,
-          },
-        ],
-      }),
-    });
+    const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
-    if (!response.ok) {
-      const errorBody = (await response.json()) as ClaudeApiError;
-      const errorMessage =
-        errorBody?.error?.message ?? `HTTP ${response.status} ${response.statusText}`;
-      throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+    if (directApiKey && typeof directApiKey === "string") {
+      return await callClaudeDirect(systemPrompt, userMessage, directApiKey);
     }
 
-    const data = (await response.json()) as ClaudeApiResponse;
-
-    if (!data.content || data.content.length === 0) {
-      throw new Error("Claude API에서 빈 응답을 반환했습니다.");
-    }
-
-    // 텍스트 블록만 추출하여 합침
-    const textContent = data.content
-      .filter((block): block is ContentBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("\n");
-
-    if (!textContent) {
-      throw new Error("Claude API 응답에 텍스트가 포함되지 않았습니다.");
-    }
-
-    return textContent;
+    return await callClaudeProxy(systemPrompt, userMessage);
   } catch (error: unknown) {
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요."
+        "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
       );
     }
-    // 이미 처리된 에러는 그대로 전파
     if (error instanceof Error) {
       throw error;
     }

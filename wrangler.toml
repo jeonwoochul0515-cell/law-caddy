@@ -1,0 +1,7 @@
+name = "law-caddy"
+compatibility_date = "2024-09-23"
+
+# 로컬 개발 시크릿은 .dev.vars 파일에 설정
+# ANTHROPIC_API_KEY=
+# RTZR_CLIENT_ID=
+# RTZR_CLIENT_SECRET=

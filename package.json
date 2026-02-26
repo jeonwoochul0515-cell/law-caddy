@@ -1,13 +1,15 @@
 {
-  "name": "myapp",
+  "name": "law-caddy",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "npx wrangler pages dev dist --port 8788",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "npx wrangler pages dev dist",
+    "deploy": "npm run build && npx wrangler pages deploy dist",
+    "lint": "eslint ."
   },
   "dependencies": {
     "firebase": "^12.9.0",
@@ -19,6 +21,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260305.0",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.10.1",
@@ -32,6 +35,7 @@
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.68.1"
   }
 }

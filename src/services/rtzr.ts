@@ -1,5 +1,5 @@
 // 리턴제로 RTZR STT API 서비스
-// STT 백엔드 프록시를 통한 음성 전사 및 화자분리
+// Cloudflare Functions 프록시 또는 별도 STT 백엔드를 통한 음성 전사
 
 import type { Utterance } from "../types/recording";
 
@@ -12,12 +12,12 @@ export interface TranscriptionResult {
   utterances?: Utterance[];
 }
 
-/** STT 백엔드 전사 요청 응답 */
+/** STT 전사 요청 응답 */
 interface TranscribeResponse {
   id: string;
 }
 
-/** STT 백엔드 폴링 응답 */
+/** STT 폴링 응답 */
 interface PollResponse {
   status: TranscriptionStatus;
   results?: {
@@ -34,34 +34,29 @@ interface RtzrUtterance {
 }
 
 /**
- * STT 백엔드 기본 URL
+ * API URL을 생성합니다.
+ * - VITE_STT_BACKEND_URL이 있으면: 기존 Express 백엔드 사용
+ * - 없으면: /api/transcribe (Cloudflare Functions 프록시)
  */
-function getBackendUrl(): string {
-  const url = import.meta.env.VITE_STT_BACKEND_URL;
-  if (!url || typeof url !== "string") {
-    throw new Error(
-      "STT 백엔드 URL이 설정되지 않았습니다. VITE_STT_BACKEND_URL 환경변수를 확인하세요."
-    );
+function getApiUrl(path: string): string {
+  const sttBackendUrl = import.meta.env.VITE_STT_BACKEND_URL;
+
+  if (sttBackendUrl && typeof sttBackendUrl === "string") {
+    return `${sttBackendUrl.replace(/\/+$/, "")}/${path}`;
   }
-  // 뒤의 슬래시 제거
-  return url.replace(/\/+$/, "");
+
+  return `/api/${path}`;
 }
 
 /**
- * 음성 파일을 STT 백엔드로 전송하여 전사를 요청합니다.
- *
- * @param file - 업로드할 음성 파일
- * @returns RTZR 전사 요청 ID
- * @throws 업로드 실패 시 에러
+ * 음성 파일을 전사 요청합니다.
  */
 export async function transcribeFile(file: File): Promise<string> {
-  const backendUrl = getBackendUrl();
-
   try {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch(`${backendUrl}/transcribe`, {
+    const response = await fetch(getApiUrl("transcribe"), {
       method: "POST",
       body: formData,
     });
@@ -69,7 +64,7 @@ export async function transcribeFile(file: File): Promise<string> {
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
-        `STT 전사 요청 실패 (HTTP ${response.status}): ${errorText}`
+        `STT 전사 요청 실패 (HTTP ${response.status}): ${errorText}`,
       );
     }
 
@@ -83,7 +78,7 @@ export async function transcribeFile(file: File): Promise<string> {
   } catch (error: unknown) {
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요."
+        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.",
       );
     }
     if (error instanceof Error) {
@@ -107,28 +102,20 @@ function convertUtterance(raw: RtzrUtterance): Utterance {
 
 /**
  * 전사 상태를 폴링합니다.
- *
- * @param transcribeId - RTZR 전사 요청 ID
- * @returns 전사 상태 및 결과 (완료 시 utterances 포함)
- * @throws 폴링 실패 시 에러
  */
 export async function pollTranscription(
-  transcribeId: string
+  transcribeId: string,
 ): Promise<TranscriptionResult> {
-  const backendUrl = getBackendUrl();
-
   try {
     const response = await fetch(
-      `${backendUrl}/transcribe/${encodeURIComponent(transcribeId)}`,
-      {
-        method: "GET",
-      }
+      getApiUrl(`transcribe/${encodeURIComponent(transcribeId)}`),
+      { method: "GET" },
     );
 
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
-        `STT 폴링 실패 (HTTP ${response.status}): ${errorText}`
+        `STT 폴링 실패 (HTTP ${response.status}): ${errorText}`,
       );
     }
 
@@ -149,7 +136,7 @@ export async function pollTranscription(
   } catch (error: unknown) {
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요."
+        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.",
       );
     }
     if (error instanceof Error) {
@@ -171,16 +158,11 @@ function formatTimestamp(ms: number): string {
 
 /**
  * Utterance 배열을 읽기 쉬운 대화록 텍스트로 포맷팅합니다.
- *
- * @param utterances - RTZR STT utterance 배열
- * @param speakers - 화자 번호 → 역할 매핑 (기본: 0→변호사, 1→의뢰인)
- * @returns 포맷팅된 대화록 문자열
  */
 export function formatTranscript(
   utterances: Utterance[],
-  speakers?: Record<number, string>
+  speakers?: Record<number, string>,
 ): string {
-  // 기본 화자 라벨
   const defaultSpeakers: Record<number, string> = {
     0: "변호사",
     1: "의뢰인",
