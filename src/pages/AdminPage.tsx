@@ -1,68 +1,66 @@
 import { useEffect, useState } from "react";
-import { Check, X, ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2, ShieldCheck, ShieldX } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
-import { getPendingUsers, approveUser, rejectUser } from "../services/firebase/firestore";
+import { getUnverifiedUsers, verifyUser, deactivateUser } from "../services/firebase/firestore";
 import { isDemoMode, DEMO_ADMIN_PENDING_USERS } from "../config/demo";
 import type { User } from "../types/user";
 
 export default function AdminPage() {
   const currentUser = useAuth((s) => s.user);
-  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    // 데모 모드: 목 대기 사용자 목록 사용
     if (isDemoMode) {
-      setPendingUsers([...DEMO_ADMIN_PENDING_USERS]);
+      setUsers([...DEMO_ADMIN_PENDING_USERS]);
       setLoading(false);
       return;
     }
 
-    const fetch = async () => {
+    const fetchUsers = async () => {
       try {
-        const users = await getPendingUsers();
-        setPendingUsers(users);
+        const result = await getUnverifiedUsers();
+        setUsers(result);
       } catch (err) {
-        console.error("대기 사용자 로딩 실패:", err);
+        console.error("사용자 목록 로딩 실패:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchUsers();
   }, []);
 
-  const handleApprove = async (uid: string) => {
+  const handleVerify = async (uid: string) => {
     if (!currentUser) return;
     setProcessing(uid);
     try {
       if (isDemoMode) {
-        // 데모 모드: 로컬 상태에서만 제거
-        setPendingUsers((prev) => prev.filter((u) => u.uid !== uid));
+        setUsers((prev) => prev.filter((u) => u.uid !== uid));
       } else {
-        await approveUser(uid, currentUser.uid);
-        setPendingUsers((prev) => prev.filter((u) => u.uid !== uid));
+        await verifyUser(uid, currentUser.uid);
+        setUsers((prev) => prev.filter((u) => u.uid !== uid));
       }
     } catch (err) {
-      console.error("승인 실패:", err);
+      console.error("검증 실패:", err);
     } finally {
       setProcessing(null);
     }
   };
 
-  const handleReject = async (uid: string) => {
+  const handleDeactivate = async (uid: string) => {
+    if (!confirm("등록번호가 확인되지 않는 사용자입니다. 탈퇴 처리하시겠습니까?")) return;
     setProcessing(uid);
     try {
       if (isDemoMode) {
-        // 데모 모드: 로컬 상태에서만 제거
-        setPendingUsers((prev) => prev.filter((u) => u.uid !== uid));
+        setUsers((prev) => prev.filter((u) => u.uid !== uid));
       } else {
-        await rejectUser(uid);
-        setPendingUsers((prev) => prev.filter((u) => u.uid !== uid));
+        await deactivateUser(uid);
+        setUsers((prev) => prev.filter((u) => u.uid !== uid));
       }
     } catch (err) {
-      console.error("거부 실패:", err);
+      console.error("탈퇴 실패:", err);
     } finally {
       setProcessing(null);
     }
@@ -77,11 +75,19 @@ export default function AdminPage() {
   }
 
   return (
-    <AppLayout title="관리자" subtitle="가입 승인 관리">
+    <AppLayout title="관리자" subtitle="변호사 등록번호 검증">
       <div className="max-w-3xl">
+        {/* 안내 배너 */}
+        <div className="bg-gold-dim border border-gold/20 rounded-xl p-4 mb-6">
+          <p className="text-sm text-gold-bright">
+            회원가입 시 즉시 서비스 이용이 가능합니다. 관리자는 변호사 등록번호를 확인 후
+            검증 완료하거나, 등록번호가 일치하지 않는 경우 탈퇴 처리합니다.
+          </p>
+        </div>
+
         <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
           <div className="p-5 border-b border-border flex items-center justify-between">
-            <h3 className="font-semibold text-text-primary">승인 대기 ({pendingUsers.length})</h3>
+            <h3 className="font-semibold text-text-primary">미검증 사용자 ({users.length})</h3>
             <a
               href="https://m.koreanbar.or.kr/pages/search/search.asp"
               target="_blank"
@@ -98,18 +104,18 @@ export default function AdminPage() {
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
               로딩 중...
             </div>
-          ) : pendingUsers.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="p-8 text-center text-text-dim">
-              대기 중인 가입 요청이 없습니다.
+              미검증 사용자가 없습니다. 모든 사용자가 검증 완료되었습니다.
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {pendingUsers.map((u) => (
+              {users.map((u) => (
                 <div key={u.uid} className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-text-primary font-medium">{u.name}</p>
                     <p className="text-sm text-text-dim">
-                      {u.firmName} · 등록번호: {u.barLicenseNumber}
+                      {u.firmName} · 등록번호: <span className="text-gold font-mono">{u.barLicenseNumber}</span>
                     </p>
                     <p className="text-xs text-text-dim mt-0.5">{u.email}</p>
                   </div>
@@ -119,18 +125,18 @@ export default function AdminPage() {
                     ) : (
                       <>
                         <button
-                          onClick={() => handleApprove(u.uid)}
+                          onClick={() => handleVerify(u.uid)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-success/10 text-success border border-success/30 rounded-lg text-sm hover:bg-success/20 transition-colors"
                         >
-                          <Check className="w-4 h-4" />
-                          승인
+                          <ShieldCheck className="w-4 h-4" />
+                          검증 완료
                         </button>
                         <button
-                          onClick={() => handleReject(u.uid)}
+                          onClick={() => handleDeactivate(u.uid)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-error/10 text-error border border-error/30 rounded-lg text-sm hover:bg-error/20 transition-colors"
                         >
-                          <X className="w-4 h-4" />
-                          거부
+                          <ShieldX className="w-4 h-4" />
+                          탈퇴
                         </button>
                       </>
                     )}

@@ -300,15 +300,16 @@ export async function updateDocument(
 // ──────────────────────────────────────────────
 
 /**
- * 승인 대기 중인 사용자 목록을 조회합니다.
+ * 등록번호 미검증 사용자 목록을 조회합니다 (approved 상태, 검증 미완료).
  *
- * @returns 대기 중인 사용자 목록 (가입순)
+ * @returns 미검증 사용자 목록 (가입순)
  */
-export async function getPendingUsers(): Promise<User[]> {
+export async function getUnverifiedUsers(): Promise<User[]> {
   try {
     const q = query(
       collection(db!, "users"),
-      where("status", "==", "pending"),
+      where("status", "==", "approved"),
+      where("role", "==", "lawyer"),
       orderBy("createdAt", "asc")
     );
     const snapshot = await getDocs(q);
@@ -318,50 +319,45 @@ export async function getPendingUsers(): Promise<User[]> {
     })) as User[];
   } catch (error: unknown) {
     if (error instanceof Error) {
-      throw new Error(`대기 사용자 조회 실패: ${error.message}`);
+      throw new Error(`사용자 조회 실패: ${error.message}`);
     }
-    throw new Error("대기 사용자 조회 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("사용자 조회 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
 /**
- * 사용자 가입을 승인합니다.
- *
- * @param uid - 승인할 사용자 UID
- * @param approvedBy - 승인 관리자 UID
+ * 등록번호 검증 완료 처리 (verified 필드 추가)
  */
-export async function approveUser(
+export async function verifyUser(
   uid: string,
-  approvedBy: string
+  verifiedBy: string
 ): Promise<void> {
   try {
     await updateDoc(doc(db!, "users", uid), {
-      status: "approved" as const,
-      approvedAt: Timestamp.now(),
-      approvedBy,
+      verified: true,
+      verifiedAt: Timestamp.now(),
+      verifiedBy,
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      throw new Error(`사용자 승인 실패: ${error.message}`);
+      throw new Error(`사용자 검증 실패: ${error.message}`);
     }
-    throw new Error("사용자 승인 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("사용자 검증 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
 /**
- * 사용자 가입을 거부합니다.
- *
- * @param uid - 거부할 사용자 UID
+ * 등록번호 불일치 → 사용자 탈퇴 (status: "rejected")
  */
-export async function rejectUser(uid: string): Promise<void> {
+export async function deactivateUser(uid: string): Promise<void> {
   try {
     await updateDoc(doc(db!, "users", uid), {
       status: "rejected" as const,
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      throw new Error(`사용자 거부 실패: ${error.message}`);
+      throw new Error(`사용자 탈퇴 실패: ${error.message}`);
     }
-    throw new Error("사용자 거부 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("사용자 탈퇴 중 알 수 없는 오류가 발생했습니다.");
   }
 }

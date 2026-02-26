@@ -33,8 +33,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.status === "pending") return <Navigate to="/pending" replace />;
-  if (user.status === "rejected") return <Navigate to="/pending" replace />;
+  if (user.status === "rejected") return <Navigate to="/login" replace />;
 
   return <>{children}</>;
 }
@@ -53,7 +52,6 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
   }
 
   if (user?.status === "approved") return <Navigate to="/dashboard" replace />;
-  if (user?.status === "pending") return <Navigate to="/pending" replace />;
 
   return <>{children}</>;
 }

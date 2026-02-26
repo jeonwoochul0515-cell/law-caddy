@@ -123,17 +123,17 @@ const useAuth = create<AuthStore>((set) => ({
     password: string,
     userData: RegisterData,
   ) => {
-    // 데모 모드: 승인 대기 상태의 사용자로 설정
+    // 데모 모드: 즉시 활성화 사용자로 설정
     if (isDemoMode) {
-      const pendingUser: User = {
+      const approvedUser: User = {
         ...DEMO_USER,
         email,
         name: userData.name,
         firmName: userData.firmName,
         barLicenseNumber: userData.barLicenseNumber,
-        status: "pending",
+        status: "approved",
       };
-      set({ user: pendingUser, loading: false });
+      set({ user: approvedUser, loading: false });
       return;
     }
 

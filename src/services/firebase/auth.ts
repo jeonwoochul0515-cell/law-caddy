@@ -24,7 +24,7 @@ interface SignUpData {
 
 /**
  * 신규 변호사 회원가입
- * Firebase Auth 계정 생성 + Firestore users 문서 생성 (status: "pending")
+ * Firebase Auth 계정 생성 + Firestore users 문서 생성 (status: "approved" 즉시 활성화)
  *
  * @param email - 이메일
  * @param password - 비밀번호
@@ -54,7 +54,7 @@ export async function signUp(
       firmName: userData.firmName,
       barLicenseNumber: userData.barLicenseNumber,
       role: "lawyer",
-      status: "pending",
+      status: "approved",
       plan: "free",
       createdAt: serverTimestamp(),
     };
