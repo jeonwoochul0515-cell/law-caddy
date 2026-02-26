@@ -4,6 +4,7 @@ import { FileText, Copy, Check, MessageSquare, Loader2, Download } from "lucide-
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
 import type { CaseType, DocType } from "../types/agent";
+import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
 export default function DocumentPage() {
   const location = useLocation();
@@ -17,8 +18,8 @@ export default function DocumentPage() {
     firmName: string;
     lawyerName: string;
     agentResults: Record<string, string>;
-    answers: Record<number, "yes" | "no" | "partial">;
-    checkQuestions: { id: number; question: string }[];
+    checkQuestions: CheckQuestion[];
+    checkpointAnswers: CheckpointAnswer[];
   } | null;
 
   const { finalDocument, clientMessage, generateDocument, generateClientMessage, status } = useDocument();
@@ -38,7 +39,8 @@ export default function DocumentPage() {
         docType: state.docType,
         transcript: state.agentResults.stt ?? "",
       },
-      state.answers
+      state.checkQuestions ?? [],
+      state.checkpointAnswers ?? [],
     );
   }, [state, initialized, generateDocument]);
 

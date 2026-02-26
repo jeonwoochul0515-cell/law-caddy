@@ -2,6 +2,7 @@
 // CLAUDE.md 섹션 5.3에 정의된 프롬프트를 그대로 구현
 
 import type { DocType, CaseType } from "../types/agent";
+import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
 /** 에이전트 공통 컨텍스트 */
 export interface AgentContext {
@@ -10,7 +11,8 @@ export interface AgentContext {
   caseDesc: string;
   docType?: DocType;
   transcript?: string;
-  checkAnswers?: Record<number, "yes" | "no" | "partial">;
+  checkpointAnswers?: CheckpointAnswer[];
+  checkQuestions?: CheckQuestion[];
 }
 
 /** 의뢰인 메시지 전용 컨텍스트 */
@@ -57,23 +59,33 @@ function buildContextBlock(ctx: AgentContext): string {
 }
 
 /**
- * 체크포인트 응답 결과를 텍스트로 포맷팅
+ * 체크포인트 상세 응답을 텍스트로 포맷팅
  */
-function formatCheckAnswers(
-  checkAnswers: Record<number, "yes" | "no" | "partial">
+function formatCheckpointAnswers(
+  questions: CheckQuestion[],
+  answers: CheckpointAnswer[],
 ): string {
-  const entries = Object.entries(checkAnswers);
-  if (entries.length === 0) {
+  if (!answers || answers.length === 0) {
     return "[체크포인트 응답 없음]";
   }
 
-  const lines = entries.map(([id, answer]) => {
-    const answerText =
-      answer === "yes" ? "예" : answer === "no" ? "아니오" : "부분적";
-    return `- 질문 ${id}: ${answerText}`;
-  });
+  const lines = answers
+    .filter((a) => a.text.trim())
+    .map((a) => {
+      const q = questions.find((q) => q.id === a.questionId);
+      const parts: string[] = [];
+      parts.push(`### 질문 ${a.questionId}: ${q?.question ?? ""}`);
+      parts.push(`답변: ${a.text}`);
+      if (a.files.length > 0) {
+        parts.push(`첨부 파일: ${a.files.length}건`);
+      }
+      if (a.audioBlob) {
+        parts.push(`음성 설명 첨부됨`);
+      }
+      return parts.join("\n");
+    });
 
-  return `[체크포인트 응답 결과]\n${lines.join("\n")}`;
+  return `[체크포인트 상세 응답 결과]\n\n${lines.join("\n\n")}`;
 }
 
 /** 판례 검색 에이전트 프롬프트 */
@@ -143,25 +155,43 @@ ${context}
 한국어로 작성하세요.`;
 }
 
-/** 문서 작성 에이전트 - 체크포인트 질문 생성 프롬프트 */
+/** 문서 작성 에이전트 - 체크포인트 질문 생성 프롬프트 (선배 변호사 멘토링 스타일) */
 function buildDocgenQuestionsPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
-  return `당신은 법률 문서 작성 전문가입니다.
+  const docTypeText = ctx.docType ? `"${ctx.docType}"` : "법률 문서";
+  return `당신은 20년 경력의 대한민국 선배 변호사입니다.
+후배 변호사가 의뢰인 상담을 마치기 직전입니다. 의뢰인이 아직 상담실에 있습니다.
 
 ${context}
 
-"${ctx.docType}" 문서를 작성하기 전에, 변호사가 반드시 확인해야 할 사항 3~5개를 질문 형태로 제시하세요.
+${docTypeText} 문서 작성에 필요한 모든 정보를 이 한 번에 빠짐없이 확보할 수 있도록,
+의뢰인에게 추가로 확인해야 할 사항을 8~15개 질문으로 정리하세요.
+
+핵심 원칙 (선배의 노하우):
+- 두 번 세 번 만나지 않고 한 번에 끝내는 것이 목표
+- 증거자료는 "어떤 서류/사진"이 필요한지 구체적으로 지정
+- 사실관계는 날짜, 금액, 장소, 인물 등 빠짐없이
+- 상대방 주장·반론 가능성까지 미리 대비
+- 문서 양식에 필요한 구체적 기재사항(주소, 등록번호, 계좌번호 등)을 역산해서 질문
+- 실무 절차(시효, 기한, 관할, 송달주소 등) 빠뜨리지 않기
+- 의뢰인의 희망사항(합의 vs 소송, 급한 정도, 예산)도 반드시 확인
+
+각 질문의 hints에는:
+- 어떤 자료를 첨부하면 좋은지 (사진, 계약서 사본, 통장 내역 등)
+- 어떤 수준의 상세함이 필요한지
+- 녹음이나 메모로 남기면 좋은 내용인지
 
 반드시 아래 JSON 형식으로만 응답하세요:
-[{"id":1,"question":"질문","why":"이유","category":"증거확보|사실관계|법리검토|전략수립|절차확인"}]`;
+[{"id":1,"question":"질문","why":"이 정보가 필요한 이유","category":"증거확보|사실관계|법리검토|전략수립|절차확인","hints":["힌트1","힌트2"]}]`;
 }
 
 /** 문서 작성 에이전트 - 최종 문서 생성 프롬프트 */
 function buildDocgenPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
-  const checkAnswersText = ctx.checkAnswers
-    ? formatCheckAnswers(ctx.checkAnswers)
-    : "[체크포인트 응답 없음]";
+  const checkAnswersText =
+    ctx.checkpointAnswers && ctx.checkQuestions
+      ? formatCheckpointAnswers(ctx.checkQuestions, ctx.checkpointAnswers)
+      : "[체크포인트 응답 없음]";
 
   return `당신은 법률 문서 작성 AI입니다.
 

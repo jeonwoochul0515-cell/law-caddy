@@ -15,7 +15,7 @@ import {
   DEMO_FINAL_DOCUMENT,
   DEMO_CLIENT_MESSAGE,
 } from "../config/demo";
-import type { CheckQuestion } from "../types/document";
+import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
 /** 문서 생성 단계 */
 type DocumentStatus =
@@ -40,8 +40,6 @@ function delay(ms: number): Promise<void> {
 interface UseDocumentReturn {
   /** 체크포인트 질문 목록 */
   checkQuestions: CheckQuestion[];
-  /** 변호사의 체크포인트 응답 */
-  answers: Record<number, "yes" | "no" | "partial">;
   /** 최종 생성된 문서 */
   finalDocument: string;
   /** 의뢰인 카카오톡 메시지 */
@@ -52,12 +50,11 @@ interface UseDocumentReturn {
   error: string | null;
   /** 체크포인트 질문 생성 */
   generateCheckQuestions: (context: AgentContext) => Promise<void>;
-  /** 체크포인트 응답 저장 */
-  answerCheck: (id: number, answer: "yes" | "no" | "partial") => void;
-  /** 최종 문서 생성 (체크포인트 응답 포함) */
+  /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   generateDocument: (
     context: AgentContext,
-    checkAnswers: Record<number, "yes" | "no" | "partial">,
+    checkQuestions: CheckQuestion[],
+    checkpointAnswers: CheckpointAnswer[],
   ) => Promise<void>;
   /** 의뢰인 카카오톡 메시지 생성 */
   generateClientMessage: (context: ClientMessageContext) => Promise<void>;
@@ -109,6 +106,9 @@ function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
       question: String(obj.question),
       why: String(obj.why),
       category: String(obj.category) as CheckQuestion["category"],
+      hints: Array.isArray(obj.hints)
+        ? obj.hints.map((h: unknown) => String(h))
+        : undefined,
     };
   });
 }
@@ -117,14 +117,13 @@ function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
  * 문서 생성 워크플로우 훅
  *
  * 워크플로우:
- * 1. generateCheckQuestions → 체크포인트 질문 3~5개 생성
- * 2. answerCheck → 변호사가 각 질문에 yes/no/partial 응답
+ * 1. generateCheckQuestions → 체크포인트 질문 8~15개 생성
+ * 2. 변호사가 각 질문에 텍스트 + 파일 + 녹음으로 상세 응답
  * 3. generateDocument → 응답 반영하여 최종 문서 생성
  * 4. generateClientMessage → 의뢰인 카카오톡 메시지 생성
  */
 export default function useDocument(): UseDocumentReturn {
   const [checkQuestions, setCheckQuestions] = useState<CheckQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<number, "yes" | "no" | "partial">>({});
   const [finalDocument, setFinalDocument] = useState("");
   const [clientMessage, setClientMessage] = useState("");
   const [status, setStatus] = useState<DocumentStatus>("idle");
@@ -141,7 +140,6 @@ export default function useDocument(): UseDocumentReturn {
         if (useDocumentDemoMode) {
           await delay(1500);
           setCheckQuestions(DEMO_CHECK_QUESTIONS);
-          setAnswers({});
           setStatus("checkpoint");
           return;
         }
@@ -153,7 +151,6 @@ export default function useDocument(): UseDocumentReturn {
         const questions = parseCheckQuestionsResponse(response);
 
         setCheckQuestions(questions);
-        setAnswers({}); // 이전 응답 초기화
         setStatus("checkpoint");
       } catch (err: unknown) {
         const message =
@@ -167,19 +164,12 @@ export default function useDocument(): UseDocumentReturn {
     [],
   );
 
-  /** 체크포인트 응답 저장 */
-  const answerCheck = useCallback(
-    (id: number, answer: "yes" | "no" | "partial") => {
-      setAnswers((prev) => ({ ...prev, [id]: answer }));
-    },
-    [],
-  );
-
-  /** 최종 문서 생성 */
+  /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   const generateDocument = useCallback(
     async (
       context: AgentContext,
-      checkAnswers: Record<number, "yes" | "no" | "partial">,
+      questions: CheckQuestion[],
+      answers: CheckpointAnswer[],
     ): Promise<void> => {
       setStatus("generating_document");
       setError(null);
@@ -193,10 +183,11 @@ export default function useDocument(): UseDocumentReturn {
           return;
         }
 
-        // 체크포인트 응답을 컨텍스트에 포함
+        // 체크포인트 상세 응답을 컨텍스트에 포함
         const contextWithAnswers: AgentContext = {
           ...context,
-          checkAnswers,
+          checkQuestions: questions,
+          checkpointAnswers: answers,
         };
 
         const prompt = buildPrompt("docgen", contextWithAnswers);
@@ -253,7 +244,6 @@ export default function useDocument(): UseDocumentReturn {
   /** 상태 초기화 */
   const reset = useCallback(() => {
     setCheckQuestions([]);
-    setAnswers({});
     setFinalDocument("");
     setClientMessage("");
     setStatus("idle");
@@ -262,13 +252,11 @@ export default function useDocument(): UseDocumentReturn {
 
   return {
     checkQuestions,
-    answers,
     finalDocument,
     clientMessage,
     status,
     error,
     generateCheckQuestions,
-    answerCheck,
     generateDocument,
     generateClientMessage,
     reset,

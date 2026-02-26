@@ -32,4 +32,12 @@ export interface CheckQuestion {
   question: string;
   why: string;
   category: "증거확보" | "사실관계" | "법리검토" | "전략수립" | "절차확인";
+  hints?: string[];
+}
+
+export interface CheckpointAnswer {
+  questionId: number;
+  text: string;
+  files: File[];
+  audioBlob: Blob | null;
 }
