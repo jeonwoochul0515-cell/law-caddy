@@ -8,6 +8,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // 배포 후 캐시된 HTML이 이전 JS 청크를 요청하면 자동 리로드
+      window.addEventListener("vite:preloadError", () => { location.reload(); });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
