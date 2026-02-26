@@ -1,5 +1,5 @@
 // Firebase Storage 서비스
-// 녹음 파일 업로드 및 다운로드 URL 관리
+// 파일 업로드 및 다운로드 URL 관리
 
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
@@ -29,7 +29,7 @@ export async function uploadRecordingFile(
 
     // 파일 업로드
     const snapshot = await uploadBytes(storageRef, file, {
-      contentType: file.type || "audio/webm",
+      contentType: file.type || "application/octet-stream",
     });
 
     // 다운로드 URL 생성

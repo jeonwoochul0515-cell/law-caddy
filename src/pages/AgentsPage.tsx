@@ -10,7 +10,7 @@ export default function AgentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as {
-    file: File;
+    files: File[];
     clientName: string;
     caseType: CaseType;
     caseDesc: string;

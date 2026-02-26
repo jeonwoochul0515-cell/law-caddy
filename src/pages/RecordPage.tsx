@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film, X, Plus } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -10,14 +10,35 @@ import type { DocType } from "../types/document";
 
 type Step = "info" | "record" | "agents";
 
+function getFileIcon(file: File) {
+  const type = file.type;
+  if (type.startsWith("audio/")) return <Music className="w-5 h-5 text-gold" />;
+  if (type.startsWith("image/")) return <Image className="w-5 h-5 text-blue" />;
+  if (type.startsWith("video/")) return <Film className="w-5 h-5 text-success" />;
+  return <FileText className="w-5 h-5 text-amber" />;
+}
+
+function getFileCategory(file: File): string {
+  const type = file.type;
+  if (type.startsWith("audio/")) return "오디오";
+  if (type.startsWith("image/")) return "이미지";
+  if (type.startsWith("video/")) return "영상";
+  if (type.includes("pdf")) return "PDF";
+  if (type.includes("word") || type.includes("document")) return "문서";
+  if (type.includes("sheet") || type.includes("excel")) return "스프레드시트";
+  if (type.includes("presentation") || type.includes("powerpoint")) return "프레젠테이션";
+  return "파일";
+}
+
 export default function RecordPage() {
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
   const { isRecording, duration, startRecording, stopRecording } = useRecording();
 
   const [step, setStep] = useState<Step>("info");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // 사건 정보
   const [clientName, setClientName] = useState("");
@@ -32,10 +53,24 @@ export default function RecordPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (selected && selected.length > 0) {
+      setFiles((prev) => [...prev, ...Array.from(selected)]);
+    }
+    // input value 초기화 (같은 파일 재선택 가능)
+    e.target.value = "";
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (selected) {
-      setFile(selected);
+      setFiles((prev) => [...prev, selected]);
     }
+    e.target.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleRecord = useCallback(async () => {
@@ -43,7 +78,7 @@ export default function RecordPage() {
       const blob = await stopRecording();
       if (blob) {
         const audioFile = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
-        setFile(audioFile);
+        setFiles((prev) => [...prev, audioFile]);
       }
     } else {
       await startRecording();
@@ -55,13 +90,13 @@ export default function RecordPage() {
       if (!clientName || !caseDesc) return;
       setStep("record");
     } else if (step === "record") {
-      if (!file || !user) return;
+      if (files.length === 0 || !user) return;
       setUploading(true);
       try {
         // 에이전트 페이지로 이동하면서 데이터 전달
         navigate("/record/agents", {
           state: {
-            file,
+            files,
             clientName,
             caseType,
             caseDesc,
@@ -219,34 +254,95 @@ export default function RecordPage() {
             </div>
           </div>
 
-          {/* 파일 업로드 */}
+          {/* 파일 업로드 + 카메라 */}
           <div className="bg-surface border border-border rounded-2xl p-6 backdrop-blur-sm">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">또는 파일 업로드</h3>
-            <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-8 cursor-pointer hover:border-gold/30 transition-colors">
-              <Upload className="w-8 h-8 text-text-dim" />
-              <span className="text-sm text-text-dim">
-                {file ? file.name : "오디오 파일을 선택하세요 (MP3, WAV, M4A, WebM)"}
-              </span>
+            <h3 className="text-lg font-semibold text-text-primary mb-4">파일 첨부</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* 파일 선택 */}
+              <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
+                <Upload className="w-8 h-8 text-text-dim" />
+                <span className="text-sm text-text-dim text-center">
+                  파일 선택
+                </span>
+                <span className="text-xs text-text-dim">
+                  오디오, 이미지, 문서 등
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
+
+              {/* 카메라 촬영 */}
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+              >
+                <Camera className="w-8 h-8 text-text-dim" />
+                <span className="text-sm text-text-dim text-center">
+                  카메라 촬영
+                </span>
+                <span className="text-xs text-text-dim">
+                  사진 직접 촬영
+                </span>
+              </button>
               <input
+                ref={cameraInputRef}
                 type="file"
-                accept="audio/*"
-                onChange={handleFileSelect}
+                accept="image/*"
+                capture="environment"
+                onChange={handleCameraCapture}
                 className="hidden"
               />
-            </label>
+            </div>
           </div>
 
-          {/* 선택된 파일 정보 */}
-          {file && (
-            <div className="bg-gold-dim border border-gold/20 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <p className="text-text-primary font-medium">{file.name}</p>
-                <p className="text-sm text-text-dim">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+          {/* 선택된 파일 목록 */}
+          {files.length > 0 && (
+            <div className="bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-text-primary">
+                  첨부 파일 ({files.length}개)
+                </h4>
+                <label className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
+                  <Plus className="w-3.5 h-3.5" />
+                  추가
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
               </div>
+              {files.map((f, i) => (
+                <div
+                  key={`${f.name}-${i}`}
+                  className="flex items-center gap-3 bg-navy-light rounded-lg px-4 py-3"
+                >
+                  {getFileIcon(f)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary truncate">{f.name}</p>
+                    <p className="text-xs text-text-dim">
+                      {getFileCategory(f)} · {(f.size / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="p-1.5 text-text-dim hover:text-error rounded-lg hover:bg-error/10 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
               <button
                 onClick={handleNext}
                 disabled={uploading}
-                className="px-6 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="w-full py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {uploading ? "업로드 중..." : "AI 분석 시작"}
               </button>
