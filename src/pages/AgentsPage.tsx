@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
-import { AGENTS } from "../config/constants";
-import type { AgentId, DocType } from "../types/agent";
+import { AGENTS, DOC_TYPES } from "../config/constants";
+import type { AgentId } from "../types/agent";
+import type { DocType } from "../types/document";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
   "민사": "bg-info/15 text-info border-info/30",
@@ -25,7 +26,6 @@ export default function AgentsPage() {
     files: File[];
     clientName: string;
     caseDesc: string;
-    docType: DocType;
     ownerId: string;
     firmName: string;
     lawyerName: string;
@@ -34,6 +34,7 @@ export default function AgentsPage() {
   const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents } = useAgents();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
   const [started, setStarted] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<DocType | null>(null);
 
   useEffect(() => {
     if (!state || started) return;
@@ -41,7 +42,6 @@ export default function AgentsPage() {
     runAllAgents({
       clientName: state.clientName,
       caseDesc: state.caseDesc,
-      docType: state.docType,
       transcript: "",
     });
   }, [state, started, runAllAgents]);
@@ -158,26 +158,49 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* 다음 단계 */}
+      {/* 다음 단계: 문서 유형 선택 */}
       {allCompleted && classifiedCaseType && (
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={() =>
-              navigate("/record/checkpoint", {
-                state: {
-                  ...state,
-                  caseType: classifiedCaseType ?? "기타",
-                  agentResults: Object.fromEntries(
-                    Object.entries(agents).map(([k, v]) => [k, v.result])
-                  ),
-                },
-              })
-            }
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity"
-          >
-            체크포인트 확인
-            <ChevronRight className="w-4 h-4" />
-          </button>
+        <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-gold" />
+            <h3 className="font-semibold text-text-primary">생성할 문서 유형</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {DOC_TYPES.map((dt) => (
+              <button
+                key={dt}
+                onClick={() => setSelectedDocType(dt)}
+                className={`px-3 py-2.5 rounded-lg text-sm font-medium border transition-all text-left ${
+                  selectedDocType === dt
+                    ? "bg-gold-dim border-gold/30 text-gold"
+                    : "bg-navy-light border-border text-text-dim hover:border-border-hover hover:text-text-primary"
+                }`}
+              >
+                {dt}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end pt-1">
+            <button
+              disabled={!selectedDocType}
+              onClick={() =>
+                navigate("/record/checkpoint", {
+                  state: {
+                    ...state,
+                    caseType: classifiedCaseType ?? "기타",
+                    docType: selectedDocType,
+                    agentResults: Object.fromEntries(
+                      Object.entries(agents).map(([k, v]) => [k, v.result])
+                    ),
+                  },
+                })
+              }
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              체크포인트 확인
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </AppLayout>

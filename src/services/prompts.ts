@@ -8,7 +8,7 @@ export interface AgentContext {
   clientName: string;
   caseType?: CaseType;
   caseDesc: string;
-  docType: DocType;
+  docType?: DocType;
   transcript?: string;
   checkAnswers?: Record<number, "yes" | "no" | "partial">;
 }
@@ -43,7 +43,9 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(`사건 유형: ${ctx.caseType}`);
   }
   lines.push(`사건 개요: ${ctx.caseDesc}`);
-  lines.push(`문서 유형: ${ctx.docType}`);
+  if (ctx.docType) {
+    lines.push(`문서 유형: ${ctx.docType}`);
+  }
 
   if (ctx.transcript) {
     lines.push("");

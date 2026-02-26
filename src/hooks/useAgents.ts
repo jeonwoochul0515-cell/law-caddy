@@ -268,7 +268,9 @@ async function runSingleAgent(
 
   const userMessage =
     agentId === "docgen"
-      ? `"${context.docType}" 문서 작성 전 확인 사항을 JSON으로 제시해 주세요.`
+      ? context.docType
+        ? `"${context.docType}" 문서 작성 전 확인 사항을 JSON으로 제시해 주세요.`
+        : "사건에 적합한 법률 문서 작성 전 확인 사항을 JSON으로 제시해 주세요."
       : `${context.clientName} 의뢰인의 사건에 대해 분석해 주세요.`;
 
   return callClaude(prompt, userMessage);

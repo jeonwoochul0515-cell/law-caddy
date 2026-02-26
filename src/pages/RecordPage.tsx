@@ -4,8 +4,8 @@ import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
-import { DOC_TYPES } from "../config/constants";
-import type { DocType } from "../types/document";
+
+
 
 type Step = "info" | "record" | "agents";
 
@@ -42,7 +42,6 @@ export default function RecordPage() {
   // 사건 정보
   const [clientName, setClientName] = useState("");
   const [caseDesc, setCaseDesc] = useState("");
-  const [docType, setDocType] = useState<DocType>("상담 요약 리포트");
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -97,7 +96,6 @@ export default function RecordPage() {
             files,
             clientName,
             caseDesc,
-            docType,
             ownerId: user.uid,
             firmName: user.firmName,
             lawyerName: user.name,
@@ -161,19 +159,6 @@ export default function RecordPage() {
                 className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary focus:border-gold focus:outline-none transition-colors resize-y"
                 placeholder="사건의 주요 내용을 간략히 입력해주세요"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm text-text-dim mb-1.5">생성할 문서 유형</label>
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value as DocType)}
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary focus:border-gold focus:outline-none transition-colors appearance-none"
-              >
-                {DOC_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
             </div>
 
             <button
