@@ -5,10 +5,11 @@
 import { useState, useCallback } from "react";
 import { isDemoMode } from "../config/demo";
 import { callClaude } from "../services/claude";
-import { buildPrompt } from "../services/prompts";
+import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
 import { pollTranscription, formatTranscript } from "../services/rtzr";
 import type { AgentContext } from "../services/prompts";
-import type { AgentId, AgentState } from "../types/agent";
+import type { AgentId, AgentState, CaseType } from "../types/agent";
+import { CASE_TYPES } from "../config/constants";
 
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
 interface RunAgentsContext extends AgentContext {
@@ -23,6 +24,8 @@ interface UseAgentsReturn {
   agents: Record<AgentId, AgentState>;
   isRunning: boolean;
   currentStep: AgentStep;
+  classifiedCaseType: CaseType | null;
+  isClassifying: boolean;
   runAllAgents: (context: RunAgentsContext) => Promise<Record<AgentId, AgentState>>;
   resetAgents: () => void;
 }
@@ -266,7 +269,7 @@ async function runSingleAgent(
   const userMessage =
     agentId === "docgen"
       ? `"${context.docType}" 문서 작성 전 확인 사항을 JSON으로 제시해 주세요.`
-      : `${context.clientName} 의뢰인의 ${context.caseType} 사건에 대해 분석해 주세요.`;
+      : `${context.clientName} 의뢰인의 사건에 대해 분석해 주세요.`;
 
   return callClaude(prompt, userMessage);
 }
@@ -285,6 +288,8 @@ export default function useAgents(): UseAgentsReturn {
   );
   const [isRunning, setIsRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState<AgentStep>("idle");
+  const [classifiedCaseType, setClassifiedCaseType] = useState<CaseType | null>(null);
+  const [isClassifying, setIsClassifying] = useState(false);
 
   /** 특정 에이전트 상태 업데이트 */
   const updateAgent = useCallback(
@@ -371,6 +376,44 @@ export default function useAgents(): UseAgentsReturn {
       );
       setCurrentStep(hasError ? "error" : "completed");
 
+      // 에이전트 완료 후 사건 유형 자동 분류
+      const analysisResult = finalStates.analysis?.result;
+      if (analysisResult && !context.caseType) {
+        setIsClassifying(true);
+        try {
+          if (isDemoMode) {
+            // 데모 모드: 사건 개요에서 키워드로 유형 추정
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            const desc = context.caseDesc;
+            if (desc.includes("부동산") || desc.includes("매매") || desc.includes("등기")) {
+              setClassifiedCaseType("부동산");
+            } else if (desc.includes("이혼") || desc.includes("양육") || desc.includes("위자료")) {
+              setClassifiedCaseType("가사");
+            } else if (desc.includes("해고") || desc.includes("퇴직") || desc.includes("근로")) {
+              setClassifiedCaseType("노동");
+            } else if (desc.includes("채권") || desc.includes("채무") || desc.includes("대여금")) {
+              setClassifiedCaseType("채권·채무");
+            } else if (desc.includes("손해") || desc.includes("배상")) {
+              setClassifiedCaseType("손해배상");
+            } else if (desc.includes("고소") || desc.includes("피해") || desc.includes("형사")) {
+              setClassifiedCaseType("형사");
+            } else {
+              setClassifiedCaseType("민사");
+            }
+          } else {
+            const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, analysisResult);
+            const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
+            const trimmed = result.trim();
+            const matched = CASE_TYPES.find((t) => trimmed.includes(t));
+            setClassifiedCaseType(matched ?? "기타");
+          }
+        } catch {
+          setClassifiedCaseType("기타");
+        } finally {
+          setIsClassifying(false);
+        }
+      }
+
       return finalStates;
     },
     [updateAgent],
@@ -380,6 +423,8 @@ export default function useAgents(): UseAgentsReturn {
     agents,
     isRunning,
     currentStep,
+    classifiedCaseType,
+    isClassifying,
     runAllAgents,
     resetAgents,
   };

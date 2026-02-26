@@ -6,7 +6,7 @@ import type { DocType, CaseType } from "../types/agent";
 /** 에이전트 공통 컨텍스트 */
 export interface AgentContext {
   clientName: string;
-  caseType: CaseType;
+  caseType?: CaseType;
   caseDesc: string;
   docType: DocType;
   transcript?: string;
@@ -38,10 +38,12 @@ export type PromptAgentId =
 function buildContextBlock(ctx: AgentContext): string {
   const lines: string[] = [
     `의뢰인: ${ctx.clientName}`,
-    `사건 유형: ${ctx.caseType}`,
-    `사건 개요: ${ctx.caseDesc}`,
-    `문서 유형: ${ctx.docType}`,
   ];
+  if (ctx.caseType) {
+    lines.push(`사건 유형: ${ctx.caseType}`);
+  }
+  lines.push(`사건 개요: ${ctx.caseDesc}`);
+  lines.push(`문서 유형: ${ctx.docType}`);
 
   if (ctx.transcript) {
     lines.push("");
@@ -243,4 +245,28 @@ export function buildClientMessagePrompt(context: ClientMessageContext): string 
 8. ${context.firmName} ${context.lawyerName} 변호사 서명
 
 사건 개요: ${context.caseDesc}`;
+}
+
+/**
+ * 사건 유형 자동 분류 프롬프트를 생성합니다.
+ * AI 에이전트 분석 결과를 바탕으로 사건 유형을 판별합니다.
+ */
+export function buildCaseTypeClassificationPrompt(
+  caseDesc: string,
+  analysisResult: string,
+): string {
+  return `당신은 한국 법률 사건 유형 분류 전문가입니다.
+
+아래 사건 개요와 AI 쟁점 분석 결과를 참고하여 사건 유형을 정확히 하나만 선택하세요.
+
+[사건 개요]
+${caseDesc}
+
+[쟁점 분석 결과]
+${analysisResult}
+
+[사건 유형 목록]
+민사, 형사, 가사, 행정, 노동, 부동산, 채권·채무, 손해배상, 기타
+
+반드시 위 목록 중 하나만 정확히 출력하세요. 다른 텍스트는 포함하지 마세요.`;
 }

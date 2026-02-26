@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import { AGENTS } from "../config/constants";
-import type { AgentId, CaseType, DocType } from "../types/agent";
+import type { AgentId, DocType } from "../types/agent";
+
+const CASE_TYPE_COLORS: Record<string, string> = {
+  "민사": "bg-info/15 text-info border-info/30",
+  "형사": "bg-error/15 text-error border-error/30",
+  "가사": "bg-success/15 text-success border-success/30",
+  "행정": "bg-amber/15 text-amber border-amber/30",
+  "노동": "bg-blue/15 text-blue border-blue/30",
+  "부동산": "bg-gold/15 text-gold border-gold/30",
+  "채권·채무": "bg-info/15 text-info border-info/30",
+  "손해배상": "bg-error/15 text-error border-error/30",
+  "기타": "bg-surface text-text-dim border-border",
+};
 
 export default function AgentsPage() {
   const location = useLocation();
@@ -12,7 +24,6 @@ export default function AgentsPage() {
   const state = location.state as {
     files: File[];
     clientName: string;
-    caseType: CaseType;
     caseDesc: string;
     docType: DocType;
     ownerId: string;
@@ -20,7 +31,7 @@ export default function AgentsPage() {
     lawyerName: string;
   } | null;
 
-  const { agents, isRunning, runAllAgents } = useAgents();
+  const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents } = useAgents();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
   const [started, setStarted] = useState(false);
 
@@ -29,7 +40,6 @@ export default function AgentsPage() {
     setStarted(true);
     runAllAgents({
       clientName: state.clientName,
-      caseType: state.caseType,
       caseDesc: state.caseDesc,
       docType: state.docType,
       transcript: "",
@@ -56,7 +66,23 @@ export default function AgentsPage() {
   const allCompleted = completedCount === 6 && !isRunning;
 
   return (
-    <AppLayout title="AI 분석" subtitle={`${state.clientName} - ${state.caseType}`}>
+    <AppLayout title="AI 분석" subtitle={state.clientName}>
+      {/* AI 분류 사건 유형 뱃지 */}
+      <div className="mb-4 flex items-center gap-2">
+        {isClassifying && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-surface text-text-dim border border-border animate-pulse">
+            <Sparkles className="w-3 h-3" />
+            사건 유형 분석 중...
+          </span>
+        )}
+        {classifiedCaseType && (
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${CASE_TYPE_COLORS[classifiedCaseType] ?? CASE_TYPE_COLORS["기타"]}`}>
+            <Sparkles className="w-3 h-3" />
+            AI 분류: {classifiedCaseType}
+          </span>
+        )}
+      </div>
+
       {/* 진행률 */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
@@ -133,13 +159,14 @@ export default function AgentsPage() {
       </div>
 
       {/* 다음 단계 */}
-      {allCompleted && (
+      {allCompleted && classifiedCaseType && (
         <div className="mt-6 flex justify-end">
           <button
             onClick={() =>
               navigate("/record/checkpoint", {
                 state: {
                   ...state,
+                  caseType: classifiedCaseType ?? "기타",
                   agentResults: Object.fromEntries(
                     Object.entries(agents).map(([k, v]) => [k, v.result])
                   ),
