@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film, X, Plus } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film, X, Plus, Type } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -36,6 +36,7 @@ export default function RecordPage() {
 
   const [step, setStep] = useState<Step>("info");
   const [files, setFiles] = useState<File[]>([]);
+  const [typedNotes, setTypedNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,13 +88,14 @@ export default function RecordPage() {
       if (!clientName || !caseDesc) return;
       setStep("record");
     } else if (step === "record") {
-      if (files.length === 0 || !user) return;
+      if ((files.length === 0 && !typedNotes.trim()) || !user) return;
       setUploading(true);
       try {
         // 에이전트 페이지로 이동하면서 데이터 전달
         navigate("/record/agents", {
           state: {
             files,
+            typedNotes: typedNotes.trim(),
             clientName,
             caseDesc,
             ownerId: user.uid,
@@ -223,10 +225,10 @@ export default function RecordPage() {
             </div>
           </div>
 
-          {/* 파일 업로드 + 카메라 */}
+          {/* 파일 업로드 + 카메라 + 직접 입력 */}
           <div className="bg-surface border border-border rounded-2xl p-6 backdrop-blur-sm">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">파일 첨부</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <h3 className="text-lg font-semibold text-text-primary mb-4">자료 첨부</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* 파일 선택 */}
               <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                 <Upload className="w-8 h-8 text-text-dim" />
@@ -266,6 +268,40 @@ export default function RecordPage() {
                 onChange={handleCameraCapture}
                 className="hidden"
               />
+
+              {/* 직접 입력 안내 */}
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("typed-notes-area")?.focus();
+                }}
+                className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+              >
+                <Type className="w-8 h-8 text-text-dim" />
+                <span className="text-sm text-text-dim text-center">
+                  직접 입력
+                </span>
+                <span className="text-xs text-text-dim">
+                  상담 내용 타이핑
+                </span>
+              </button>
+            </div>
+
+            {/* 직접 입력 텍스트 영역 */}
+            <div className="mt-4">
+              <textarea
+                id="typed-notes-area"
+                value={typedNotes}
+                onChange={(e) => setTypedNotes(e.target.value)}
+                rows={5}
+                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-y transition-colors"
+                placeholder="상담 내용이나 참고 자료를 직접 입력하세요. 예: 상담 메모, 사실관계 정리, 증거 목록 등"
+              />
+              {typedNotes.trim() && (
+                <p className="text-xs text-text-dim mt-1.5">
+                  {typedNotes.trim().length}자 입력됨
+                </p>
+              )}
             </div>
           </div>
 
@@ -307,7 +343,12 @@ export default function RecordPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
 
+          {/* AI 분석 시작 버튼 (파일 또는 텍스트 입력 시 표시) */}
+          {(files.length > 0 || typedNotes.trim()) && (
+            <div>
               <button
                 onClick={handleNext}
                 disabled={uploading}

@@ -62,6 +62,7 @@ export default function CheckpointPage() {
     ownerId: string;
     firmName: string;
     lawyerName: string;
+    typedNotes?: string;
     agentResults: Record<string, string>;
   } | null;
 

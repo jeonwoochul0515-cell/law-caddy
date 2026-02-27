@@ -27,6 +27,7 @@ export default function AgentsPage() {
   const navigate = useNavigate();
   const state = location.state as {
     files: File[];
+    typedNotes?: string;
     clientName: string;
     caseDesc: string;
     ownerId: string;
@@ -46,9 +47,13 @@ export default function AgentsPage() {
   useEffect(() => {
     if (!state || started) return;
     setStarted(true);
+    // 직접 입력한 텍스트가 있으면 사건 개요에 추가
+    const fullDesc = state.typedNotes
+      ? `${state.caseDesc}\n\n[추가 자료]\n${state.typedNotes}`
+      : state.caseDesc;
     runAllAgents({
       clientName: state.clientName,
-      caseDesc: state.caseDesc,
+      caseDesc: fullDesc,
       transcript: "",
     });
   }, [state, started, runAllAgents]);
