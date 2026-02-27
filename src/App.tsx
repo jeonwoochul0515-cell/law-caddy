@@ -38,6 +38,25 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// 관리자 전용 라우트 가드
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const user = useAuth((s) => s.user);
+  const initialized = useAuth((s) => s.initialized);
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-navy flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
+
+  return <>{children}</>;
+}
+
 // 미인증 전용 라우트 (이미 로그인된 경우 대시보드로)
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth((s) => s.user);
@@ -80,7 +99,7 @@ export default function App() {
         <Route path="/cases" element={<RequireAuth><CasesPage /></RequireAuth>} />
         <Route path="/cases/:id" element={<RequireAuth><CaseDetailPage /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
+        <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
 
         {/* 랜딩 + 기본 라우트 */}
         <Route path="/" element={<PublicOnly><LandingPage /></PublicOnly>} />

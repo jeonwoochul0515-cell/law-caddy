@@ -51,20 +51,35 @@ function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+const SESSION_KEY = "law-caddy-checkpoint-state";
+
+interface CheckpointState {
+  clientName: string;
+  caseType: CaseType;
+  caseDesc: string;
+  docType: DocType;
+  ownerId: string;
+  firmName: string;
+  lawyerName: string;
+  typedNotes?: string;
+  agentResults: Record<string, string>;
+}
+
 export default function CheckpointPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as {
-    clientName: string;
-    caseType: CaseType;
-    caseDesc: string;
-    docType: DocType;
-    ownerId: string;
-    firmName: string;
-    lawyerName: string;
-    typedNotes?: string;
-    agentResults: Record<string, string>;
-  } | null;
+
+  const rawState = location.state as CheckpointState | null;
+  const state: CheckpointState | null = (() => {
+    if (rawState) {
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(rawState)); } catch { /* quota */ }
+      return rawState;
+    }
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) as CheckpointState : null;
+    } catch { return null; }
+  })();
 
   const { checkQuestions, generateCheckQuestions, status } = useDocument();
 

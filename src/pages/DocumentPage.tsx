@@ -29,21 +29,45 @@ const QUICK_QUESTIONS = [
   "더 강력한 표현으로 수정해 주세요",
 ];
 
+const SESSION_KEY = "law-caddy-document-state";
+
+interface DocumentState {
+  clientName: string;
+  caseType: CaseType;
+  caseDesc: string;
+  docType: DocType;
+  ownerId: string;
+  firmName: string;
+  lawyerName: string;
+  agentResults: Record<string, string>;
+  checkQuestions: CheckQuestion[];
+  checkpointAnswers: CheckpointAnswer[];
+}
+
 export default function DocumentPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as {
-    clientName: string;
-    caseType: CaseType;
-    caseDesc: string;
-    docType: DocType;
-    ownerId: string;
-    firmName: string;
-    lawyerName: string;
-    agentResults: Record<string, string>;
-    checkQuestions: CheckQuestion[];
-    checkpointAnswers: CheckpointAnswer[];
-  } | null;
+
+  const rawState = location.state as DocumentState | null;
+  const state: DocumentState | null = (() => {
+    if (rawState) {
+      // CheckpointAnswer의 files/audioBlob은 직렬화 불가 → 텍스트만 보존
+      const serializable: DocumentState = {
+        ...rawState,
+        checkpointAnswers: rawState.checkpointAnswers.map((a) => ({
+          ...a,
+          files: [],
+          audioBlob: null,
+        })),
+      };
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(serializable)); } catch { /* quota */ }
+      return rawState;
+    }
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) as DocumentState : null;
+    } catch { return null; }
+  })();
 
   const {
     finalDocument,
@@ -200,7 +224,18 @@ export default function DocumentPage() {
                       {copied === "doc" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       {copied === "doc" ? "복사됨" : "복사"}
                     </button>
-                    <button className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors">
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([finalDocument], { type: "text/plain;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${state.docType}_${state.clientName}_${new Date().toISOString().slice(0, 10)}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
+                    >
                       <Download className="w-3.5 h-3.5" />
                       내보내기
                     </button>

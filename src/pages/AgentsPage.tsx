@@ -6,9 +6,7 @@ import useAgents from "../hooks/useAgents";
 import useCases from "../hooks/useCases";
 import { AGENTS, DOC_TYPES } from "../config/constants";
 import { isDemoMode } from "../config/demo";
-import type { AgentId } from "../types/agent";
-import type { DocType } from "../types/document";
-import type { CaseType } from "../types/case";
+import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
   "민사": "bg-info/15 text-info border-info/30",
@@ -22,18 +20,35 @@ const CASE_TYPE_COLORS: Record<string, string> = {
   "기타": "bg-surface text-text-dim border-border",
 };
 
+const SESSION_KEY = "law-caddy-agents-state";
+
+interface AgentsState {
+  typedNotes?: string;
+  clientName: string;
+  caseDesc: string;
+  caseId?: string;
+  ownerId: string;
+  firmName: string;
+  lawyerName: string;
+}
+
 export default function AgentsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as {
-    files: File[];
-    typedNotes?: string;
-    clientName: string;
-    caseDesc: string;
-    ownerId: string;
-    firmName: string;
-    lawyerName: string;
-  } | null;
+
+  // location.state 우선, 없으면 sessionStorage에서 복원
+  const rawState = location.state as (AgentsState & { files?: File[] }) | null;
+  const state: AgentsState | null = (() => {
+    if (rawState) {
+      const { files: _files, ...serializable } = rawState;
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(serializable)); } catch { /* quota */ }
+      return rawState;
+    }
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) as AgentsState : null;
+    } catch { return null; }
+  })();
 
   const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents } = useAgents();
   const { addCase } = useCases();
