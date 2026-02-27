@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText, AlertTriangle, FolderPlus } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
+import useCases from "../hooks/useCases";
 import { AGENTS, DOC_TYPES } from "../config/constants";
+import { isDemoMode } from "../config/demo";
 import type { AgentId } from "../types/agent";
 import type { DocType } from "../types/document";
+import type { CaseType } from "../types/case";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
   "민사": "bg-info/15 text-info border-info/30",
@@ -32,9 +35,13 @@ export default function AgentsPage() {
   } | null;
 
   const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents } = useAgents();
+  const { addCase } = useCases();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
   const [started, setStarted] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<DocType | null>(null);
+  const [isCreatingCase, setIsCreatingCase] = useState(false);
+  const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
+  const [caseError, setCaseError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!state || started) return;
@@ -45,6 +52,30 @@ export default function AgentsPage() {
       transcript: "",
     });
   }, [state, started, runAllAgents]);
+
+  const handleCreateCase = async () => {
+    if (!state || !classifiedCaseType || isCreatingCase || createdCaseId) return;
+    setIsCreatingCase(true);
+    setCaseError(null);
+
+    try {
+      if (isDemoMode) {
+        await new Promise((r) => setTimeout(r, 800));
+        setCreatedCaseId(`demo-case-${Date.now()}`);
+      } else {
+        const caseId = await addCase({
+          clientName: state.clientName,
+          caseType: classifiedCaseType as CaseType,
+          description: state.caseDesc,
+        });
+        setCreatedCaseId(caseId);
+      }
+    } catch (err: unknown) {
+      setCaseError(err instanceof Error ? err.message : "사건 파일 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsCreatingCase(false);
+    }
+  };
 
   if (!state) {
     return (
@@ -168,6 +199,54 @@ export default function AgentsPage() {
         </div>
       </div>
 
+      {/* 사건 파일 생성 */}
+      {allCompleted && classifiedCaseType && (
+        <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FolderPlus className="w-5 h-5 text-gold" />
+              <h3 className="font-semibold text-text-primary">사건 파일</h3>
+            </div>
+            {!createdCaseId && !isCreatingCase && (
+              <button
+                onClick={handleCreateCase}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
+              >
+                <FolderPlus className="w-4 h-4" />
+                사건 파일 생성
+              </button>
+            )}
+            {isCreatingCase && (
+              <div className="flex items-center gap-2 text-text-dim text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                생성 중...
+              </div>
+            )}
+          </div>
+          {caseError && (
+            <div className="mt-3 flex items-center gap-2 text-error text-sm">
+              <AlertCircle className="w-4 h-4" />
+              {caseError}
+            </div>
+          )}
+          {createdCaseId && (
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-success text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                사건 파일이 생성되었습니다.
+              </div>
+              <button
+                onClick={() => navigate(`/cases/${createdCaseId}`)}
+                className="flex items-center gap-1 text-gold text-sm hover:underline"
+              >
+                사건 파일 보기
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 다음 단계: 문서 유형 선택 */}
       {allCompleted && classifiedCaseType && (
         <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm space-y-4">
@@ -197,6 +276,7 @@ export default function AgentsPage() {
                 navigate("/record/checkpoint", {
                   state: {
                     ...state,
+                    caseId: createdCaseId,
                     caseType: classifiedCaseType ?? "기타",
                     docType: selectedDocType,
                     agentResults: Object.fromEntries(
