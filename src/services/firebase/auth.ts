@@ -5,11 +5,15 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from "firebase/auth";
 import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
@@ -170,5 +174,59 @@ export async function getUserDoc(uid: string): Promise<User | null> {
       throw error;
     }
     throw new Error("사용자 정보 조회 중 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 비밀번호 변경
+ *
+ * @param currentPassword - 현재 비밀번호 (재인증 필요)
+ * @param newPassword - 새 비밀번호
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  try {
+    const user = auth!.currentUser;
+    if (!user || !user.email) {
+      throw new Error("로그인된 사용자가 없습니다.");
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const firebaseError = error as Error & { code?: string };
+      switch (firebaseError.code) {
+        case "auth/wrong-password":
+          throw new Error("현재 비밀번호가 일치하지 않습니다.");
+        case "auth/weak-password":
+          throw new Error("새 비밀번호는 6자 이상이어야 합니다.");
+        case "auth/requires-recent-login":
+          throw new Error("보안을 위해 다시 로그인 후 시도해 주세요.");
+        default:
+          throw error;
+      }
+    }
+    throw new Error("비밀번호 변경 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 프로필 정보 업데이트 (이름, 사무소명)
+ */
+export async function updateUserProfile(
+  uid: string,
+  data: { name?: string; firmName?: string }
+): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "users", uid), { ...data });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`프로필 업데이트 실패: ${error.message}`);
+    }
+    throw new Error("프로필 업데이트 중 알 수 없는 오류가 발생했습니다.");
   }
 }

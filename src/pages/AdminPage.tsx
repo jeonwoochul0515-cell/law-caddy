@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, ShieldCheck, ShieldX } from "lucide-react";
+import {
+  ExternalLink,
+  Loader2,
+  ShieldCheck,
+  ShieldX,
+  Search,
+  Users,
+  CheckCircle,
+  Copy,
+  Check,
+} from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { getUnverifiedUsers, verifyUser, deactivateUser } from "../services/firebase/firestore";
@@ -11,6 +21,9 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [verifiedCount, setVerifiedCount] = useState(0);
+  const [copiedUid, setCopiedUid] = useState<string | null>(null);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -42,6 +55,7 @@ export default function AdminPage() {
         await verifyUser(uid, currentUser.uid);
         setUsers((prev) => prev.filter((u) => u.uid !== uid));
       }
+      setVerifiedCount((c) => c + 1);
     } catch (err) {
       console.error("검증 실패:", err);
     } finally {
@@ -66,6 +80,23 @@ export default function AdminPage() {
     }
   };
 
+  const handleCopyLicense = async (license: string, uid: string) => {
+    try {
+      await navigator.clipboard.writeText(license);
+      setCopiedUid(uid);
+      setTimeout(() => setCopiedUid(null), 2000);
+    } catch {
+      // 복사 실패 무시
+    }
+  };
+
+  const filtered = users.filter((u) =>
+    u.name.includes(search) ||
+    u.firmName.includes(search) ||
+    u.barLicenseNumber.includes(search) ||
+    u.email.includes(search)
+  );
+
   if (currentUser?.role !== "admin") {
     return (
       <AppLayout title="관리자" subtitle="">
@@ -76,27 +107,60 @@ export default function AdminPage() {
 
   return (
     <AppLayout title="관리자" subtitle="변호사 등록번호 검증">
-      <div className="max-w-3xl">
+      <div className="max-w-3xl space-y-6">
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-surface border border-border rounded-2xl p-4">
+            <Users className="w-5 h-5 text-warning mb-2" />
+            <p className="text-2xl font-bold text-text-primary">{users.length}</p>
+            <p className="text-xs text-text-dim">미검증 사용자</p>
+          </div>
+          <div className="bg-surface border border-border rounded-2xl p-4">
+            <CheckCircle className="w-5 h-5 text-success mb-2" />
+            <p className="text-2xl font-bold text-text-primary">{verifiedCount}</p>
+            <p className="text-xs text-text-dim">이번 세션 검증 완료</p>
+          </div>
+        </div>
+
         {/* 안내 배너 */}
-        <div className="bg-gold-dim border border-gold/20 rounded-xl p-4 mb-6">
-          <p className="text-sm text-gold-bright">
+        <div className="bg-gold-dim border border-gold/20 rounded-xl p-4">
+          <p className="text-sm text-gold-bright mb-2">
             회원가입 시 즉시 서비스 이용이 가능합니다. 관리자는 변호사 등록번호를 확인 후
             검증 완료하거나, 등록번호가 일치하지 않는 경우 탈퇴 처리합니다.
           </p>
+          <p className="text-xs text-gold/70">
+            등록번호를 복사한 뒤 대한변협 조회 페이지에서 검색하세요.
+          </p>
         </div>
 
+        {/* 검색 + 대한변협 링크 */}
+        <div className="flex gap-3 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="이름, 사무소, 등록번호, 이메일 검색"
+              className="w-full pl-9 pr-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none transition-colors"
+            />
+          </div>
+          <a
+            href="https://m.koreanbar.or.kr/pages/search/search.asp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-gold-dim text-gold border border-gold/30 rounded-lg text-sm font-medium hover:bg-gold/15 transition-colors whitespace-nowrap"
+          >
+            대한변협 조회
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        {/* 사용자 목록 */}
         <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
-          <div className="p-5 border-b border-border flex items-center justify-between">
-            <h3 className="font-semibold text-text-primary">미검증 사용자 ({users.length})</h3>
-            <a
-              href="https://m.koreanbar.or.kr/pages/search/search.asp"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-gold hover:text-gold-bright transition-colors"
-            >
-              대한변협 조회
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+          <div className="p-5 border-b border-border">
+            <h3 className="font-semibold text-text-primary">
+              미검증 사용자 ({filtered.length}{search ? ` / ${users.length}` : ""})
+            </h3>
           </div>
 
           {loading ? (
@@ -104,42 +168,61 @@ export default function AdminPage() {
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
               로딩 중...
             </div>
-          ) : users.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-text-dim">
-              미검증 사용자가 없습니다. 모든 사용자가 검증 완료되었습니다.
+              {search
+                ? `"${search}" 검색 결과가 없습니다.`
+                : "미검증 사용자가 없습니다. 모든 사용자가 검증 완료되었습니다."}
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {users.map((u) => (
-                <div key={u.uid} className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-text-primary font-medium">{u.name}</p>
-                    <p className="text-sm text-text-dim">
-                      {u.firmName} · 등록번호: <span className="text-gold font-mono">{u.barLicenseNumber}</span>
-                    </p>
-                    <p className="text-xs text-text-dim mt-0.5">{u.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {processing === u.uid ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-text-dim" />
-                    ) : (
-                      <>
+              {filtered.map((u) => (
+                <div key={u.uid} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-text-primary font-medium">{u.name}</p>
+                        <span className="text-xs text-text-dim bg-navy-light px-2 py-0.5 rounded">{u.firmName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm text-text-dim">등록번호:</span>
+                        <span className="text-gold font-mono text-sm">{u.barLicenseNumber}</span>
                         <button
-                          onClick={() => handleVerify(u.uid)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-success/10 text-success border border-success/30 rounded-lg text-sm hover:bg-success/20 transition-colors"
+                          onClick={() => handleCopyLicense(u.barLicenseNumber, u.uid)}
+                          className="text-text-dim hover:text-gold transition-colors"
+                          title="등록번호 복사"
                         >
-                          <ShieldCheck className="w-4 h-4" />
-                          검증 완료
+                          {copiedUid === u.uid ? (
+                            <Check className="w-3.5 h-3.5 text-success" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
                         </button>
-                        <button
-                          onClick={() => handleDeactivate(u.uid)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-error/10 text-error border border-error/30 rounded-lg text-sm hover:bg-error/20 transition-colors"
-                        >
-                          <ShieldX className="w-4 h-4" />
-                          탈퇴
-                        </button>
-                      </>
-                    )}
+                      </div>
+                      <p className="text-xs text-text-dim">{u.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {processing === u.uid ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-text-dim" />
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleVerify(u.uid)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-success/10 text-success border border-success/30 rounded-lg text-sm hover:bg-success/20 transition-colors"
+                          >
+                            <ShieldCheck className="w-4 h-4" />
+                            검증
+                          </button>
+                          <button
+                            onClick={() => handleDeactivate(u.uid)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-error/10 text-error border border-error/30 rounded-lg text-sm hover:bg-error/20 transition-colors"
+                          >
+                            <ShieldX className="w-4 h-4" />
+                            탈퇴
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
