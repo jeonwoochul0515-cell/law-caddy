@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   X,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
@@ -168,6 +169,19 @@ export default function DocumentPage() {
           의뢰인 메시지
         </button>
       </div>
+
+      {/* AI 정확성 경고 배너 */}
+      {tab === "document" && finalDocument && (
+        <div className="mb-3 flex items-start gap-2.5 bg-amber/5 border border-amber/20 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-amber shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs text-amber font-medium">AI 생성 문서 — 변호사 검토 필수</p>
+            <p className="text-[11px] text-text-dim mt-0.5">
+              판례번호, 법조문, 사실관계를 반드시 확인하세요. [확인 필요] 표시된 부분은 정확성 검증이 필요합니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 문서 탭 — 2컬럼 (데스크탑) */}
       {tab === "document" && (

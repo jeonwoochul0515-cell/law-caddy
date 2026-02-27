@@ -4,6 +4,17 @@
 import type { DocType, CaseType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
+/**
+ * 모든 법률 에이전트에 공통 적용되는 할루시네이션 방지 규칙
+ */
+const ANTI_HALLUCINATION_RULES = `
+[필수 준수 사항 — 정확성 규칙]
+- 판례를 인용할 때: 실제 존재 여부가 불확실한 사건번호는 절대 기재하지 마세요. 대신 "대법원 OO년도 판결 취지에 따르면" 등 일반적 표현을 사용하세요.
+- 법조문을 인용할 때: 조문 번호가 정확히 기억나지 않으면 "관련 법조문에 의하면" 또는 "해당 법률 규정에 따르면"으로 기재하고, 변호사가 확인하도록 [확인 필요]를 표시하세요.
+- 사실관계: 제공된 정보에 없는 날짜, 금액, 인물, 장소를 절대 추가하지 마세요.
+- 확실하지 않은 내용에는 반드시 [확인 필요] 또는 [변호사 검토 필요]를 표시하세요.
+- 존재하지 않는 판례번호(예: 2019다234567)를 생성하지 마세요.`;
+
 /** 에이전트 공통 컨텍스트 */
 export interface AgentContext {
   clientName: string;
@@ -92,13 +103,18 @@ function formatCheckpointAnswers(
 function buildPrecedentPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
   return `당신은 한국 법률 판례 검색 전문가입니다.
+${ANTI_HALLUCINATION_RULES}
 
 ${context}
 
-유사 판례를 검색하여 분석하세요:
+유사 판례의 법리와 판단 경향을 분석하세요:
 
-## 유사 판례 (3~5건)
-각 판례마다: 사건번호, 판결 요지, 핵심 쟁점 및 법원의 판단, 본 사건 시사점 (유리/불리)
+## 유사 판례 법리 분석 (3~5건)
+각 판례마다:
+- 판례 유형 및 법원 (예: "대법원 OO년대 부동산 이중매매 관련 판결")
+- 핵심 법리 및 판단 요지
+- 본 사건 시사점 (유리/불리)
+※ 정확한 사건번호가 확실하지 않으면 번호를 기재하지 말고 판례의 법리 내용에 집중하세요.
 
 ## 판례 동향 - 최근 법원 판단 경향
 
@@ -111,6 +127,7 @@ ${context}
 function buildLegalPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
   return `당신은 법적 적법성 검증 전문가입니다.
+${ANTI_HALLUCINATION_RULES}
 
 ${context}
 
@@ -143,14 +160,15 @@ ${context}
 function buildAnalysisPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
   return `당신은 법률 쟁점 분석 AI입니다.
+${ANTI_HALLUCINATION_RULES}
 
 ${context}
 
-## 핵심 쟁점 (3가지) - 각각: 쟁점명, 설명, 관련 법조문, 유리/불리 판단
+## 핵심 쟁점 (3가지) - 각각: 쟁점명, 설명, 관련 법조문 (조문번호가 불확실하면 [확인 필요] 표시), 유리/불리 판단
 
-## 관련 판례 2건
+## 관련 판례 법리 (2건) - 사건번호 대신 법리 내용과 판단 경향을 기술
 
-## 종합 의견 - 위험도, 권고 전략, 예상 기간·비용
+## 종합 의견 - 위험도, 권고 전략
 
 한국어로 작성하세요.`;
 }
@@ -199,6 +217,7 @@ function buildDocgenPrompt(ctx: AgentContext): string {
       : "[체크포인트 응답 없음]";
 
   return `당신은 법률 문서 작성 AI입니다.
+${ANTI_HALLUCINATION_RULES}
 
 ${context}
 
@@ -206,7 +225,9 @@ ${checkAnswersText}
 
 "${ctx.docType}" 초안을 작성하세요:
 - 실제 한국 법률 문서 양식, 개인정보 ○○ 마스킹
-- 법적 근거 명시, 구체적 수치 포함
+- 법적 근거 명시 (조문번호가 불확실하면 [확인 필요] 표시)
+- 제공된 사실관계만 사용, 추측이나 가정을 사실처럼 기재하지 않기
+- 금액·날짜·당사자 정보는 제공된 정보만 사용 (없으면 ○○ 처리)
 - 마지막에 "※ AI 생성 초안, 변호사 최종 검토 필요" 추가
 
 한국어로 작성하세요.`;
@@ -216,10 +237,16 @@ ${checkAnswersText}
 function buildReviewPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
   return `당신은 법률 문서 검토·감수 AI입니다.
+${ANTI_HALLUCINATION_RULES}
 
 ${context}
 
 ## 품질 평가 (5점 척도) - 형식, 법적 정확성, 논리, 설득력, 완성도
+
+## 정확성 검증
+- 인용된 법조문 번호가 실제 존재하는지, 내용이 맞는지 확인하고 [확인 필요] 항목을 표시
+- 사실관계가 제공된 정보와 일치하는지 확인
+- 존재가 불확실한 판례번호가 있으면 지적
 
 ## 수정 제안 5가지
 
@@ -316,6 +343,7 @@ export function buildDocumentChatPrompt(
   document: string,
 ): string {
   return `당신은 대한민국 법률 문서 전문 AI 비서입니다.
+${ANTI_HALLUCINATION_RULES}
 
 아래는 변호사가 작성한 "${docType}" 초안입니다:
 
@@ -326,7 +354,7 @@ ${document}
 변호사가 이 문서에 대해 질문하거나 수정을 요청합니다. 다음 규칙을 따르세요:
 
 1. 문서 내용에 대한 질문에 정확하고 명확하게 답변
-2. 관련 법조문, 판례, 법적 근거를 구체적으로 제시
+2. 법조문·판례를 언급할 때: 조문번호가 확실한 것만 기재, 불확실하면 [확인 필요] 표시
 3. 문서 수정을 요청받으면 수정된 전체 문서를 아래 형식으로 제공:
 
 ===수정안===
@@ -334,5 +362,6 @@ ${document}
 ===끝===
 
 4. 수정안 앞에 무엇을 왜 수정했는지 간단히 설명
-5. 한국어로 전문적이되 이해하기 쉽게 작성`;
+5. 한국어로 전문적이되 이해하기 쉽게 작성
+6. 확실하지 않은 정보는 "~로 추정됩니다" 또는 "변호사 확인이 필요합니다"로 표현`;
 }

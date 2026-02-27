@@ -46,6 +46,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
+const TEMPERATURE = 0.2;
 
 /**
  * Claude API 응답에서 텍스트를 추출합니다.
@@ -86,6 +87,7 @@ async function callClaudeDirect(
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -200,6 +202,7 @@ async function callClaudeChatDirect(
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
       system: systemPrompt,
       messages,
     }),

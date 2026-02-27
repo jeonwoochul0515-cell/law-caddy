@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText, AlertTriangle } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import { AGENTS, DOC_TYPES } from "../config/constants";
@@ -145,8 +145,18 @@ export default function AgentsPage() {
               분석 중...
             </div>
           ) : agents[activeTab]?.status === "completed" ? (
-            <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
-              {agents[activeTab].result}
+            <div>
+              {(activeTab === "precedent" || activeTab === "analysis") && (
+                <div className="flex items-start gap-2 mb-3 bg-amber/5 border border-amber/20 rounded-lg px-3 py-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-text-dim">
+                    AI가 생성한 판례·법조문은 실제와 다를 수 있습니다. [확인 필요] 표시 부분을 포함하여 반드시 검증하세요.
+                  </p>
+                </div>
+              )}
+              <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
+                {agents[activeTab].result}
+              </div>
             </div>
           ) : agents[activeTab]?.status === "error" ? (
             <div className="text-error text-sm py-4">
