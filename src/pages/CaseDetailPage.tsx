@@ -19,10 +19,13 @@ export default function CaseDetailPage() {
     caseData,
     documents,
     recordings,
+    opponentDocs,
     loading,
     error,
     updateStatus,
     addNote,
+    uploadOpponentDoc,
+    removeOpponentDoc,
   } = useCaseDetail(id ?? "");
 
   const handleNavigateToRecord = () => {
@@ -66,7 +69,7 @@ export default function CaseDetailPage() {
   }
 
   const timeline = caseData.timeline ?? [];
-  const docsRecCount = documents.length + recordings.length;
+  const docsRecCount = documents.length + recordings.length + opponentDocs.length;
 
   const tabs: { key: TabKey; label: string; count?: number; icon: React.ElementType }[] = [
     { key: "overview", label: "개요", icon: LayoutGrid },
@@ -130,7 +133,10 @@ export default function CaseDetailPage() {
         <DocumentsTab
           documents={documents}
           recordings={recordings}
+          opponentDocs={opponentDocs}
           onNavigateToRecord={handleNavigateToRecord}
+          onUploadOpponentDoc={uploadOpponentDoc}
+          onRemoveOpponentDoc={removeOpponentDoc}
         />
       )}
     </AppLayout>

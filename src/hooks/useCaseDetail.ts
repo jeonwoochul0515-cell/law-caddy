@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCase, getDocuments, getRecordings, updateCase, addTimelineEvent } from "../services/firebase/firestore";
-import { isDemoMode, DEMO_CASES, DEMO_DOCUMENTS, DEMO_RECORDINGS, mockTimestamp } from "../config/demo";
-import type { Case, TimelineEvent } from "../types/case";
+import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc } from "../services/firebase/firestore";
+import { uploadOpponentDocFile } from "../services/firebase/storage";
+import { isDemoMode, DEMO_CASES, DEMO_DOCUMENTS, DEMO_RECORDINGS, DEMO_OPPONENT_DOCS, mockTimestamp } from "../config/demo";
+import type { Case, TimelineEvent, OpponentDoc } from "../types/case";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
 
@@ -9,10 +10,13 @@ interface UseCaseDetailReturn {
   caseData: Case | null;
   documents: LegalDocument[];
   recordings: Recording[];
+  opponentDocs: OpponentDoc[];
   loading: boolean;
   error: string | null;
   updateStatus: (status: "진행중" | "완료" | "보류") => Promise<void>;
   addNote: (label: string, detail: string) => Promise<void>;
+  uploadOpponentDoc: (file: File, label: string) => Promise<void>;
+  removeOpponentDoc: (docId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -20,6 +24,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [documents, setDocuments] = useState<LegalDocument[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [opponentDocs, setOpponentDocs] = useState<OpponentDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,15 +39,18 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setCaseData(found);
         setDocuments(DEMO_DOCUMENTS.filter((d) => d.caseId === caseId));
         setRecordings(DEMO_RECORDINGS.filter((r) => r.caseId === caseId));
+        setOpponentDocs(DEMO_OPPONENT_DOCS.filter((o) => o.caseId === caseId));
       } else {
-        const [c, docs, recs] = await Promise.all([
+        const [c, docs, recs, oppDocs] = await Promise.all([
           getCase(caseId),
           getDocuments(caseId),
           getRecordings(caseId),
+          getOpponentDocs(caseId),
         ]);
         setCaseData(c);
         setDocuments(docs);
         setRecordings(recs);
+        setOpponentDocs(oppDocs);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "사건 데이터를 불러오는 중 오류가 발생했습니다.");
@@ -128,14 +136,68 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     [caseData, caseId],
   );
 
+  const uploadOpponentDoc = useCallback(
+    async (file: File, label: string) => {
+      if (!caseData) return;
+
+      if (isDemoMode) {
+        const demoDoc: OpponentDoc = {
+          id: `demo-opp-${Date.now()}`,
+          caseId,
+          ownerId: caseData.ownerId,
+          fileName: file.name,
+          fileUrl: "#",
+          fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+          docLabel: label,
+          createdAt: mockTimestamp(new Date()),
+        };
+        setOpponentDocs((prev) => [demoDoc, ...prev]);
+        return;
+      }
+
+      const fileUrl = await uploadOpponentDocFile(file, caseData.ownerId, caseId);
+      const id = await createOpponentDoc({
+        caseId,
+        ownerId: caseData.ownerId,
+        fileName: file.name,
+        fileUrl,
+        fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+        docLabel: label,
+      });
+      setOpponentDocs((prev) => [
+        { id, caseId, ownerId: caseData.ownerId, fileName: file.name, fileUrl, fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)), docLabel: label, createdAt: mockTimestamp(new Date()) },
+        ...prev,
+      ]);
+      await addTimelineEvent(caseId, {
+        type: "response",
+        label: `상대방 서면 등록: ${label}`,
+        detail: `파일 "${file.name}" 업로드 완료.`,
+      });
+    },
+    [caseData, caseId],
+  );
+
+  const removeOpponentDoc = useCallback(
+    async (docId: string) => {
+      setOpponentDocs((prev) => prev.filter((d) => d.id !== docId));
+      if (!isDemoMode) {
+        await deleteOpponentDoc(docId);
+      }
+    },
+    [],
+  );
+
   return {
     caseData,
     documents,
     recordings,
+    opponentDocs,
     loading,
     error,
     updateStatus,
     addNote,
+    uploadOpponentDoc,
+    removeOpponentDoc,
     refresh: fetchAll,
   };
 }

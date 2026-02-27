@@ -2,7 +2,7 @@
 // Firebase 환경변수가 없을 때 앱이 크래시 없이 동작하도록 지원
 
 import type { User } from "../types/user";
-import type { Case } from "../types/case";
+import type { Case, OpponentDoc } from "../types/case";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
 import type { CheckQuestion } from "../types/document";
@@ -322,3 +322,27 @@ export const DEMO_CLIENT_MESSAGE = `박영수 님, 안녕하세요 😊
 궁금하신 점 있으시면 편하게 연락 주세요 😊
 
 법무법인 데모 김변호 변호사`;
+
+/** 데모 상대방 서면 목록 */
+export const DEMO_OPPONENT_DOCS: OpponentDoc[] = [
+  {
+    id: "demo-opp-001",
+    caseId: "demo-case-001",
+    ownerId: "demo-user-001",
+    fileName: "상대방_답변서_20250720.pdf",
+    fileUrl: "#",
+    fileSizeMB: 1.2,
+    docLabel: "매도인 답변서",
+    createdAt: mockTimestamp(new Date("2025-07-20T09:00:00Z")),
+  },
+  {
+    id: "demo-opp-002",
+    caseId: "demo-case-001",
+    ownerId: "demo-user-001",
+    fileName: "부동산매매계약서_사본.pdf",
+    fileUrl: "#",
+    fileSizeMB: 0.8,
+    docLabel: "매매계약서 사본",
+    createdAt: mockTimestamp(new Date("2025-07-15T14:30:00Z")),
+  },
+];

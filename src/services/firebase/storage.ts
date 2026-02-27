@@ -63,3 +63,32 @@ export async function uploadRecordingFile(
     throw new Error("파일 업로드 중 알 수 없는 오류가 발생했습니다.");
   }
 }
+
+/**
+ * 상대방 서면 파일을 Firebase Storage에 업로드합니다.
+ *
+ * 저장 경로: opponent-docs/{ownerId}/{caseId}/{filename}
+ */
+export async function uploadOpponentDocFile(
+  file: File,
+  ownerId: string,
+  caseId: string
+): Promise<string> {
+  try {
+    const timestamp = Date.now();
+    const safeFileName = `${timestamp}_${file.name}`;
+    const storagePath = `opponent-docs/${ownerId}/${caseId}/${safeFileName}`;
+    const storageRef = ref(storage!, storagePath);
+
+    const snapshot = await uploadBytes(storageRef, file, {
+      contentType: file.type || "application/octet-stream",
+    });
+
+    return await getDownloadURL(snapshot.ref);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`상대방 서면 업로드 실패: ${error.message}`);
+    }
+    throw new Error("상대방 서면 업로드 중 알 수 없는 오류가 발생했습니다.");
+  }
+}

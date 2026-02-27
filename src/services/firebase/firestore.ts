@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import type { Case, TimelineEvent } from "../../types/case";
+import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
 import type { User } from "../../types/user";
@@ -320,6 +320,70 @@ export async function updateDocument(
       throw new Error(`문서 업데이트 실패: ${error.message}`);
     }
     throw new Error("문서 업데이트 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+// ──────────────────────────────────────────────
+// Opponent Docs (상대방 서면)
+// ──────────────────────────────────────────────
+
+type CreateOpponentDocData = Omit<OpponentDoc, "id" | "createdAt">;
+
+/**
+ * 상대방 서면을 등록합니다.
+ */
+export async function createOpponentDoc(
+  data: CreateOpponentDocData
+): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db!, "opponentDocs"), {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`상대방 서면 등록 실패: ${error.message}`);
+    }
+    throw new Error("상대방 서면 등록 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 특정 사건의 상대방 서면 목록을 조회합니다.
+ */
+export async function getOpponentDocs(caseId: string): Promise<OpponentDoc[]> {
+  try {
+    const q = query(
+      collection(db!, "opponentDocs"),
+      where("caseId", "==", caseId),
+      orderBy("createdAt", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as OpponentDoc[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`상대방 서면 조회 실패: ${error.message}`);
+    }
+    throw new Error("상대방 서면 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 상대방 서면을 삭제합니다.
+ */
+export async function deleteOpponentDoc(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "opponentDocs", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`상대방 서면 삭제 실패: ${error.message}`);
+    }
+    throw new Error("상대방 서면 삭제 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 

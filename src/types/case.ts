@@ -20,3 +20,14 @@ export interface TimelineEvent {
   label: string;
   detail: string;
 }
+
+export interface OpponentDoc {
+  id: string;
+  caseId: string;
+  ownerId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSizeMB: number;
+  docLabel: string;
+  createdAt: Timestamp;
+}

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { FileText, Mic, Plus, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
+import type { OpponentDoc } from "../../types/case";
+import OpponentDocs from "./OpponentDocs";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   completed: { label: "완료", className: "bg-success/15 text-success" },
@@ -26,13 +28,19 @@ function formatDuration(totalSeconds: number): string {
 interface DocumentsTabProps {
   documents: LegalDocument[];
   recordings: Recording[];
+  opponentDocs: OpponentDoc[];
   onNavigateToRecord: () => void;
+  onUploadOpponentDoc: (file: File, label: string) => Promise<void>;
+  onRemoveOpponentDoc: (docId: string) => Promise<void>;
 }
 
 export default function DocumentsTab({
   documents,
   recordings,
+  opponentDocs,
   onNavigateToRecord,
+  onUploadOpponentDoc,
+  onRemoveOpponentDoc,
 }: DocumentsTabProps) {
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [expandedRecId, setExpandedRecId] = useState<string | null>(null);
@@ -229,6 +237,13 @@ export default function DocumentsTab({
           </div>
         )}
       </div>
+
+      {/* 상대방 서면 섹션 */}
+      <OpponentDocs
+        opponentDocs={opponentDocs}
+        onUpload={onUploadOpponentDoc}
+        onRemove={onRemoveOpponentDoc}
+      />
     </div>
   );
 }
