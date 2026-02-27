@@ -1,6 +1,12 @@
 // Anthropic Claude API 서비스
 // Cloudflare Functions 프록시 또는 직접 호출 (로컬 개발 폴백)
 
+/** 멀티턴 채팅 메시지 타입 */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 /** Claude API 응답 content 블록 타입 */
 interface ContentBlock {
   type: "text";
@@ -148,4 +154,85 @@ export async function callClaude(
     }
     throw new Error("Claude API 호출 중 알 수 없는 오류가 발생했습니다.");
   }
+}
+
+/**
+ * 멀티턴 대화를 지원하는 Claude API 호출
+ */
+export async function callClaudeChat(
+  systemPrompt: string,
+  messages: ChatMessage[],
+): Promise<string> {
+  try {
+    const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+    if (directApiKey && typeof directApiKey === "string") {
+      return await callClaudeChatDirect(systemPrompt, messages, directApiKey);
+    }
+
+    return await callClaudeChatProxy(systemPrompt, messages);
+  } catch (error: unknown) {
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new Error(
+        "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
+      );
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Claude API 호출 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+async function callClaudeChatDirect(
+  systemPrompt: string,
+  messages: ChatMessage[],
+  apiKey: string,
+): Promise<string> {
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": API_VERSION,
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: systemPrompt,
+      messages,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json()) as ClaudeApiError;
+    const errorMessage =
+      errorBody?.error?.message ?? `HTTP ${response.status} ${response.statusText}`;
+    throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+  }
+
+  const data = (await response.json()) as ClaudeApiResponse;
+  return extractText(data);
+}
+
+async function callClaudeChatProxy(
+  systemPrompt: string,
+  messages: ChatMessage[],
+): Promise<string> {
+  const response = await fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ systemPrompt, messages }),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json()) as ProxyErrorResponse;
+    throw new Error(
+      `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
+    );
+  }
+
+  const data = (await response.json()) as ClaudeApiResponse;
+  return extractText(data);
 }

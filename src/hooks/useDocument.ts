@@ -58,6 +58,8 @@ interface UseDocumentReturn {
   ) => Promise<void>;
   /** 의뢰인 카카오톡 메시지 생성 */
   generateClientMessage: (context: ClientMessageContext) => Promise<void>;
+  /** 채팅에서 수정안 적용 시 문서 업데이트 */
+  updateFinalDocument: (doc: string) => void;
   /** 상태 초기화 */
   reset: () => void;
 }
@@ -241,6 +243,11 @@ export default function useDocument(): UseDocumentReturn {
     [],
   );
 
+  /** 채팅에서 수정안 적용 */
+  const updateFinalDocument = useCallback((doc: string) => {
+    setFinalDocument(doc);
+  }, []);
+
   /** 상태 초기화 */
   const reset = useCallback(() => {
     setCheckQuestions([]);
@@ -259,6 +266,7 @@ export default function useDocument(): UseDocumentReturn {
     generateCheckQuestions,
     generateDocument,
     generateClientMessage,
+    updateFinalDocument,
     reset,
   };
 }

@@ -5,9 +5,15 @@ const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface ClaudeRequest {
   systemPrompt: string;
-  userMessage: string;
+  userMessage?: string;
+  messages?: ChatMessage[];
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -23,12 +29,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const body = (await context.request.json()) as ClaudeRequest;
 
-    if (!body.systemPrompt || !body.userMessage) {
+    if (!body.systemPrompt || (!body.userMessage && !body.messages)) {
       return Response.json(
-        { error: "systemPrompt와 userMessage가 필요합니다." },
+        { error: "systemPrompt와 userMessage 또는 messages가 필요합니다." },
         { status: 400 },
       );
     }
+
+    // messages 배열이 있으면 그대로 사용, 없으면 userMessage에서 변환
+    const messages: ChatMessage[] = body.messages ?? [
+      { role: "user", content: body.userMessage! },
+    ];
 
     const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
@@ -41,7 +52,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: body.systemPrompt,
-        messages: [{ role: "user", content: body.userMessage }],
+        messages,
       }),
     });
 

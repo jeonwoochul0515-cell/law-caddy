@@ -1,10 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FileText, Copy, Check, MessageSquare, Loader2, Download } from "lucide-react";
+import {
+  FileText,
+  Copy,
+  Check,
+  MessageSquare,
+  Loader2,
+  Download,
+  Send,
+  Bot,
+  User,
+  CheckCircle2,
+  X,
+  MessageCircle,
+} from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
+import useDocumentChat, { type DocChatMessage } from "../hooks/useDocumentChat";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
+
+/** 빠른 질문 버튼 */
+const QUICK_QUESTIONS = [
+  "이 문서의 법적 근거를 설명해 주세요",
+  "상대방 반론에 대한 대응은?",
+  "문서의 약점이나 보완할 점은?",
+  "더 강력한 표현으로 수정해 주세요",
+];
 
 export default function DocumentPage() {
   const location = useLocation();
@@ -22,10 +44,31 @@ export default function DocumentPage() {
     checkpointAnswers: CheckpointAnswer[];
   } | null;
 
-  const { finalDocument, clientMessage, generateDocument, generateClientMessage, status } = useDocument();
+  const {
+    finalDocument,
+    clientMessage,
+    generateDocument,
+    generateClientMessage,
+    updateFinalDocument,
+    status,
+  } = useDocument();
+
+  const {
+    messages: chatMessages,
+    isLoading: chatLoading,
+    sendMessage,
+  } = useDocumentChat(
+    state?.docType ?? "상담 요약 리포트",
+    finalDocument,
+  );
+
   const [copied, setCopied] = useState<"doc" | "msg" | null>(null);
   const [tab, setTab] = useState<"document" | "message">("document");
   const [initialized, setInitialized] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!state || initialized) return;
@@ -43,6 +86,11 @@ export default function DocumentPage() {
       state.checkpointAnswers ?? [],
     );
   }, [state, initialized, generateDocument]);
+
+  // 새 메시지 시 스크롤
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
 
   const handleGenerateClientMessage = () => {
     if (!state) return;
@@ -64,6 +112,24 @@ export default function DocumentPage() {
     }
   };
 
+  const handleSendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    setChatInput("");
+    await sendMessage(text);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChat();
+    }
+  };
+
+  const handleApplyEdit = (edit: string) => {
+    updateFinalDocument(edit);
+  };
+
   if (!state) {
     return (
       <AppLayout title="문서 생성" subtitle="">
@@ -75,7 +141,7 @@ export default function DocumentPage() {
   return (
     <AppLayout title="문서 생성" subtitle={`${state.clientName} - ${state.docType}`}>
       {/* 탭 */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4">
         <button
           onClick={() => setTab("document")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -103,43 +169,211 @@ export default function DocumentPage() {
         </button>
       </div>
 
-      {/* 문서 탭 */}
+      {/* 문서 탭 — 2컬럼 (데스크탑) */}
       {tab === "document" && (
-        <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
-          <div className="flex items-center justify-between p-5 border-b border-border">
-            <h3 className="font-semibold text-text-primary">{state.docType} 초안</h3>
-            <div className="flex items-center gap-2">
-              {finalDocument && (
-                <>
-                  <button
-                    onClick={() => handleCopy(finalDocument, "doc")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm text-text-dim hover:border-gold hover:text-gold transition-colors"
-                  >
-                    {copied === "doc" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copied === "doc" ? "복사됨" : "복사"}
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm text-text-dim hover:border-gold hover:text-gold transition-colors">
-                    <Download className="w-4 h-4" />
-                    내보내기
-                  </button>
-                </>
+        <div className="flex gap-4 h-[calc(100vh-220px)]">
+          {/* 왼쪽: 문서 뷰어 */}
+          <div className="flex-1 min-w-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+              <h3 className="font-semibold text-text-primary text-sm">{state.docType} 초안</h3>
+              <div className="flex items-center gap-2">
+                {finalDocument && (
+                  <>
+                    <button
+                      onClick={() => handleCopy(finalDocument, "doc")}
+                      className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
+                    >
+                      {copied === "doc" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied === "doc" ? "복사됨" : "복사"}
+                    </button>
+                    <button className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors">
+                      <Download className="w-3.5 h-3.5" />
+                      내보내기
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {status === "generating_document" ? (
+                <div className="flex items-center gap-3 justify-center py-16 text-text-dim">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  문서 생성 중...
+                </div>
+              ) : finalDocument ? (
+                <div className="whitespace-pre-wrap text-sm text-text-primary leading-relaxed font-mono">
+                  {finalDocument}
+                </div>
+              ) : (
+                <div className="text-text-dim text-center py-16">문서가 아직 생성되지 않았습니다.</div>
               )}
             </div>
           </div>
-          <div className="p-5">
-            {status === "generating_document" ? (
-              <div className="flex items-center gap-3 justify-center py-16 text-text-dim">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                문서 생성 중...
+
+          {/* 오른쪽: 채팅 패널 (데스크탑) */}
+          <div className="hidden lg:flex w-[380px] shrink-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex-col overflow-hidden">
+            {/* 채팅 헤더 */}
+            <div className="p-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-gold" />
+                <h3 className="font-semibold text-text-primary text-sm">AI 법률 비서</h3>
               </div>
-            ) : finalDocument ? (
-              <div className="whitespace-pre-wrap text-sm text-text-primary leading-relaxed font-mono">
-                {finalDocument}
+              <p className="text-[11px] text-text-dim mt-1">문서에 대해 질문하거나 수정을 요청하세요</p>
+            </div>
+
+            {/* 채팅 메시지 영역 */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {chatMessages.length === 0 && !chatLoading && (
+                <div className="text-center py-8 space-y-4">
+                  <Bot className="w-8 h-8 text-gold/40 mx-auto" />
+                  <p className="text-xs text-text-dim">
+                    문서에 대해 궁금한 점을 물어보세요
+                  </p>
+                  <div className="space-y-2">
+                    {QUICK_QUESTIONS.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => sendMessage(q)}
+                        className="block w-full text-left px-3 py-2 rounded-lg text-xs text-text-dim bg-navy-light border border-border hover:border-gold/30 hover:text-gold transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {chatMessages.map((msg: DocChatMessage) => (
+                <ChatBubble
+                  key={msg.id}
+                  message={msg}
+                  onApplyEdit={handleApplyEdit}
+                />
+              ))}
+
+              {chatLoading && (
+                <div className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full bg-gold-dim flex items-center justify-center shrink-0">
+                    <Bot className="w-3.5 h-3.5 text-gold" />
+                  </div>
+                  <div className="bg-navy-light rounded-xl rounded-tl-none px-3 py-2">
+                    <Loader2 className="w-4 h-4 text-gold animate-spin" />
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* 채팅 입력 */}
+            <div className="p-3 border-t border-border shrink-0">
+              <div className="flex gap-2">
+                <textarea
+                  ref={chatInputRef}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="질문 또는 수정 요청..."
+                  rows={1}
+                  className="flex-1 bg-navy-light border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
+                />
+                <button
+                  onClick={handleSendChat}
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="px-3 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
               </div>
-            ) : (
-              <div className="text-text-dim text-center py-16">문서가 아직 생성되지 않았습니다.</div>
-            )}
+            </div>
           </div>
+
+          {/* 모바일: 플로팅 채팅 버튼 */}
+          <button
+            onClick={() => setChatOpen(true)}
+            className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity z-40"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </button>
+
+          {/* 모바일: 채팅 오버레이 */}
+          {chatOpen && (
+            <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-navy">
+              {/* 모바일 채팅 헤더 */}
+              <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-gold" />
+                  <h3 className="font-semibold text-text-primary text-sm">AI 법률 비서</h3>
+                </div>
+                <button onClick={() => setChatOpen(false)} className="text-text-dim hover:text-text-primary">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 모바일 채팅 메시지 */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {chatMessages.length === 0 && !chatLoading && (
+                  <div className="text-center py-8 space-y-4">
+                    <Bot className="w-8 h-8 text-gold/40 mx-auto" />
+                    <p className="text-xs text-text-dim">문서에 대해 궁금한 점을 물어보세요</p>
+                    <div className="space-y-2">
+                      {QUICK_QUESTIONS.map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => sendMessage(q)}
+                          className="block w-full text-left px-3 py-2 rounded-lg text-xs text-text-dim bg-surface border border-border hover:border-gold/30 hover:text-gold transition-colors"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {chatMessages.map((msg: DocChatMessage) => (
+                  <ChatBubble
+                    key={msg.id}
+                    message={msg}
+                    onApplyEdit={handleApplyEdit}
+                  />
+                ))}
+
+                {chatLoading && (
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gold-dim flex items-center justify-center shrink-0">
+                      <Bot className="w-3.5 h-3.5 text-gold" />
+                    </div>
+                    <div className="bg-surface rounded-xl rounded-tl-none px-3 py-2">
+                      <Loader2 className="w-4 h-4 text-gold animate-spin" />
+                    </div>
+                  </div>
+                )}
+
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* 모바일 채팅 입력 */}
+              <div className="p-3 border-t border-border shrink-0">
+                <div className="flex gap-2">
+                  <textarea
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="질문 또는 수정 요청..."
+                    rows={1}
+                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
+                  />
+                  <button
+                    onClick={handleSendChat}
+                    disabled={!chatInput.trim() || chatLoading}
+                    className="px-3 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -185,7 +419,6 @@ export default function DocumentPage() {
             </div>
           </div>
 
-          {/* 완료 버튼 */}
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => navigate("/dashboard")}
@@ -197,5 +430,71 @@ export default function DocumentPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+/** 채팅 버블 컴포넌트 */
+function ChatBubble({
+  message,
+  onApplyEdit,
+}: {
+  message: DocChatMessage;
+  onApplyEdit: (edit: string) => void;
+}) {
+  const [applied, setApplied] = useState(false);
+
+  if (message.role === "user") {
+    return (
+      <div className="flex items-start gap-2 justify-end">
+        <div className="bg-gold-dim rounded-xl rounded-tr-none px-3 py-2 max-w-[85%]">
+          <p className="text-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
+        </div>
+        <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center shrink-0">
+          <User className="w-3.5 h-3.5 text-text-dim" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2">
+      <div className="w-6 h-6 rounded-full bg-gold-dim flex items-center justify-center shrink-0">
+        <Bot className="w-3.5 h-3.5 text-gold" />
+      </div>
+      <div className="max-w-[85%] space-y-2">
+        <div className="bg-navy-light rounded-xl rounded-tl-none px-3 py-2">
+          <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+            {message.content}
+          </p>
+        </div>
+
+        {message.suggestedEdit && (
+          <div className="bg-success/5 border border-success/20 rounded-lg px-3 py-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] text-success font-medium">수정안 제안됨</span>
+              {applied ? (
+                <span className="flex items-center gap-1 text-[11px] text-success">
+                  <CheckCircle2 className="w-3 h-3" />
+                  적용됨
+                </span>
+              ) : (
+                <button
+                  onClick={() => {
+                    onApplyEdit(message.suggestedEdit!);
+                    setApplied(true);
+                  }}
+                  className="px-2 py-0.5 bg-success/15 text-success text-[11px] font-medium rounded hover:bg-success/25 transition-colors"
+                >
+                  적용하기
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-text-dim line-clamp-3">
+              {message.suggestedEdit.slice(0, 150)}...
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
