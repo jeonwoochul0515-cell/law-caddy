@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film, X, Plus, Type } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -31,8 +31,16 @@ function getFileCategory(file: File): string {
 
 export default function RecordPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuth((s) => s.user);
   const { isRecording, duration, startRecording, stopRecording } = useRecording();
+
+  // 사건 상세에서 넘어온 경우 프리필
+  const prefilled = location.state as {
+    caseId?: string;
+    clientName?: string;
+    caseDesc?: string;
+  } | null;
 
   const [step, setStep] = useState<Step>("info");
   const [files, setFiles] = useState<File[]>([]);
@@ -40,9 +48,9 @@ export default function RecordPage() {
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // 사건 정보
-  const [clientName, setClientName] = useState("");
-  const [caseDesc, setCaseDesc] = useState("");
+  // 사건 정보 (프리필 값으로 초기화)
+  const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
+  const [caseDesc, setCaseDesc] = useState(prefilled?.caseDesc ?? "");
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -98,6 +106,7 @@ export default function RecordPage() {
             typedNotes: typedNotes.trim(),
             clientName,
             caseDesc,
+            caseId: prefilled?.caseId,
             ownerId: user.uid,
             firmName: user.firmName,
             lawyerName: user.name,

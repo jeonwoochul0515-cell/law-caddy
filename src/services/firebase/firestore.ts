@@ -12,10 +12,11 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  arrayUnion,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import type { Case } from "../../types/case";
+import type { Case, TimelineEvent } from "../../types/case";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
 import type { User } from "../../types/user";
@@ -117,6 +118,33 @@ export async function updateCase(
       throw new Error(`사건 업데이트 실패: ${error.message}`);
     }
     throw new Error("사건 업데이트 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 사건 타임라인에 이벤트를 추가합니다.
+ *
+ * @param caseId - 사건 문서 ID
+ * @param event - 타임라인 이벤트 (date 제외, 자동 생성)
+ */
+export async function addTimelineEvent(
+  caseId: string,
+  event: Omit<TimelineEvent, "date">
+): Promise<void> {
+  try {
+    const eventWithDate = {
+      ...event,
+      date: Timestamp.now(),
+    };
+    await updateDoc(doc(db!, "cases", caseId), {
+      timeline: arrayUnion(eventWithDate),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`타임라인 이벤트 추가 실패: ${error.message}`);
+    }
+    throw new Error("타임라인 이벤트 추가 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
