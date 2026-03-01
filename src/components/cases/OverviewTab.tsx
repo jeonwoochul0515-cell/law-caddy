@@ -1,4 +1,4 @@
-import { FileText, Mic, Clock, Calendar, Plus, StickyNote, FileWarning } from "lucide-react";
+import { FileText, Mic, Clock, Calendar, StickyNote, FileWarning } from "lucide-react";
 import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
@@ -213,8 +213,8 @@ export default function OverviewTab({
           onClick={onNavigateToRecord}
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
         >
-          <Plus className="w-4 h-4" />
-          새 상담 추가
+          <Mic className="w-4 h-4" />
+          추가 상담 녹음
         </button>
         <button
           onClick={() => onSwitchTab("docs")}
