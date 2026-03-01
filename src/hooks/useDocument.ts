@@ -119,6 +119,7 @@ export default function useDocument(): UseDocumentReturn {
       questions: CheckQuestion[],
       answers: CheckpointAnswer[],
     ): Promise<void> => {
+      console.log("[useDocument] generateDocument 시작", { docType: context.docType, hasKey: hasAnthropicKey });
       setStatus("generating_document");
       setError(null);
 
@@ -136,11 +137,14 @@ export default function useDocument(): UseDocumentReturn {
 
         const prompt = buildPrompt("docgen", contextWithAnswers);
         const userMessage = `체크포인트 응답을 반영하여 "${context.docType}" 초안을 작성해 주세요.`;
+        console.log("[useDocument] Claude API 호출 시작, 프롬프트 길이:", prompt.length);
 
         const document = await callClaude(prompt, userMessage);
+        console.log("[useDocument] 문서 생성 성공, 길이:", document.length);
         setFinalDocument(document);
         setStatus("completed");
       } catch (err: unknown) {
+        console.error("[useDocument] 문서 생성 실패:", err);
         const message =
           err instanceof Error
             ? err.message

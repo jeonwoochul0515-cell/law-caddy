@@ -42,7 +42,11 @@ interface ProxyErrorResponse {
   detail?: string;
 }
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+/** dev 환경에서는 Vite 프록시 사용 (CORS 우회) */
+const isDev = import.meta.env.DEV;
+const ANTHROPIC_API_URL = isDev
+  ? "/api/anthropic/v1/messages"
+  : "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
@@ -76,14 +80,18 @@ async function callClaudeDirect(
   userMessage: string,
   apiKey: string,
 ): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": API_VERSION,
+  };
+  // 직접 호출 시에만 CORS 헤더 추가 (프록시 경유 시 불필요)
+  if (!isDev) {
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
+  }
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": API_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
+    headers,
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
@@ -191,14 +199,17 @@ async function callClaudeChatDirect(
   messages: ChatMessage[],
   apiKey: string,
 ): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": API_VERSION,
+  };
+  if (!isDev) {
+    headers["anthropic-dangerous-direct-browser-access"] = "true";
+  }
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": API_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
+    headers,
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
