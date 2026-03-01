@@ -1,5 +1,5 @@
-import { FileText, Mic, Clock, Calendar, Plus, StickyNote } from "lucide-react";
-import type { Case, TimelineEvent } from "../../types/case";
+import { FileText, Mic, Clock, Calendar, Plus, StickyNote, FileWarning } from "lucide-react";
+import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
 
@@ -15,6 +15,7 @@ interface OverviewTabProps {
   caseData: Case;
   documents: LegalDocument[];
   recordings: Recording[];
+  opponentDocs: OpponentDoc[];
   onNavigateToRecord: () => void;
   onSwitchTab: (tab: string) => void;
 }
@@ -23,6 +24,7 @@ export default function OverviewTab({
   caseData,
   documents,
   recordings,
+  opponentDocs,
   onNavigateToRecord,
   onSwitchTab,
 }: OverviewTabProps) {
@@ -45,10 +47,11 @@ export default function OverviewTab({
   return (
     <div className="space-y-6">
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "문서", value: documents.length, icon: FileText, color: "text-gold" },
           { label: "녹음", value: recordings.length, icon: Mic, color: "text-amber" },
+          { label: "상대방 서면", value: opponentDocs.length, icon: FileWarning, color: "text-error" },
           { label: "타임라인", value: timeline.length, icon: Clock, color: "text-info" },
           { label: "등록일", value: createdDate, icon: Calendar, color: "text-text-dim" },
         ].map((stat) => (
@@ -161,6 +164,49 @@ export default function OverviewTab({
         </div>
       </div>
 
+      {/* 상대방 서면 */}
+      <div className="bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-text-primary">상대방 서면</h3>
+          {opponentDocs.length > 0 && (
+            <button
+              onClick={() => onSwitchTab("docs")}
+              className="text-xs text-gold hover:text-gold-bright transition-colors"
+            >
+              전체 보기
+            </button>
+          )}
+        </div>
+        {opponentDocs.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-text-dim mb-3">등록된 상대방 서면이 없습니다.</p>
+            <button
+              onClick={() => onSwitchTab("docs")}
+              className="px-4 py-2 bg-gold-dim text-gold rounded-lg text-sm hover:bg-gold/20 transition-colors"
+            >
+              상대방 서면 등록하기
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {opponentDocs.slice(0, 3).map((d) => {
+              const dateStr = d.createdAt?.toDate?.()
+                ? d.createdAt.toDate().toLocaleDateString("ko-KR")
+                : "";
+              return (
+                <div key={d.id} className="flex items-center gap-3 p-3 bg-navy-light rounded-lg">
+                  <FileWarning className="w-4 h-4 text-error shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary truncate">{d.docLabel}</p>
+                    {dateStr && <p className="text-xs text-text-dim">{dateStr}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* 빠른 실행 */}
       <div className="flex flex-wrap gap-3">
         <button
@@ -169,6 +215,13 @@ export default function OverviewTab({
         >
           <Plus className="w-4 h-4" />
           새 상담 추가
+        </button>
+        <button
+          onClick={() => onSwitchTab("docs")}
+          className="flex items-center gap-2 px-5 py-2.5 border border-amber/30 text-amber rounded-lg hover:border-amber/60 hover:bg-amber/5 transition-colors text-sm"
+        >
+          <FileWarning className="w-4 h-4" />
+          상대방 서면 추가
         </button>
         <button
           onClick={() => onSwitchTab("timeline")}

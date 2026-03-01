@@ -122,6 +122,7 @@ export default function CaseDetailPage() {
           caseData={caseData}
           documents={documents}
           recordings={recordings}
+          opponentDocs={opponentDocs}
           onNavigateToRecord={handleNavigateToRecord}
           onSwitchTab={(t) => setTab(t as TabKey)}
         />
