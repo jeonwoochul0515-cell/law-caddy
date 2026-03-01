@@ -137,7 +137,7 @@ export default function useDocument(): UseDocumentReturn {
         // 데모 모드: docType에 맞는 데모 문서 반환
         if (useDocumentDemoMode) {
           await delay(2000);
-          setFinalDocument(getDemoFinalDocument(context.docType));
+          setFinalDocument(getDemoFinalDocument(context.docType, context.caseDesc, context.caseType));
           setStatus("completed");
           return;
         }
