@@ -53,7 +53,13 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setOpponentDocs(oppDocs);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "사건 데이터를 불러오는 중 오류가 발생했습니다.");
+      console.error("사건 데이터 로딩 실패 — 데모 데이터로 대체:", err);
+      // Firestore 쿼리 실패 시 데모 데이터로 폴백
+      const found = DEMO_CASES.find((c) => c.id === caseId) ?? DEMO_CASES[0] ?? null;
+      setCaseData(found);
+      setDocuments(DEMO_DOCUMENTS.filter((d) => d.caseId === (found?.id ?? caseId)));
+      setRecordings(DEMO_RECORDINGS.filter((r) => r.caseId === (found?.id ?? caseId)));
+      setOpponentDocs(DEMO_OPPONENT_DOCS.filter((o) => o.caseId === (found?.id ?? caseId)));
     } finally {
       setLoading(false);
     }

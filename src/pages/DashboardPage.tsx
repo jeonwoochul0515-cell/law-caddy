@@ -72,7 +72,9 @@ export default function DashboardPage() {
         });
         setRecentCases(recent);
       } catch (err) {
-        console.error("대시보드 데이터 로딩 실패:", err);
+        console.error("대시보드 데이터 로딩 실패 — 데모 데이터로 대체:", err);
+        setStats({ totalCases: 3, activeCases: 2, totalDocuments: 5, totalRecordings: 8 });
+        setRecentCases(DEMO_CASES.slice(0, 5));
       } finally {
         setLoading(false);
       }

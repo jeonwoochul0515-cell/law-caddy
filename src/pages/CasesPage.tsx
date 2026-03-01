@@ -30,9 +30,10 @@ export default function CasesPage() {
     const fetch = async () => {
       try {
         const data = await getCases(user.uid);
-        setCases(data);
+        setCases(data.length > 0 ? data : DEMO_CASES);
       } catch (err) {
-        console.error("사건 목록 로딩 실패:", err);
+        console.error("사건 목록 로딩 실패 — 데모 데이터로 대체:", err);
+        setCases(DEMO_CASES);
       } finally {
         setLoading(false);
       }

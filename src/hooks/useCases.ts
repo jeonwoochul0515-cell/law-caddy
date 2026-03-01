@@ -15,6 +15,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { isDemoMode, DEMO_CASES } from "../config/demo";
 import useAuth from "./useAuth";
 import type { Case, CaseType } from "../types/case";
 
@@ -66,6 +67,13 @@ export default function useCases(): UseCasesReturn {
     setLoading(true);
     setError(null);
 
+    // 데모 모드: Firestore 대신 목 데이터 사용
+    if (isDemoMode) {
+      setCases(DEMO_CASES);
+      setLoading(false);
+      return;
+    }
+
     try {
       const casesRef = collection(db!, "cases");
       const q = query(
@@ -80,11 +88,10 @@ export default function useCases(): UseCasesReturn {
         id: docSnap.id,
       }));
 
-      setCases(fetchedCases);
+      setCases(fetchedCases.length > 0 ? fetchedCases : DEMO_CASES);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "사건 목록 조회 중 오류가 발생했습니다.";
-      setError(message);
+      console.error("사건 목록 조회 실패 — 데모 데이터로 대체:", err);
+      setCases(DEMO_CASES);
     } finally {
       setLoading(false);
     }

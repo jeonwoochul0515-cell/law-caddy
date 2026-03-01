@@ -547,6 +547,19 @@ export const DEMO_RECORDINGS: Recording[] = [
     sttStatus: "completed",
     createdAt: mockTimestamp(new Date("2025-08-05T11:00:00Z")),
   },
+  {
+    id: "demo-rec-003",
+    caseId: "demo-case-003",
+    ownerId: "demo-user-001",
+    fileName: "상담녹음_최민정_20250620.m4a",
+    fileUrl: "",
+    fileSizeMB: 10.2,
+    durationSeconds: 1560,
+    sttStatus: "completed",
+    transcript:
+      "[변호사] 안녕하세요, 이혼 상담으로 오셨죠?\n[의뢰인] 네, 남편이 도박을 계속해서 더 이상 못 살겠어요.",
+    createdAt: mockTimestamp(new Date("2025-06-20T14:00:00Z")),
+  },
 ];
 
 /** 데모 의뢰인 카카오톡 메시지 생성 (docType·변호사 정보에 맞게 동적 생성) */
