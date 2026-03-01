@@ -1,9 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
+import { uploadRecordingFile } from "../services/firebase/storage";
+import { createRecording, updateRecording, addTimelineEvent } from "../services/firebase/firestore";
+import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 
 
 
@@ -46,6 +49,8 @@ export default function RecordPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [typedNotes, setTypedNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [savingOnly, setSavingOnly] = useState(false);
+  const [saveProgress, setSaveProgress] = useState("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // 사건 정보 (프리필 값으로 초기화)
@@ -117,6 +122,90 @@ export default function RecordPage() {
       } finally {
         setUploading(false);
       }
+    }
+  };
+
+  // 음성 변환 후 저장 (AI 분석 없이 STT만 실행하고 DB 저장)
+  const handleSaveOnly = async () => {
+    if (!user || !prefilled?.caseId) return;
+    const audioFiles = files.filter((f) => f.type.startsWith("audio/"));
+    if (audioFiles.length === 0 && !typedNotes.trim()) return;
+
+    setSavingOnly(true);
+    const caseId = prefilled.caseId;
+
+    try {
+      // 1) 오디오 파일 업로드 + STT
+      for (const file of audioFiles) {
+        setSaveProgress(`"${file.name}" 업로드 중...`);
+        const fileUrl = await uploadRecordingFile(file, user.uid, caseId);
+
+        // 녹음 레코드 생성 (sttStatus: processing)
+        const recId = await createRecording({
+          caseId,
+          ownerId: user.uid,
+          fileName: file.name,
+          fileUrl,
+          fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+          durationSeconds: 0,
+          sttStatus: "processing",
+        });
+
+        // STT 전사 요청
+        setSaveProgress(`"${file.name}" 음성 변환 중...`);
+        try {
+          const transcribeId = await transcribeFile(file);
+          await updateRecording(recId, { rtzrTranscribeId: transcribeId });
+
+          // 폴링 (최대 6분)
+          const POLL_INTERVAL = 3000;
+          const MAX_POLLS = 120;
+          let completed = false;
+
+          for (let i = 0; i < MAX_POLLS; i++) {
+            const result = await pollTranscription(transcribeId);
+            if (result.status === "completed" && result.utterances) {
+              const transcript = formatTranscript(result.utterances);
+              await updateRecording(recId, {
+                sttStatus: "completed",
+                transcript,
+                utterances: result.utterances,
+              });
+              completed = true;
+              break;
+            }
+            if (result.status === "failed") {
+              await updateRecording(recId, { sttStatus: "failed" });
+              completed = true;
+              break;
+            }
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+          }
+
+          if (!completed) {
+            await updateRecording(recId, { sttStatus: "failed" });
+          }
+        } catch {
+          // STT 실패해도 녹음 파일은 저장됨
+          await updateRecording(recId, { sttStatus: "failed" });
+        }
+      }
+
+      // 2) 타임라인 이벤트 추가
+      setSaveProgress("타임라인 업데이트 중...");
+      await addTimelineEvent(caseId, {
+        type: "consult",
+        label: "추가 상담 녹음",
+        detail: `${audioFiles.length}개 파일 업로드${typedNotes.trim() ? " + 메모" : ""}`,
+      });
+
+      // 3) 사건 상세로 이동
+      navigate(`/cases/${caseId}`);
+    } catch (err) {
+      console.error("저장 실패:", err);
+      setSaveProgress("저장 중 오류가 발생했습니다.");
+    } finally {
+      setSavingOnly(false);
     }
   };
 
@@ -365,23 +454,47 @@ export default function RecordPage() {
           )}
 
           {/* 하단 버튼 */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStep("info")}
-              className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              이전
-            </button>
-            {(files.length > 0 || typedNotes.trim()) && (
-              <button
-                onClick={handleNext}
-                disabled={uploading}
-                className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {uploading ? "업로드 중..." : "AI 분석 시작"}
-              </button>
+          <div className="flex flex-col gap-3">
+            {savingOnly && saveProgress && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-info/10 border border-info/20 rounded-lg">
+                <Loader2 className="w-4 h-4 text-info animate-spin shrink-0" />
+                <span className="text-sm text-info">{saveProgress}</span>
+              </div>
             )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep("info")}
+                disabled={savingOnly}
+                className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors disabled:opacity-50"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                이전
+              </button>
+              {(files.length > 0 || typedNotes.trim()) && (
+                <>
+                  {prefilled?.caseId && (
+                    <button
+                      onClick={handleSaveOnly}
+                      disabled={savingOnly || uploading}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 border border-gold/30 text-gold rounded-lg hover:bg-gold-dim transition-colors disabled:opacity-50 font-medium"
+                    >
+                      {savingOnly ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> 변환 중...</>
+                      ) : (
+                        <><Save className="w-4 h-4" /> 음성 변환 후 저장</>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleNext}
+                    disabled={uploading || savingOnly}
+                    className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {uploading ? "업로드 중..." : "AI 분석 시작"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
