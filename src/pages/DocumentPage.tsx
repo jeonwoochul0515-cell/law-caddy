@@ -24,14 +24,6 @@ import { updateDocument, createDocument, addTimelineEvent } from "../services/fi
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
-/** 빠른 질문 버튼 */
-const QUICK_QUESTIONS = [
-  "이 문서의 법적 근거를 설명해 주세요",
-  "상대방 반론에 대한 대응은?",
-  "문서의 약점이나 보완할 점은?",
-  "더 강력한 표현으로 수정해 주세요",
-];
-
 const SESSION_KEY = "law-caddy-document-state";
 
 interface DocumentState {
@@ -88,6 +80,7 @@ export default function DocumentPage() {
     messages: chatMessages,
     isLoading: chatLoading,
     sendMessage,
+    startAutoReview,
   } = useDocumentChat(
     state?.docType ?? "상담 요약 리포트",
     finalDocument,
@@ -169,6 +162,13 @@ export default function DocumentPage() {
       clientMessage,
     }).catch(console.error);
   }, [clientMessage, state, msgSaved]);
+
+  // 문서 생성 완료 시 AI 자동 검토 시작
+  useEffect(() => {
+    if (finalDocument && status === "completed") {
+      startAutoReview();
+    }
+  }, [finalDocument, status, startAutoReview]);
 
   // 새 메시지 시 스크롤
   useEffect(() => {
@@ -407,22 +407,11 @@ export default function DocumentPage() {
             {/* 채팅 메시지 영역 */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {chatMessages.length === 0 && !chatLoading && (
-                <div className="text-center py-8 space-y-4">
+                <div className="text-center py-8 space-y-2">
                   <Bot className="w-8 h-8 text-gold/40 mx-auto" />
                   <p className="text-xs text-text-dim">
-                    문서에 대해 궁금한 점을 물어보세요
+                    {finalDocument ? "문서를 분석하고 있습니다..." : "문서가 생성되면 자동으로 검토를 시작합니다"}
                   </p>
-                  <div className="space-y-2">
-                    {QUICK_QUESTIONS.map((q) => (
-                      <button
-                        key={q}
-                        onClick={() => sendMessage(q)}
-                        className="block w-full text-left px-3 py-2 rounded-lg text-xs text-text-dim bg-navy-light border border-border hover:border-gold/30 hover:text-gold transition-colors"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -496,20 +485,11 @@ export default function DocumentPage() {
               {/* 모바일 채팅 메시지 */}
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {chatMessages.length === 0 && !chatLoading && (
-                  <div className="text-center py-8 space-y-4">
+                  <div className="text-center py-8 space-y-2">
                     <Bot className="w-8 h-8 text-gold/40 mx-auto" />
-                    <p className="text-xs text-text-dim">문서에 대해 궁금한 점을 물어보세요</p>
-                    <div className="space-y-2">
-                      {QUICK_QUESTIONS.map((q) => (
-                        <button
-                          key={q}
-                          onClick={() => sendMessage(q)}
-                          className="block w-full text-left px-3 py-2 rounded-lg text-xs text-text-dim bg-surface border border-border hover:border-gold/30 hover:text-gold transition-colors"
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="text-xs text-text-dim">
+                      {finalDocument ? "문서를 분석하고 있습니다..." : "문서가 생성되면 자동으로 검토를 시작합니다"}
+                    </p>
                   </div>
                 )}
 
