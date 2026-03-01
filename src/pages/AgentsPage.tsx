@@ -205,9 +205,13 @@ export default function AgentsPage() {
                   </p>
                 </div>
               )}
-              <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
-                {agents[activeTab].result}
-              </div>
+              {activeTab === "docgen" ? (
+                <DocgenResultView result={agents[activeTab].result} />
+              ) : (
+                <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
+                  {agents[activeTab].result}
+                </div>
+              )}
             </div>
           ) : agents[activeTab]?.status === "error" ? (
             <div className="text-error text-sm py-4">
@@ -314,5 +318,70 @@ export default function AgentsPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+/** 문서 작성 에이전트 결과를 체크포인트 질문 형태로 렌더링 */
+function DocgenResultView({ result }: { result: string }) {
+  const categoryColors: Record<string, string> = {
+    "증거확보": "bg-error/15 text-error",
+    "사실관계": "bg-info/15 text-info",
+    "법리검토": "bg-gold-dim text-gold",
+    "전략수립": "bg-success/15 text-success",
+    "절차확인": "bg-warning/15 text-warning",
+  };
+
+  let questions: Array<{
+    id: number;
+    question: string;
+    why: string;
+    category: string;
+  }> = [];
+
+  try {
+    let cleaned = result.trim();
+    const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      cleaned = codeBlockMatch[1].trim();
+    }
+    const jsonStart = cleaned.indexOf("[");
+    const jsonEnd = cleaned.lastIndexOf("]");
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      questions = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as typeof questions;
+    }
+  } catch {
+    // 파싱 실패 시 원시 텍스트 표시
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
+        {result}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-text-dim mb-2">
+        체크포인트 단계에서 확인할 {questions.length}개 질문이 생성되었습니다.
+      </p>
+      {questions.map((q) => (
+        <div key={q.id} className="bg-navy-light rounded-lg p-3 border border-border">
+          <div className="flex items-start gap-2">
+            <span className="w-5 h-5 rounded-full bg-gold-dim text-gold flex items-center justify-center text-xs font-medium shrink-0">
+              {q.id}
+            </span>
+            <div className="flex-1 min-w-0">
+              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium mb-1 ${categoryColors[q.category] ?? "bg-surface text-text-dim"}`}>
+                {q.category}
+              </span>
+              <p className="text-sm text-text-primary">{q.question}</p>
+              <p className="text-xs text-text-dim mt-1">{q.why}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

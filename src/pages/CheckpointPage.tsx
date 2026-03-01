@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
-  Loader2,
   Paperclip,
   Mic,
   MicOff,
@@ -17,7 +16,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
-import useDocument from "../hooks/useDocument";
+import { parseCheckQuestionsResponse } from "../hooks/useDocument";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 import type { CaseType, DocType } from "../types/agent";
 
@@ -81,7 +80,9 @@ export default function CheckpointPage() {
     } catch { return null; }
   })();
 
-  const { checkQuestions, generateCheckQuestions, status } = useDocument();
+  // 체크포인트 질문 (agentResults.docgen에서 파싱)
+  const [checkQuestions, setCheckQuestions] = useState<CheckQuestion[]>([]);
+  const [parseError, setParseError] = useState(false);
 
   // 각 질문별 답변 상태
   const [answers, setAnswers] = useState<Map<number, CheckpointAnswer>>(new Map());
@@ -103,18 +104,21 @@ export default function CheckpointPage() {
     timerInterval: null,
   });
 
-  // 질문 생성
+  // agentResults.docgen에서 체크포인트 질문 파싱
   useEffect(() => {
     if (!state || initialized) return;
     setInitialized(true);
-    generateCheckQuestions({
-      clientName: state.clientName,
-      caseType: state.caseType,
-      caseDesc: state.caseDesc,
-      docType: state.docType,
-      transcript: state.agentResults.stt ?? "",
-    });
-  }, [state, initialized, generateCheckQuestions]);
+
+    try {
+      const docgenResult = state.agentResults?.docgen;
+      if (docgenResult) {
+        const questions = parseCheckQuestionsResponse(docgenResult);
+        setCheckQuestions(questions);
+      }
+    } catch {
+      setParseError(true);
+    }
+  }, [state, initialized]);
 
   // 질문이 로드되면 첫 번째 질문 확장
   useEffect(() => {
@@ -325,10 +329,13 @@ export default function CheckpointPage() {
         )}
 
         {/* 질문 목록 */}
-        {status === "generating_questions" ? (
-          <div className="flex items-center gap-3 justify-center py-16 text-text-dim">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            선배 변호사가 체크리스트를 준비 중...
+        {parseError ? (
+          <div className="text-center py-16 text-text-dim">
+            체크포인트 질문을 불러오는 데 실패했습니다.
+          </div>
+        ) : checkQuestions.length === 0 && initialized ? (
+          <div className="text-center py-16 text-text-dim">
+            체크포인트 질문이 없습니다. 문서 생성을 진행하세요.
           </div>
         ) : (
           <div className="space-y-3">

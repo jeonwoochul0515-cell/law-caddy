@@ -11,7 +11,6 @@ import {
 } from "../services/prompts";
 import {
   isDemoMode,
-  DEMO_CHECK_QUESTIONS,
   DEMO_FINAL_DOCUMENT,
   DEMO_CLIENT_MESSAGE,
 } from "../config/demo";
@@ -20,8 +19,6 @@ import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 /** 문서 생성 단계 */
 type DocumentStatus =
   | "idle"
-  | "generating_questions"
-  | "checkpoint"
   | "generating_document"
   | "generating_message"
   | "completed"
@@ -38,8 +35,6 @@ function delay(ms: number): Promise<void> {
 
 /** useDocument 반환 타입 */
 interface UseDocumentReturn {
-  /** 체크포인트 질문 목록 */
-  checkQuestions: CheckQuestion[];
   /** 최종 생성된 문서 */
   finalDocument: string;
   /** 의뢰인 카카오톡 메시지 */
@@ -48,8 +43,6 @@ interface UseDocumentReturn {
   status: DocumentStatus;
   /** 에러 메시지 */
   error: string | null;
-  /** 체크포인트 질문 생성 */
-  generateCheckQuestions: (context: AgentContext) => Promise<void>;
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   generateDocument: (
     context: AgentContext,
@@ -68,7 +61,7 @@ interface UseDocumentReturn {
  * Claude 응답에서 JSON 배열을 파싱합니다.
  * 응답이 마크다운 코드블록으로 감싸져 있는 경우도 처리합니다.
  */
-function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
+export function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
   // 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
   let cleaned = response.trim();
   const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -125,46 +118,10 @@ function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
  * 4. generateClientMessage → 의뢰인 카카오톡 메시지 생성
  */
 export default function useDocument(): UseDocumentReturn {
-  const [checkQuestions, setCheckQuestions] = useState<CheckQuestion[]>([]);
   const [finalDocument, setFinalDocument] = useState("");
   const [clientMessage, setClientMessage] = useState("");
   const [status, setStatus] = useState<DocumentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-
-  /** 체크포인트 질문 생성 */
-  const generateCheckQuestions = useCallback(
-    async (context: AgentContext): Promise<void> => {
-      setStatus("generating_questions");
-      setError(null);
-
-      try {
-        // 데모 모드: 목 체크포인트 질문 반환
-        if (useDocumentDemoMode) {
-          await delay(1500);
-          setCheckQuestions(DEMO_CHECK_QUESTIONS);
-          setStatus("checkpoint");
-          return;
-        }
-
-        const prompt = buildPrompt("docgen_questions", context);
-        const userMessage = `"${context.docType}" 문서 작성 전 확인 사항을 JSON 배열로 제시해 주세요.`;
-
-        const response = await callClaude(prompt, userMessage);
-        const questions = parseCheckQuestionsResponse(response);
-
-        setCheckQuestions(questions);
-        setStatus("checkpoint");
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "체크포인트 질문 생성에 실패했습니다.";
-        setError(message);
-        setStatus("error");
-      }
-    },
-    [],
-  );
 
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   const generateDocument = useCallback(
@@ -250,7 +207,6 @@ export default function useDocument(): UseDocumentReturn {
 
   /** 상태 초기화 */
   const reset = useCallback(() => {
-    setCheckQuestions([]);
     setFinalDocument("");
     setClientMessage("");
     setStatus("idle");
@@ -258,12 +214,10 @@ export default function useDocument(): UseDocumentReturn {
   }, []);
 
   return {
-    checkQuestions,
     finalDocument,
     clientMessage,
     status,
     error,
-    generateCheckQuestions,
     generateDocument,
     generateClientMessage,
     updateFinalDocument,
