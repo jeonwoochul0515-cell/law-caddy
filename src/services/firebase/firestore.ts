@@ -182,21 +182,28 @@ export async function createRecording(
  * 특정 사건의 녹음 목록을 조회합니다.
  *
  * @param caseId - 사건 ID
+ * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
  * @returns 녹음 목록 (최신순)
  */
-export async function getRecordings(caseId: string): Promise<Recording[]> {
+export async function getRecordings(caseId: string, ownerId: string): Promise<Recording[]> {
   try {
     const q = query(
       collection(db!, "recordings"),
       where("caseId", "==", caseId),
-      orderBy("createdAt", "desc")
+      where("ownerId", "==", ownerId),
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((docSnap) => ({
+    const results = snapshot.docs.map((docSnap) => ({
       ...docSnap.data(),
       id: docSnap.id,
     })) as Recording[];
+    // 복합 인덱스 없이 메모리에서 최신순 정렬
+    return results.sort((a, b) => {
+      const ta = a.createdAt?.seconds ?? 0;
+      const tb = b.createdAt?.seconds ?? 0;
+      return tb - ta;
+    });
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`녹음 목록 조회 실패: ${error.message}`);
@@ -259,21 +266,27 @@ export async function createDocument(
  * 특정 사건의 문서 목록을 조회합니다.
  *
  * @param caseId - 사건 ID
+ * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
  * @returns 문서 목록 (최신순)
  */
-export async function getDocuments(caseId: string): Promise<LegalDocument[]> {
+export async function getDocuments(caseId: string, ownerId: string): Promise<LegalDocument[]> {
   try {
     const q = query(
       collection(db!, "documents"),
       where("caseId", "==", caseId),
-      orderBy("createdAt", "desc")
+      where("ownerId", "==", ownerId),
     );
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map((docSnap) => ({
+    const results = snapshot.docs.map((docSnap) => ({
       ...docSnap.data(),
       id: docSnap.id,
     })) as LegalDocument[];
+    return results.sort((a, b) => {
+      const ta = a.createdAt?.seconds ?? 0;
+      const tb = b.createdAt?.seconds ?? 0;
+      return tb - ta;
+    });
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`문서 목록 조회 실패: ${error.message}`);
@@ -351,19 +364,27 @@ export async function createOpponentDoc(
 
 /**
  * 특정 사건의 상대방 서면 목록을 조회합니다.
+ *
+ * @param caseId - 사건 ID
+ * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
  */
-export async function getOpponentDocs(caseId: string): Promise<OpponentDoc[]> {
+export async function getOpponentDocs(caseId: string, ownerId: string): Promise<OpponentDoc[]> {
   try {
     const q = query(
       collection(db!, "opponentDocs"),
       where("caseId", "==", caseId),
-      orderBy("createdAt", "desc")
+      where("ownerId", "==", ownerId),
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) => ({
+    const results = snapshot.docs.map((docSnap) => ({
       ...docSnap.data(),
       id: docSnap.id,
     })) as OpponentDoc[];
+    return results.sort((a, b) => {
+      const ta = a.createdAt?.seconds ?? 0;
+      const tb = b.createdAt?.seconds ?? 0;
+      return tb - ta;
+    });
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`상대방 서면 조회 실패: ${error.message}`);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc } from "../services/firebase/firestore";
 import { uploadOpponentDocFile } from "../services/firebase/storage";
 import { isDemoMode, mockTimestamp } from "../config/demo";
+import useAuth from "./useAuth";
 import type { Case, TimelineEvent, OpponentDoc } from "../types/case";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
@@ -21,6 +22,7 @@ interface UseCaseDetailReturn {
 }
 
 export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
+  const user = useAuth((s) => s.user);
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [documents, setDocuments] = useState<LegalDocument[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -29,7 +31,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
-    if (!caseId) return;
+    if (!caseId || !user) return;
     setLoading(true);
     setError(null);
 
@@ -42,9 +44,9 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
       } else {
         const [c, docs, recs, oppDocs] = await Promise.all([
           getCase(caseId),
-          getDocuments(caseId),
-          getRecordings(caseId),
-          getOpponentDocs(caseId),
+          getDocuments(caseId, user.uid),
+          getRecordings(caseId, user.uid),
+          getOpponentDocs(caseId, user.uid),
         ]);
         setCaseData(c);
         setDocuments(docs);
@@ -61,7 +63,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     } finally {
       setLoading(false);
     }
-  }, [caseId]);
+  }, [caseId, user]);
 
   useEffect(() => {
     fetchAll();
