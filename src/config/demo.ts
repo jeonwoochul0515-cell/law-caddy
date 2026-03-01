@@ -1075,18 +1075,38 @@ export const DEMO_DOCUMENTS: LegalDocument[] = [
     ownerId: "demo-user-001",
     docType: "고소장",
     agentResults: {
-      precedent: "",
-      legal: "",
-      stt: "",
-      analysis: "",
-      docgen: "",
-      review: "",
+      precedent: "## 유사 판례\n\n### 1. 대법원 2020도4567\n- **판결 요지**: 인터넷 중고거래 사기에서 편취 의사 인정 기준\n- **핵심 쟁점**: 물품 미발송과 기망 행위의 인과관계\n- **본 사건 시사점**: 유리 — 다수 피해자 존재 시 상습사기 적용 가능\n\n### 2. 대법원 2018도12345\n- **판결 요지**: 온라인 사기 피해액 산정 및 양형 기준\n- **핵심 쟁점**: 피해액 180만 원은 벌금형이나 실형도 가능한 구간",
+      legal: "## 적법성 검증\n\n### 1. 통신비밀보호법\n- 당사자 간 대면 상담 녹음: 적법\n\n### 2. 형사소송법\n- 사기죄 고소 시효: 범행 인지일로부터 6개월 이내 고소 필요",
+      stt: "[변호사] 안녕하세요, 사기 피해를 당하신 건이죠?\n[의뢰인] 네, 중고나라에서 노트북 사려고 180만 원 보냈는데 물건도 안 보내고 연락이 끊겼어요.\n[변호사] 송금 내역은 갖고 계시죠?\n[의뢰인] 네, 카카오뱅크 이체 내역이 있어요.\n[변호사] 판매자 정보는 어디까지 알고 계세요?\n[의뢰인] 계좌번호랑 핸드폰 번호만 알아요. 다른 피해자들도 있는 것 같아요.",
+      analysis: "## 핵심 쟁점\n\n### 1. 사기죄 구성요건 충족 여부\n- 관련 법조문: 형법 제347조\n- 판단: 유리 — 기망행위 + 재산 처분행위 + 피해 발생\n\n### 2. 상습사기 적용 가능성\n- 관련 법조문: 형법 제351조\n- 판단: 유리 — 다수 피해자 존재 시 상습성 인정\n\n### 3. 피해금 회수 가능성\n- 관련 법조문: 형사소송법 제25조(배상명령)\n- 판단: 보통 — 범인 특정 후 재산 확인 필요",
+      docgen: "고소장 초안이 작성되었습니다.",
+      review: "## 품질 평가\n- 형식: 5/5\n- 법적 정확성: 4/5\n- 논리: 5/5\n- 설득력: 4/5\n- 완성도: 4/5\n\n## 수정 제안\n1. 피해 금액에 대한 증거자료 목록 보강\n2. 다른 피해자 관련 정보 추가 확보 필요",
     },
     checkQuestions: [],
     answeredChecks: {},
-    finalDocument: "",
-    status: "processing",
+    finalDocument: getDemoFinalDocument("고소장", "온라인 중고거래 사기", "형사"),
+    status: "completed",
     createdAt: mockTimestamp(new Date("2025-08-07T11:00:00Z")),
+  },
+  {
+    id: "demo-doc-003",
+    caseId: "demo-case-003",
+    recordingId: "demo-rec-003",
+    ownerId: "demo-user-001",
+    docType: "소장",
+    agentResults: {
+      precedent: "## 유사 판례\n\n### 1. 대법원 2021므56789\n- **판결 요지**: 배우자의 도박 습관이 혼인 파탄의 원인인 경우 유책배우자 판단\n- **핵심 쟁점**: 도박으로 인한 경제적 파탄과 이혼 사유\n- **본 사건 시사점**: 유리 — 반복적 도박은 민법 제840조 제6호 사유 해당\n\n### 2. 서울가정법원 2020드합12345\n- **판결 요지**: 미성년 자녀의 양육권 판단 시 주된 양육자 기준\n- **핵심 쟁점**: 양육 환경 안정성과 자녀 의사 반영\n- **본 사건 시사점**: 유리 — 주된 양육자로서 양육권 확보 가능",
+      legal: "## 적법성 검증\n\n### 1. 통신비밀보호법\n- 당사자 간 대면 상담 녹음: 적법\n\n### 2. 가사소송법\n- 이혼 소송 관할: 부부 최후 공동 주소지 가정법원",
+      stt: "[변호사] 안녕하세요, 이혼 상담으로 오셨죠?\n[의뢰인] 네, 남편이 도박을 계속해서 더 이상 못 살겠어요.\n[변호사] 혼인 기간과 자녀가 어떻게 되시나요?\n[의뢰인] 결혼한 지 12년이고, 아이가 둘 있어요. 10살, 7살이요.\n[변호사] 남편 도박이 언제부터인가요?\n[의뢰인] 한 5년 전부터요. 빚이 3천만 원 정도 있어요.\n[변호사] 재산분할은 어떻게 생각하세요?\n[의뢰인] 아파트가 하나 있는데 제가 가져야 아이들 키울 수 있어요.",
+      analysis: "## 핵심 쟁점\n\n### 1. 이혼 사유 충족 여부\n- 관련 법조문: 민법 제840조 제6호\n- 판단: 유리 — 배우자의 도박으로 인한 경제적 무책임\n\n### 2. 양육권 확보\n- 관련 법조문: 민법 제837조, 제837조의2\n- 판단: 유리 — 주된 양육자이며 안정적 양육 환경 제공 가능\n\n### 3. 재산분할 비율\n- 관련 법조문: 민법 제839조의2\n- 판단: 유리 — 상대방 유책 + 양육 부담으로 6:4 이상 기대",
+      docgen: "이혼 소장 초안이 작성되었습니다.",
+      review: "## 품질 평가\n- 형식: 5/5\n- 법적 정확성: 5/5\n- 논리: 4/5\n- 설득력: 5/5\n- 완성도: 4/5\n\n## 수정 제안\n1. 도박 관련 증거자료(카드 내역, 대출 기록) 첨부 필요\n2. 자녀 양육 계획서 구체화 권장",
+    },
+    checkQuestions: [],
+    answeredChecks: {},
+    finalDocument: getDemoFinalDocument("소장", "이혼 양육권 재산분할", "가사"),
+    status: "completed",
+    createdAt: mockTimestamp(new Date("2025-06-25T10:00:00Z")),
   },
 ];
 
@@ -1114,6 +1134,8 @@ export const DEMO_RECORDINGS: Recording[] = [
     fileSizeMB: 8.7,
     durationSeconds: 1205,
     sttStatus: "completed",
+    transcript:
+      "[변호사] 안녕하세요, 사기 피해를 당하신 건이죠?\n[의뢰인] 네, 중고나라에서 노트북 사려고 180만 원 보냈는데 물건도 안 보내고 연락이 끊겼어요.\n[변호사] 송금 내역은 갖고 계시죠?\n[의뢰인] 네, 카카오뱅크 이체 내역이 있어요.\n[변호사] 판매자 정보는 어디까지 알고 계세요?\n[의뢰인] 계좌번호랑 핸드폰 번호만 알아요. 다른 피해자들도 있는 것 같아요.",
     createdAt: mockTimestamp(new Date("2025-08-05T11:00:00Z")),
   },
   {
@@ -1188,6 +1210,7 @@ ${firmName} ${lawyerName} 변호사`;
 
 /** 데모 상대방 서면 목록 */
 export const DEMO_OPPONENT_DOCS: OpponentDoc[] = [
+  // demo-case-001 (박영수 - 부동산)
   {
     id: "demo-opp-001",
     caseId: "demo-case-001",
@@ -1207,6 +1230,48 @@ export const DEMO_OPPONENT_DOCS: OpponentDoc[] = [
     fileSizeMB: 0.8,
     docLabel: "매매계약서 사본",
     createdAt: mockTimestamp(new Date("2025-07-15T14:30:00Z")),
+  },
+  // demo-case-002 (이서연 - 형사/사기)
+  {
+    id: "demo-opp-003",
+    caseId: "demo-case-002",
+    ownerId: "demo-user-001",
+    fileName: "카카오뱅크_이체내역.pdf",
+    fileUrl: "#",
+    fileSizeMB: 0.3,
+    docLabel: "송금 증빙자료",
+    createdAt: mockTimestamp(new Date("2025-08-06T10:00:00Z")),
+  },
+  {
+    id: "demo-opp-004",
+    caseId: "demo-case-002",
+    ownerId: "demo-user-001",
+    fileName: "중고나라_채팅내역_캡처.pdf",
+    fileUrl: "#",
+    fileSizeMB: 2.1,
+    docLabel: "판매자 채팅 내역",
+    createdAt: mockTimestamp(new Date("2025-08-08T15:00:00Z")),
+  },
+  // demo-case-003 (최민정 - 가사/이혼)
+  {
+    id: "demo-opp-005",
+    caseId: "demo-case-003",
+    ownerId: "demo-user-001",
+    fileName: "혼인관계증명서.pdf",
+    fileUrl: "#",
+    fileSizeMB: 0.2,
+    docLabel: "혼인관계증명서",
+    createdAt: mockTimestamp(new Date("2025-06-21T09:00:00Z")),
+  },
+  {
+    id: "demo-opp-006",
+    caseId: "demo-case-003",
+    ownerId: "demo-user-001",
+    fileName: "배우자_카드대출내역.pdf",
+    fileUrl: "#",
+    fileSizeMB: 0.5,
+    docLabel: "배우자 도박 관련 대출 내역",
+    createdAt: mockTimestamp(new Date("2025-06-22T11:30:00Z")),
   },
 ];
 
