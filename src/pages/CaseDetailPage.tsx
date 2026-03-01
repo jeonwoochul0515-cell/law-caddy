@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, LayoutGrid, Clock, FileText, Loader2 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
+import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
 import CaseHeader from "../components/cases/CaseHeader";
 import OverviewTab from "../components/cases/OverviewTab";
@@ -14,6 +15,7 @@ export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("overview");
+  const user = useAuth((s) => s.user);
 
   const {
     caseData,
@@ -137,6 +139,9 @@ export default function CaseDetailPage() {
           onNavigateToRecord={handleNavigateToRecord}
           onUploadOpponentDoc={uploadOpponentDoc}
           onRemoveOpponentDoc={removeOpponentDoc}
+          caseDesc={caseData?.description}
+          firmName={user?.firmName}
+          lawyerName={user?.name}
         />
       )}
     </AppLayout>

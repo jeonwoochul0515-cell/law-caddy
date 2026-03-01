@@ -32,6 +32,9 @@ interface DocumentsTabProps {
   onNavigateToRecord: () => void;
   onUploadOpponentDoc: (file: File, label: string) => Promise<void>;
   onRemoveOpponentDoc: (docId: string) => Promise<void>;
+  caseDesc?: string;
+  firmName?: string;
+  lawyerName?: string;
 }
 
 export default function DocumentsTab({
@@ -41,6 +44,9 @@ export default function DocumentsTab({
   onNavigateToRecord,
   onUploadOpponentDoc,
   onRemoveOpponentDoc,
+  caseDesc,
+  firmName,
+  lawyerName,
 }: DocumentsTabProps) {
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [expandedRecId, setExpandedRecId] = useState<string | null>(null);
@@ -243,6 +249,9 @@ export default function DocumentsTab({
         opponentDocs={opponentDocs}
         onUpload={onUploadOpponentDoc}
         onRemove={onRemoveOpponentDoc}
+        caseDesc={caseDesc}
+        firmName={firmName}
+        lawyerName={lawyerName}
       />
     </div>
   );

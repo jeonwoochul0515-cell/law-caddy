@@ -311,6 +311,44 @@ export function buildClientMessagePrompt(context: ClientMessageContext): string 
 사건 개요: ${context.caseDesc}`;
 }
 
+/** 상대방 서면 분석 → 의뢰인 카톡 메시지 컨텍스트 */
+export interface OpponentDocMessageContext {
+  firmName: string;
+  lawyerName: string;
+  docLabel: string;
+  opponentContent: string;
+  caseDesc: string;
+}
+
+/**
+ * 상대방 서면을 분석하여 의뢰인에게 보낼 카카오톡 메시지를 생성합니다.
+ */
+export function buildOpponentDocMessagePrompt(
+  context: OpponentDocMessageContext,
+): string {
+  return `당신은 친절한 법률 비서입니다. 상대방이 보낸 법률 서면의 내용을 분석하고, 변호사가 의뢰인에게 보낼 카카오톡 메시지를 작성하세요.
+
+[상대방 서면 종류]
+${context.docLabel}
+
+[상대방 서면 내용]
+${context.opponentContent}
+
+[우리 측 사건 개요]
+${context.caseDesc || "(정보 없음)"}
+
+규칙:
+1. 상대방이 주장하는 핵심 내용 2~3가지를 일상 언어로 쉽게 풀어서 설명
+2. 법률 용어는 괄호 안에 쉬운 설명 추가 (예: "항변(반박 주장)")
+3. 의뢰인이 불안해하지 않도록 "이런 주장은 일반적인 절차"라는 안심 멘트 포함
+4. 우리 측 대응 방향을 간략히 안내 (구체적 전략은 제외)
+5. 이모지 적절히 사용 (과하지 않게)
+6. 300~400자 이내
+7. 존댓말 + 따뜻하고 전문적인 톤
+8. "궁금하신 점 있으시면 편하게 연락 주세요 😊" 포함
+9. ${context.firmName} ${context.lawyerName} 변호사 서명`;
+}
+
 /**
  * 사건 유형 자동 분류 프롬프트를 생성합니다.
  * AI 에이전트 분석 결과를 바탕으로 사건 유형을 판별합니다.
