@@ -12,7 +12,7 @@ import {
 import {
   isDemoMode,
   getDemoFinalDocument,
-  DEMO_CLIENT_MESSAGE,
+  getDemoClientMessage,
 } from "../config/demo";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
@@ -174,10 +174,10 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        // 데모 모드: 목 카카오톡 메시지 반환
+        // 데모 모드: 컨텍스트에 맞는 카카오톡 메시지 반환
         if (useDocumentDemoMode) {
           await delay(1000);
-          setClientMessage(DEMO_CLIENT_MESSAGE);
+          setClientMessage(getDemoClientMessage(context));
           setStatus("completed");
           return;
         }
