@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import { parseCheckQuestionsResponse } from "../hooks/useDocument";
@@ -302,6 +303,15 @@ export default function CheckpointPage() {
   return (
     <AppLayout title="체크포인트" subtitle={`${state.clientName} - ${state.docType}`}>
       <div className="max-w-3xl">
+        {/* 이전 단계 */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 mb-4 text-sm text-text-dim hover:text-text-primary transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          이전 단계
+        </button>
+
         {/* 안내 배너 */}
         <div className="bg-gold-dim border border-gold/20 rounded-xl p-4 mb-6">
           <p className="text-sm text-gold font-medium mb-1">

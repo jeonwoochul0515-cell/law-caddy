@@ -14,6 +14,7 @@ import {
   X,
   MessageCircle,
   AlertTriangle,
+  ChevronLeft,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
@@ -79,6 +80,7 @@ export default function DocumentPage() {
     generateClientMessage,
     updateFinalDocument,
     status,
+    error: docError,
   } = useDocument();
 
   const {
@@ -209,6 +211,15 @@ export default function DocumentPage() {
 
   return (
     <AppLayout title="문서 생성" subtitle={`${state.clientName} - ${state.docType}`}>
+      {/* 이전 단계 */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1.5 mb-4 text-sm text-text-dim hover:text-text-primary transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        이전 단계
+      </button>
+
       {/* 탭 */}
       <div className="flex gap-2 mb-4">
         <button
@@ -292,6 +303,21 @@ export default function DocumentPage() {
                 <div className="flex items-center gap-3 justify-center py-16 text-text-dim">
                   <Loader2 className="w-5 h-5 animate-spin" />
                   문서 생성 중...
+                </div>
+              ) : status === "error" && docError ? (
+                <div className="text-center py-16">
+                  <AlertTriangle className="w-8 h-8 text-error mx-auto mb-3" />
+                  <p className="text-error font-medium mb-2">문서 생성 실패</p>
+                  <p className="text-sm text-text-dim mb-4 max-w-md mx-auto">{docError}</p>
+                  <button
+                    onClick={() => {
+                      if (!state) return;
+                      setInitialized(false);
+                    }}
+                    className="px-4 py-2 bg-gold-dim text-gold rounded-lg hover:bg-gold/20 transition-colors text-sm"
+                  >
+                    다시 시도
+                  </button>
                 </div>
               ) : finalDocument ? (
                 <div className="whitespace-pre-wrap text-sm text-text-primary leading-relaxed font-mono">

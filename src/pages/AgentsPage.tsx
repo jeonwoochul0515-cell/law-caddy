@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, Sparkles, FileText, AlertTriangle, FolderPlus } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle, FolderPlus } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import useCases from "../hooks/useCases";
@@ -144,6 +144,15 @@ export default function AgentsPage() {
 
   return (
     <AppLayout title="AI 분석" subtitle={state.clientName}>
+      {/* 이전 단계 */}
+      <button
+        onClick={() => navigate("/record")}
+        className="flex items-center gap-1.5 mb-4 text-sm text-text-dim hover:text-text-primary transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        이전 단계
+      </button>
+
       {/* AI 분류 사건 유형 뱃지 */}
       <div className="mb-4 flex items-center gap-2">
         {isClassifying && (

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, Camera, FileText, Image, Music, Film, X, Plus, Type } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -172,13 +172,22 @@ export default function RecordPage() {
               />
             </div>
 
-            <button
-              onClick={handleNext}
-              disabled={!clientName || !caseDesc}
-              className="w-full py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              다음: 녹음/업로드
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                뒤로
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={!clientName || !caseDesc}
+                className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                다음: 녹음/업로드
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -355,18 +364,25 @@ export default function RecordPage() {
             </div>
           )}
 
-          {/* AI 분석 시작 버튼 (파일 또는 텍스트 입력 시 표시) */}
-          {(files.length > 0 || typedNotes.trim()) && (
-            <div>
+          {/* 하단 버튼 */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep("info")}
+              className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              이전
+            </button>
+            {(files.length > 0 || typedNotes.trim()) && (
               <button
                 onClick={handleNext}
                 disabled={uploading}
-                className="w-full py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {uploading ? "업로드 중..." : "AI 분석 시작"}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </AppLayout>
