@@ -22,7 +22,9 @@ interface UseDocumentChatReturn {
   clearHistory: () => void;
 }
 
-const hasAnthropicKey = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
+function hasAnthropicKey(): boolean {
+  return !!import.meta.env.VITE_ANTHROPIC_API_KEY;
+}
 
 /** 응답에서 수정안 블록 파싱 */
 function parseSuggestedEdit(content: string): {
@@ -67,7 +69,7 @@ export default function useDocumentChat(
       setIsLoading(true);
 
       try {
-        if (!hasAnthropicKey) {
+        if (!hasAnthropicKey()) {
           throw new Error("Anthropic API 키가 설정되지 않았습니다.");
         }
 

@@ -19,8 +19,10 @@ type DocumentStatus =
   | "completed"
   | "error";
 
-/** Claude API 사용 가능 여부 */
-const hasAnthropicKey = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
+/** Claude API 사용 가능 여부 (호출 시점에 확인) */
+function hasAnthropicKey(): boolean {
+  return !!import.meta.env.VITE_ANTHROPIC_API_KEY;
+}
 
 /** useDocument 반환 타입 */
 interface UseDocumentReturn {
@@ -124,7 +126,7 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        if (!hasAnthropicKey) {
+        if (!hasAnthropicKey()) {
           throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
         }
 
@@ -163,7 +165,7 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        if (!hasAnthropicKey) {
+        if (!hasAnthropicKey()) {
           throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
         }
 
