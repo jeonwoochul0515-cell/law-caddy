@@ -22,10 +22,6 @@ interface UseDocumentChatReturn {
   clearHistory: () => void;
 }
 
-function hasAnthropicKey(): boolean {
-  return !!import.meta.env.VITE_ANTHROPIC_API_KEY;
-}
-
 /** 응답에서 수정안 블록 파싱 */
 function parseSuggestedEdit(content: string): {
   displayContent: string;
@@ -69,10 +65,6 @@ export default function useDocumentChat(
       setIsLoading(true);
 
       try {
-        if (!hasAnthropicKey()) {
-          throw new Error("Anthropic API 키가 설정되지 않았습니다.");
-        }
-
         // 시스템 프롬프트 (현재 문서 내용 반영)
         const systemPrompt = buildDocumentChatPrompt(docType, documentRef.current);
 

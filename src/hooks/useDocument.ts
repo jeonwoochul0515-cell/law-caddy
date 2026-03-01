@@ -19,10 +19,6 @@ type DocumentStatus =
   | "completed"
   | "error";
 
-/** Claude API 사용 가능 여부 (호출 시점에 확인) */
-function hasAnthropicKey(): boolean {
-  return !!import.meta.env.VITE_ANTHROPIC_API_KEY;
-}
 
 /** useDocument 반환 타입 */
 interface UseDocumentReturn {
@@ -121,15 +117,11 @@ export default function useDocument(): UseDocumentReturn {
       questions: CheckQuestion[],
       answers: CheckpointAnswer[],
     ): Promise<void> => {
-      console.log("[useDocument] generateDocument 시작", { docType: context.docType, hasKey: hasAnthropicKey });
+      console.log("[useDocument] generateDocument 시작", { docType: context.docType });
       setStatus("generating_document");
       setError(null);
 
       try {
-        if (!hasAnthropicKey()) {
-          throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
-        }
-
         // 체크포인트 상세 응답을 컨텍스트에 포함
         const contextWithAnswers: AgentContext = {
           ...context,
@@ -165,10 +157,6 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        if (!hasAnthropicKey()) {
-          throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
-        }
-
         const prompt = buildClientMessagePrompt(context);
         const userMessage = "의뢰인에게 보낼 카카오톡 메시지를 작성해 주세요.";
 
