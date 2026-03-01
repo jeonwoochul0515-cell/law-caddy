@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Loader2,
   Download,
+  Save,
   Send,
   Bot,
   User,
@@ -19,7 +20,7 @@ import {
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
 import useDocumentChat, { type DocChatMessage } from "../hooks/useDocumentChat";
-import { updateDocument, addTimelineEvent } from "../services/firebase/firestore";
+import { updateDocument, createDocument, addTimelineEvent } from "../services/firebase/firestore";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
@@ -102,6 +103,8 @@ export default function DocumentPage() {
 
   const [docSaved, setDocSaved] = useState(false);
   const [msgSaved, setMsgSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     console.log("[DocumentPage] useEffect 실행", { hasState: !!state, initialized, status });
@@ -210,6 +213,44 @@ export default function DocumentPage() {
     updateFinalDocument(edit);
   };
 
+  const handleSave = async () => {
+    if (!state || !finalDocument || saving) return;
+    setSaving(true);
+    try {
+      if (state.documentId) {
+        await updateDocument(state.documentId, {
+          finalDocument,
+          status: "completed",
+        });
+      } else {
+        await createDocument({
+          caseId: state.caseId ?? "",
+          recordingId: "",
+          ownerId: state.ownerId,
+          docType: state.docType,
+          agentResults: {
+            precedent: state.agentResults?.precedent ?? "",
+            legal: state.agentResults?.legal ?? "",
+            stt: state.agentResults?.stt ?? "",
+            analysis: state.agentResults?.analysis ?? "",
+            docgen: state.agentResults?.docgen ?? "",
+            review: state.agentResults?.review ?? "",
+          },
+          checkQuestions: state.checkQuestions ?? [],
+          answeredChecks: {},
+          finalDocument,
+          status: "completed",
+        });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("문서 저장 실패:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!state) {
     return (
       <AppLayout title="문서 생성" subtitle="">
@@ -302,6 +343,20 @@ export default function DocumentPage() {
                     >
                       <Download className="w-3.5 h-3.5" />
                       내보내기
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors disabled:opacity-40"
+                    >
+                      {saving ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : saved ? (
+                        <Check className="w-3.5 h-3.5 text-success" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5" />
+                      )}
+                      {saving ? "저장 중..." : saved ? "저장됨" : "저장하기"}
                     </button>
                   </>
                 )}
