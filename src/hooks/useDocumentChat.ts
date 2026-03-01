@@ -4,7 +4,6 @@
 import { useState, useCallback, useRef } from "react";
 import { callClaudeChat, type ChatMessage } from "../services/claude";
 import { buildDocumentChatPrompt } from "../services/prompts";
-import { isDemoMode } from "../config/demo";
 import type { DocType } from "../types/document";
 
 /** 채팅 메시지 (UI용) */
@@ -23,12 +22,7 @@ interface UseDocumentChatReturn {
   clearHistory: () => void;
 }
 
-const useChatDemoMode =
-  isDemoMode || !import.meta.env.VITE_ANTHROPIC_API_KEY;
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const hasAnthropicKey = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
 
 /** 응답에서 수정안 블록 파싱 */
 function parseSuggestedEdit(content: string): {
@@ -73,15 +67,8 @@ export default function useDocumentChat(
       setIsLoading(true);
 
       try {
-        if (useChatDemoMode) {
-          await delay(1500);
-          const demoResponse: DocChatMessage = {
-            id: `msg-${++messageCounter}`,
-            role: "assistant",
-            content: `좋은 질문입니다.\n\n이 "${docType}" 문서에서 해당 부분은 관련 법조문에 근거하여 작성되었습니다. 구체적으로 살펴보면:\n\n1. **법적 근거**: 민법 관련 조항에 의거\n2. **실무 관행**: 법원 판례 동향과 일치\n3. **개선 방향**: 더 구체적인 사실관계 기재 권장\n\n추가로 궁금한 점이 있으시면 말씀해 주세요.`,
-          };
-          setMessages((prev) => [...prev, demoResponse]);
-          return;
+        if (!hasAnthropicKey) {
+          throw new Error("Anthropic API 키가 설정되지 않았습니다.");
         }
 
         // 시스템 프롬프트 (현재 문서 내용 반영)
