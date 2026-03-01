@@ -11,7 +11,7 @@ import {
 } from "../services/prompts";
 import {
   isDemoMode,
-  DEMO_FINAL_DOCUMENT,
+  getDemoFinalDocument,
   DEMO_CLIENT_MESSAGE,
 } from "../config/demo";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
@@ -134,10 +134,10 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        // 데모 모드: 목 법률 문서 반환
+        // 데모 모드: docType에 맞는 데모 문서 반환
         if (useDocumentDemoMode) {
           await delay(2000);
-          setFinalDocument(DEMO_FINAL_DOCUMENT);
+          setFinalDocument(getDemoFinalDocument(context.docType));
           setStatus("completed");
           return;
         }
