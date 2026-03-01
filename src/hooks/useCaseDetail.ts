@@ -42,16 +42,24 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setRecordings([]);
         setOpponentDocs([]);
       } else {
-        const [c, docs, recs, oppDocs] = await Promise.all([
-          getCase(caseId),
+        // 사건 데이터를 먼저 로드 (필수)
+        const c = await getCase(caseId);
+        setCaseData(c);
+
+        // 하위 데이터는 개별 로드 (하나 실패해도 나머지 표시)
+        const [docsResult, recsResult, oppDocsResult] = await Promise.allSettled([
           getDocuments(caseId, user.uid),
           getRecordings(caseId, user.uid),
           getOpponentDocs(caseId, user.uid),
         ]);
-        setCaseData(c);
-        setDocuments(docs);
-        setRecordings(recs);
-        setOpponentDocs(oppDocs);
+        setDocuments(docsResult.status === "fulfilled" ? docsResult.value : []);
+        setRecordings(recsResult.status === "fulfilled" ? recsResult.value : []);
+        setOpponentDocs(oppDocsResult.status === "fulfilled" ? oppDocsResult.value : []);
+
+        // 실패한 쿼리 로깅
+        [docsResult, recsResult, oppDocsResult].forEach((r) => {
+          if (r.status === "rejected") console.warn("하위 데이터 로딩 실패:", r.reason);
+        });
       }
     } catch (err: unknown) {
       console.error("사건 데이터 로딩 실패:", err);
