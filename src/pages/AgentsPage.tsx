@@ -5,7 +5,8 @@ import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import useCases from "../hooks/useCases";
 import { AGENTS, DOC_TYPES } from "../config/constants";
-import { isDemoMode } from "../config/demo";
+import { createDocument, addTimelineEvent, createRecording } from "../services/firebase/firestore";
+import { uploadRecordingFile } from "../services/firebase/storage";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -73,23 +74,48 @@ export default function AgentsPage() {
     });
   }, [state, started, runAllAgents]);
 
+  const [isNavigating, setIsNavigating] = useState(false);
+
   const handleCreateCase = async () => {
     if (!state || !classifiedCaseType || isCreatingCase || createdCaseId) return;
     setIsCreatingCase(true);
     setCaseError(null);
 
     try {
-      if (isDemoMode) {
-        await new Promise((r) => setTimeout(r, 800));
-        setCreatedCaseId(`demo-case-${Date.now()}`);
-      } else {
-        const caseId = await addCase({
-          clientName: state.clientName,
-          caseType: classifiedCaseType as CaseType,
-          description: state.caseDesc,
-        });
-        setCreatedCaseId(caseId);
+      const caseId = await addCase({
+        clientName: state.clientName,
+        caseType: classifiedCaseType as CaseType,
+        description: state.caseDesc,
+      });
+      setCreatedCaseId(caseId);
+
+      // 녹음 파일이 있으면 Storage 업로드 + recordings 컬렉션 생성
+      const files = rawState?.files;
+      if (files && files.length > 0) {
+        for (const file of files) {
+          try {
+            const fileUrl = await uploadRecordingFile(file, state.ownerId, caseId);
+            await createRecording({
+              caseId,
+              ownerId: state.ownerId,
+              fileName: file.name,
+              fileUrl,
+              fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+              durationSeconds: 0,
+              sttStatus: "pending",
+            });
+          } catch (uploadErr) {
+            console.error("파일 업로드 실패:", uploadErr);
+          }
+        }
       }
+
+      // 타임라인에 상담 기록 추가
+      await addTimelineEvent(caseId, {
+        type: "consult",
+        label: "상담 접수",
+        detail: `의뢰인 ${state.clientName}의 상담이 접수되었습니다.`,
+      }).catch(console.error);
     } catch (err: unknown) {
       setCaseError(err instanceof Error ? err.message : "사건 파일 생성 중 오류가 발생했습니다.");
     } finally {
@@ -295,24 +321,71 @@ export default function AgentsPage() {
           </div>
           <div className="flex justify-end pt-1">
             <button
-              disabled={!selectedDocType}
-              onClick={() =>
-                navigate("/record/checkpoint", {
-                  state: {
-                    ...state,
+              disabled={!selectedDocType || isNavigating}
+              onClick={async () => {
+                if (!selectedDocType || !createdCaseId) return;
+                setIsNavigating(true);
+
+                const agentResults = Object.fromEntries(
+                  Object.entries(agents).map(([k, v]) => [k, v.result])
+                ) as Record<string, string>;
+
+                try {
+                  // Firestore documents 컬렉션에 에이전트 결과 저장
+                  const docId = await createDocument({
                     caseId: createdCaseId,
-                    caseType: classifiedCaseType ?? "기타",
+                    recordingId: "",
+                    ownerId: state.ownerId,
                     docType: selectedDocType,
-                    agentResults: Object.fromEntries(
-                      Object.entries(agents).map(([k, v]) => [k, v.result])
-                    ),
-                  },
-                })
-              }
+                    agentResults: {
+                      precedent: agentResults.precedent ?? "",
+                      legal: agentResults.legal ?? "",
+                      stt: agentResults.stt ?? "",
+                      analysis: agentResults.analysis ?? "",
+                      docgen: agentResults.docgen ?? "",
+                      review: agentResults.review ?? "",
+                    },
+                    checkQuestions: [],
+                    answeredChecks: {},
+                    finalDocument: "",
+                    status: "checkpoint",
+                  });
+                  // 타임라인 이벤트 추가
+                  await addTimelineEvent(createdCaseId, {
+                    type: "doc",
+                    label: "AI 에이전트 분석 완료",
+                    detail: `6개 에이전트 분석 완료. ${selectedDocType} 문서 유형 선택.`,
+                  }).catch(console.error);
+
+                  navigate("/record/checkpoint", {
+                    state: {
+                      ...state,
+                      caseId: createdCaseId,
+                      documentId: docId,
+                      caseType: classifiedCaseType ?? "기타",
+                      docType: selectedDocType,
+                      agentResults,
+                    },
+                  });
+                } catch (err) {
+                  console.error("문서 저장 실패:", err);
+                  setCaseError(err instanceof Error ? err.message : "문서 저장 중 오류가 발생했습니다.");
+                  setIsNavigating(false);
+                }
+              }}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              체크포인트 확인
-              <ChevronRight className="w-4 h-4" />
+              {isNavigating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  체크포인트 확인
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>

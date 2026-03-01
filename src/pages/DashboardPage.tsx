@@ -5,7 +5,6 @@ import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db, isDemoMode } from "../config/firebase";
-import { DEMO_CASES } from "../config/demo";
 import type { Case } from "../types/case";
 
 interface Stats {
@@ -25,15 +24,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    // 데모 모드: 목 데이터 사용
+    // 데모 모드: Firebase 미설정
     if (isDemoMode) {
-      setStats({
-        totalCases: 3,
-        activeCases: 2,
-        totalDocuments: 5,
-        totalRecordings: 8,
-      });
-      setRecentCases(DEMO_CASES.slice(0, 5));
+      setStats({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
+      setRecentCases([]);
       setLoading(false);
       return;
     }
@@ -72,9 +66,9 @@ export default function DashboardPage() {
         });
         setRecentCases(recent);
       } catch (err) {
-        console.error("대시보드 데이터 로딩 실패 — 데모 데이터로 대체:", err);
-        setStats({ totalCases: 3, activeCases: 2, totalDocuments: 5, totalRecordings: 8 });
-        setRecentCases(DEMO_CASES.slice(0, 5));
+        console.error("대시보드 데이터 로딩 실패:", err);
+        setStats({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
+        setRecentCases([]);
       } finally {
         setLoading(false);
       }

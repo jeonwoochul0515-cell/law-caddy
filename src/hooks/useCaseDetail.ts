@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc } from "../services/firebase/firestore";
 import { uploadOpponentDocFile } from "../services/firebase/storage";
-import { isDemoMode, DEMO_CASES, DEMO_DOCUMENTS, DEMO_RECORDINGS, DEMO_OPPONENT_DOCS, mockTimestamp } from "../config/demo";
+import { isDemoMode, mockTimestamp } from "../config/demo";
 import type { Case, TimelineEvent, OpponentDoc } from "../types/case";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
@@ -35,11 +35,10 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
 
     try {
       if (isDemoMode) {
-        const found = DEMO_CASES.find((c) => c.id === caseId) ?? null;
-        setCaseData(found);
-        setDocuments(DEMO_DOCUMENTS.filter((d) => d.caseId === caseId));
-        setRecordings(DEMO_RECORDINGS.filter((r) => r.caseId === caseId));
-        setOpponentDocs(DEMO_OPPONENT_DOCS.filter((o) => o.caseId === caseId));
+        setCaseData(null);
+        setDocuments([]);
+        setRecordings([]);
+        setOpponentDocs([]);
       } else {
         const [c, docs, recs, oppDocs] = await Promise.all([
           getCase(caseId),
@@ -53,13 +52,12 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setOpponentDocs(oppDocs);
       }
     } catch (err: unknown) {
-      console.error("사건 데이터 로딩 실패 — 데모 데이터로 대체:", err);
-      // Firestore 쿼리 실패 시 데모 데이터로 폴백
-      const found = DEMO_CASES.find((c) => c.id === caseId) ?? DEMO_CASES[0] ?? null;
-      setCaseData(found);
-      setDocuments(DEMO_DOCUMENTS.filter((d) => d.caseId === (found?.id ?? caseId)));
-      setRecordings(DEMO_RECORDINGS.filter((r) => r.caseId === (found?.id ?? caseId)));
-      setOpponentDocs(DEMO_OPPONENT_DOCS.filter((o) => o.caseId === (found?.id ?? caseId)));
+      console.error("사건 데이터 로딩 실패:", err);
+      setError("사건 데이터를 불러오는 데 실패했습니다.");
+      setCaseData(null);
+      setDocuments([]);
+      setRecordings([]);
+      setOpponentDocs([]);
     } finally {
       setLoading(false);
     }

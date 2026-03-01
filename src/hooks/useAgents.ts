@@ -1,9 +1,7 @@
 // 6개 AI 에이전트 병렬 실행 훅
 // 판례 검색, 적법성 검증, STT, 쟁점 분석, 문서 작성, 검토·감수
-// 데모 모드: Claude API 없이 목(mock) 결과를 1~2초 지연 후 반환
 
 import { useState, useCallback } from "react";
-import { isDemoMode, getDemoAgentResults } from "../config/demo";
 import { callClaude } from "../services/claude";
 import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
 import { pollTranscription, formatTranscript } from "../services/rtzr";
@@ -58,25 +56,8 @@ function createInitialStates(): Record<AgentId, AgentState> {
   return states as Record<AgentId, AgentState>;
 }
 
-/**
- * 데모 모드에서 에이전트 실행을 시뮬레이션합니다.
- * 사건 컨텍스트에 맞는 카테고리별 목(mock) 결과를 1~2초 지연 후 반환합니다.
- */
-function runDemoAgent(
-  agentId: AgentId,
-  context: RunAgentsContext,
-): Promise<string> {
-  const delayMs = 1000 + Math.random() * 1000; // 1~2초
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const results = getDemoAgentResults(context);
-      resolve(results[agentId] || "");
-    }, delayMs);
-  });
-}
-
 // ---------------------------------------------------------------------------
-// 실제 에이전트 실행 (Firebase/Claude 연동)
+// 에이전트 실행 (Claude API 연동)
 // ---------------------------------------------------------------------------
 
 /**
@@ -86,11 +67,6 @@ async function runSingleAgent(
   agentId: AgentId,
   context: RunAgentsContext,
 ): Promise<string> {
-  // 데모 모드: 사건 컨텍스트에 맞는 목 데이터로 시뮬레이션
-  if (isDemoMode) {
-    return runDemoAgent(agentId, context);
-  }
-
   // STT 에이전트: transcribeId가 있으면 RTZR 폴링, 없으면 Claude 폴백
   if (agentId === "stt" && context.transcribeId) {
     const POLL_INTERVAL = 3000; // 3초
@@ -138,7 +114,6 @@ async function runSingleAgent(
  * - 모든 에이전트를 Promise.allSettled로 병렬 실행
  * - 각 에이전트 진행 상태를 개별 추적
  * - STT 에이전트는 RTZR 폴링 -> 실패 시 Claude 폴백
- * - 데모 모드에서는 1~2초 지연 후 목(mock) 결과 반환
  */
 export default function useAgents(): UseAgentsReturn {
   const [agents, setAgents] = useState<Record<AgentId, AgentState>>(
@@ -239,32 +214,11 @@ export default function useAgents(): UseAgentsReturn {
       if (analysisResult && !context.caseType) {
         setIsClassifying(true);
         try {
-          if (isDemoMode) {
-            // 데모 모드: 사건 개요에서 키워드로 유형 추정
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            const desc = context.caseDesc;
-            if (desc.includes("부동산") || desc.includes("매매") || desc.includes("등기")) {
-              setClassifiedCaseType("부동산");
-            } else if (desc.includes("이혼") || desc.includes("양육") || desc.includes("위자료")) {
-              setClassifiedCaseType("가사");
-            } else if (desc.includes("해고") || desc.includes("퇴직") || desc.includes("근로")) {
-              setClassifiedCaseType("노동");
-            } else if (desc.includes("채권") || desc.includes("채무") || desc.includes("대여금")) {
-              setClassifiedCaseType("채권·채무");
-            } else if (desc.includes("손해") || desc.includes("배상")) {
-              setClassifiedCaseType("손해배상");
-            } else if (desc.includes("고소") || desc.includes("피해") || desc.includes("형사")) {
-              setClassifiedCaseType("형사");
-            } else {
-              setClassifiedCaseType("민사");
-            }
-          } else {
-            const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, analysisResult);
-            const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
-            const trimmed = result.trim();
-            const matched = CASE_TYPES.find((t) => trimmed.includes(t));
-            setClassifiedCaseType(matched ?? "기타");
-          }
+          const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, analysisResult);
+          const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
+          const trimmed = result.trim();
+          const matched = CASE_TYPES.find((t) => trimmed.includes(t));
+          setClassifiedCaseType(matched ?? "기타");
         } catch {
           setClassifiedCaseType("기타");
         } finally {

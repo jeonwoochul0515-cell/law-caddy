@@ -9,11 +9,6 @@ import {
   type AgentContext,
   type ClientMessageContext,
 } from "../services/prompts";
-import {
-  isDemoMode,
-  getDemoFinalDocument,
-  getDemoClientMessage,
-} from "../config/demo";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
 /** 문서 생성 단계 */
@@ -24,14 +19,8 @@ type DocumentStatus =
   | "completed"
   | "error";
 
-/** Claude API 사용 불가 시 데모 모드 폴백 여부 */
-const useDocumentDemoMode =
-  isDemoMode || !import.meta.env.VITE_ANTHROPIC_API_KEY;
-
-/** 지연 헬퍼 */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+/** Claude API 사용 가능 여부 */
+const hasAnthropicKey = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
 
 /** useDocument 반환 타입 */
 interface UseDocumentReturn {
@@ -134,12 +123,8 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        // 데모 모드: docType에 맞는 데모 문서 반환
-        if (useDocumentDemoMode) {
-          await delay(2000);
-          setFinalDocument(getDemoFinalDocument(context.docType, context.caseDesc, context.caseType));
-          setStatus("completed");
-          return;
+        if (!hasAnthropicKey) {
+          throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
         }
 
         // 체크포인트 상세 응답을 컨텍스트에 포함
@@ -174,12 +159,8 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        // 데모 모드: 컨텍스트에 맞는 카카오톡 메시지 반환
-        if (useDocumentDemoMode) {
-          await delay(1000);
-          setClientMessage(getDemoClientMessage(context));
-          setStatus("completed");
-          return;
+        if (!hasAnthropicKey) {
+          throw new Error("Anthropic API 키가 설정되지 않았습니다. .env 파일을 확인하세요.");
         }
 
         const prompt = buildClientMessagePrompt(context);

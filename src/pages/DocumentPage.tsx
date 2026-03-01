@@ -18,6 +18,7 @@ import {
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
 import useDocumentChat, { type DocChatMessage } from "../hooks/useDocumentChat";
+import { updateDocument, addTimelineEvent } from "../services/firebase/firestore";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
@@ -42,6 +43,8 @@ interface DocumentState {
   agentResults: Record<string, string>;
   checkQuestions: CheckQuestion[];
   checkpointAnswers: CheckpointAnswer[];
+  caseId?: string;
+  documentId?: string;
 }
 
 export default function DocumentPage() {
@@ -95,9 +98,20 @@ export default function DocumentPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
+  const [docSaved, setDocSaved] = useState(false);
+  const [msgSaved, setMsgSaved] = useState(false);
+
   useEffect(() => {
     if (!state || initialized) return;
     setInitialized(true);
+
+    // 체크포인트 데이터를 Firestore에 저장
+    if (state.documentId && state.checkQuestions?.length) {
+      updateDocument(state.documentId, {
+        checkQuestions: state.checkQuestions,
+        status: "generating",
+      }).catch(console.error);
+    }
 
     generateDocument(
       {
@@ -111,6 +125,36 @@ export default function DocumentPage() {
       state.checkpointAnswers ?? [],
     );
   }, [state, initialized, generateDocument]);
+
+  // 문서 생성 완료 시 Firestore 저장
+  useEffect(() => {
+    if (!finalDocument || !state?.documentId || docSaved) return;
+    if (status !== "completed") return;
+    setDocSaved(true);
+
+    updateDocument(state.documentId, {
+      finalDocument,
+      status: "completed",
+    }).catch(console.error);
+
+    if (state.caseId) {
+      addTimelineEvent(state.caseId, {
+        type: "doc",
+        label: `${state.docType} 초안 작성 완료`,
+        detail: `AI가 ${state.docType} 초안을 생성했습니다.`,
+      }).catch(console.error);
+    }
+  }, [finalDocument, status, state, docSaved]);
+
+  // 의뢰인 메시지 생성 완료 시 Firestore 저장
+  useEffect(() => {
+    if (!clientMessage || !state?.documentId || msgSaved) return;
+    setMsgSaved(true);
+
+    updateDocument(state.documentId, {
+      clientMessage,
+    }).catch(console.error);
+  }, [clientMessage, state, msgSaved]);
 
   // 새 메시지 시 스크롤
   useEffect(() => {

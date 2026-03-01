@@ -5,7 +5,7 @@ import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { getCases } from "../services/firebase/firestore";
 import { CASE_TYPES } from "../config/constants";
-import { isDemoMode, DEMO_CASES } from "../config/demo";
+import { isDemoMode } from "../config/demo";
 import type { Case } from "../types/case";
 
 export default function CasesPage() {
@@ -20,9 +20,9 @@ export default function CasesPage() {
   useEffect(() => {
     if (!user) return;
 
-    // 데모 모드: 목 데이터 사용
+    // 데모 모드: Firebase 미설정
     if (isDemoMode) {
-      setCases(DEMO_CASES);
+      setCases([]);
       setLoading(false);
       return;
     }
@@ -30,10 +30,10 @@ export default function CasesPage() {
     const fetch = async () => {
       try {
         const data = await getCases(user.uid);
-        setCases(data.length > 0 ? data : DEMO_CASES);
+        setCases(data);
       } catch (err) {
-        console.error("사건 목록 로딩 실패 — 데모 데이터로 대체:", err);
-        setCases(DEMO_CASES);
+        console.error("사건 목록 로딩 실패:", err);
+        setCases([]);
       } finally {
         setLoading(false);
       }

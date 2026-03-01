@@ -15,7 +15,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { isDemoMode, DEMO_CASES } from "../config/demo";
+import { isDemoMode } from "../config/demo";
 import useAuth from "./useAuth";
 import type { Case, CaseType } from "../types/case";
 
@@ -67,9 +67,9 @@ export default function useCases(): UseCasesReturn {
     setLoading(true);
     setError(null);
 
-    // 데모 모드: Firestore 대신 목 데이터 사용
+    // 데모 모드: Firebase 미설정
     if (isDemoMode) {
-      setCases(DEMO_CASES);
+      setCases([]);
       setLoading(false);
       return;
     }
@@ -88,10 +88,11 @@ export default function useCases(): UseCasesReturn {
         id: docSnap.id,
       }));
 
-      setCases(fetchedCases.length > 0 ? fetchedCases : DEMO_CASES);
+      setCases(fetchedCases);
     } catch (err: unknown) {
-      console.error("사건 목록 조회 실패 — 데모 데이터로 대체:", err);
-      setCases(DEMO_CASES);
+      console.error("사건 목록 조회 실패:", err);
+      setError("사건 목록을 불러오는 데 실패했습니다.");
+      setCases([]);
     } finally {
       setLoading(false);
     }

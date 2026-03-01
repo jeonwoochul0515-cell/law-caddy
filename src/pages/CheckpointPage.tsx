@@ -62,6 +62,8 @@ interface CheckpointState {
   lawyerName: string;
   typedNotes?: string;
   agentResults: Record<string, string>;
+  caseId?: string;
+  documentId?: string;
 }
 
 export default function CheckpointPage() {
