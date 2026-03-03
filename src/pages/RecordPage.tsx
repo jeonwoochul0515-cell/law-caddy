@@ -7,6 +7,7 @@ import useRecording from "../hooks/useRecording";
 import { uploadRecordingFile } from "../services/firebase/storage";
 import { createRecording, updateRecording, addTimelineEvent } from "../services/firebase/firestore";
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
+import { getRecordings, getDocuments } from "../services/firebase/firestore";
 
 
 
@@ -104,7 +105,31 @@ export default function RecordPage() {
       if ((files.length === 0 && !typedNotes.trim()) || !user) return;
       setUploading(true);
       try {
-        // 에이전트 페이지로 이동하면서 데이터 전달
+        // 기존 케이스에서 온 경우: 이전 녹음 대화록 + 분석 결과 가져오기
+        let previousTranscripts = "";
+        if (prefilled?.caseId) {
+          try {
+            const [recordings, documents] = await Promise.all([
+              getRecordings(prefilled.caseId, user.uid),
+              getDocuments(prefilled.caseId, user.uid),
+            ]);
+            // 이전 STT 대화록 합치기 (시간순)
+            const transcripts = recordings
+              .filter((r) => r.sttStatus === "completed" && r.transcript)
+              .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0))
+              .map((r, i) => `[상담 ${i + 1}] ${r.fileName}\n${r.transcript}`)
+              .join("\n\n---\n\n");
+            // 이전 분석 결과 요약
+            const prevAnalysis = documents
+              .filter((d) => d.agentResults?.analysis)
+              .map((d) => `[이전 분석 - ${d.docType}]\n${d.agentResults.analysis}`)
+              .join("\n\n");
+            previousTranscripts = [transcripts, prevAnalysis].filter(Boolean).join("\n\n===\n\n");
+          } catch (err) {
+            console.error("이전 녹음 조회 실패:", err);
+          }
+        }
+
         navigate("/record/agents", {
           state: {
             files,
@@ -112,6 +137,7 @@ export default function RecordPage() {
             clientName,
             caseDesc,
             caseId: prefilled?.caseId,
+            previousTranscripts,
             ownerId: user.uid,
             firmName: user.firmName,
             lawyerName: user.name,

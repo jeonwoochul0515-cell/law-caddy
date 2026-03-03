@@ -22,6 +22,7 @@ export interface AgentContext {
   caseDesc: string;
   docType?: DocType;
   transcript?: string;
+  previousTranscripts?: string;
   checkpointAnswers?: CheckpointAnswer[];
   checkQuestions?: CheckQuestion[];
 }
@@ -58,6 +59,12 @@ function buildContextBlock(ctx: AgentContext): string {
   lines.push(`사건 개요: ${ctx.caseDesc}`);
   if (ctx.docType) {
     lines.push(`문서 유형: ${ctx.docType}`);
+  }
+
+  if (ctx.previousTranscripts) {
+    lines.push("");
+    lines.push("[이전 상담 대화록]");
+    lines.push(ctx.previousTranscripts);
   }
 
   if (ctx.transcript) {
@@ -141,20 +148,7 @@ ${context}
 한국어로 작성하세요.`;
 }
 
-/** STT 에이전트 프롬프트 (RTZR 실패 시 폴백용) */
-function buildSttPrompt(ctx: AgentContext): string {
-  const context = buildContextBlock(ctx);
-  return `당신은 법률 전문 음성 변환 에이전트입니다.
-
-${context}
-
-변호사-의뢰인 상담 대화록을 생성하세요:
-- 10-12턴 대화, [변호사]/[의뢰인] 표시
-- 사실관계, 날짜, 금액, 증거 포함
-- 법적 쟁점이 드러나도록
-
-한국어로 자연스럽게 작성하세요.`;
-}
+/** STT 에이전트 프롬프트 — 더 이상 사용하지 않음 (RTZR 실패 시 가상 대화록을 만들지 않음) */
 
 /** 쟁점 분석 에이전트 프롬프트 */
 function buildAnalysisPrompt(ctx: AgentContext): string {
@@ -269,7 +263,7 @@ export function buildPrompt(agentId: PromptAgentId, context: AgentContext): stri
     case "legal":
       return buildLegalPrompt(context);
     case "stt":
-      return buildSttPrompt(context);
+      return ""; // STT는 RTZR API로 처리, Claude 폴백 없음
     case "analysis":
       return buildAnalysisPrompt(context);
     case "docgen_questions":

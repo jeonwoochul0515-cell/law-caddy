@@ -67,8 +67,12 @@ async function runSingleAgent(
   agentId: AgentId,
   context: RunAgentsContext,
 ): Promise<string> {
-  // STT 에이전트: transcribeId가 있으면 RTZR 폴링, 없으면 Claude 폴백
-  if (agentId === "stt" && context.transcribeId) {
+  // STT 에이전트: transcribeId가 있으면 RTZR 폴링, 없으면 안내 메시지
+  if (agentId === "stt") {
+    if (!context.transcribeId) {
+      return "음성 파일이 없어 음성 변환을 수행하지 않았습니다.";
+    }
+
     const POLL_INTERVAL = 3000; // 3초
     const MAX_POLLS = 120; // 최대 6분
 
@@ -80,17 +84,13 @@ async function runSingleAgent(
       }
 
       if (result.status === "failed") {
-        // RTZR 실패 시 Claude 폴백
-        break;
+        return "음성 변환에 실패했습니다. 녹음 파일을 확인해 주세요.";
       }
 
-      // 다음 폴링 대기
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
     }
 
-    // RTZR 실패 또는 시간 초과 -> Claude 폴백
-    const prompt = buildPrompt("stt", context);
-    return callClaude(prompt, "상담 대화록을 생성해 주세요.");
+    return "음성 변환 시간이 초과되었습니다. 녹음 파일을 확인해 주세요.";
   }
 
   // 일반 에이전트: Claude API 호출

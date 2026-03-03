@@ -28,6 +28,7 @@ interface AgentsState {
   clientName: string;
   caseDesc: string;
   caseId?: string;
+  previousTranscripts?: string;
   ownerId: string;
   firmName: string;
   lawyerName: string;
@@ -57,8 +58,9 @@ export default function AgentsPage() {
   const [started, setStarted] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<DocType | null>(null);
   const [isCreatingCase, setIsCreatingCase] = useState(false);
-  const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
+  const [createdCaseId, setCreatedCaseId] = useState<string | null>(state?.caseId ?? null);
   const [caseError, setCaseError] = useState<string | null>(null);
+  const hasExistingCase = Boolean(state?.caseId);
 
   useEffect(() => {
     if (!state || started) return;
@@ -71,6 +73,7 @@ export default function AgentsPage() {
       clientName: state.clientName,
       caseDesc: fullDesc,
       transcript: "",
+      previousTranscripts: state.previousTranscripts ?? "",
     });
   }, [state, started, runAllAgents]);
 
@@ -258,8 +261,8 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* 사건 파일 생성 */}
-      {allCompleted && classifiedCaseType && (
+      {/* 사건 파일 생성 — 이미 사건 파일이 있는 경우 숨김 */}
+      {allCompleted && classifiedCaseType && !hasExistingCase && (
         <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
