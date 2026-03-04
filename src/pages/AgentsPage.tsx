@@ -72,11 +72,20 @@ export default function AgentsPage() {
       : state.caseDesc;
 
     // 오디오 파일이 있으면 먼저 STT 요청 → transcribeId 획득 후 에이전트 실행
-    const audioFiles = rawState?.files?.filter((f: File) => f.type.startsWith("audio/")) ?? [];
+    const allFiles = rawState?.files ?? [];
+    const audioFiles = allFiles.filter((f: File) => {
+      const isAudio = f.type?.startsWith("audio/") || f.name?.match(/\.(webm|wav|mp3|m4a|ogg|flac|aac)$/i);
+      return isAudio;
+    });
+
+    console.log("[AgentsPage] 전체 파일:", allFiles.length, "개, 오디오:", audioFiles.length, "개");
+    allFiles.forEach((f: File) => console.log("  -", f.name, f.type, f.size, "bytes"));
 
     if (audioFiles.length > 0) {
+      console.log("[AgentsPage] STT 요청 시작:", audioFiles[0].name);
       transcribeFile(audioFiles[0])
         .then((transcribeId) => {
+          console.log("[AgentsPage] transcribeId 획득:", transcribeId);
           runAllAgents({
             clientName: state.clientName,
             caseDesc: fullDesc,
@@ -86,7 +95,7 @@ export default function AgentsPage() {
           });
         })
         .catch((err) => {
-          console.error("STT 요청 실패:", err);
+          console.error("[AgentsPage] STT 요청 실패:", err);
           // STT 실패해도 나머지 에이전트는 실행
           runAllAgents({
             clientName: state.clientName,
