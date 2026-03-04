@@ -108,8 +108,8 @@ def _try_request(url: str, params: dict, timeout: int = 30) -> requests.Response
     """HTTPS → HTTP 순으로 시도, 다양한 방법 시도"""
     global DEBUG
 
-    # 방법 1: SESSION (커스텀 SSL)
-    for base in ["https://www.law.go.kr", "http://www.law.go.kr"]:
+    # 방법 1: SESSION — HTTP 먼저 (HTTPS는 ConnectionReset 발생)
+    for base in ["http://www.law.go.kr", "https://www.law.go.kr"]:
         full_url = url.replace("https://www.law.go.kr", base).replace("http://www.law.go.kr", base)
         try:
             resp = SESSION.get(full_url, params=params, headers=HEADERS,
@@ -167,20 +167,35 @@ def search_statute(name: str) -> dict | None:
         if isinstance(laws, dict):
             laws = [laws]
 
+        # 1순위: 정확히 일치하는 법률 (법령구분명이 "법률"인 것 우선)
         for law in laws:
-            law_name = law.get("법령명한글", law.get("법령명약칭", ""))
+            law_name = law.get("법령명한글", "")
             mst = str(law.get("법령일련번호", law.get("법령ID", "")))
-
-            if law_name and (name in law_name or law_name in name):
+            if law_name == name:
                 return {"name": law_name, "mst": mst}
 
-        # 정확한 매칭이 없으면 첫 번째 결과
-        if laws:
-            law = laws[0]
-            law_name = law.get("법령명한글", law.get("법령명약칭", ""))
+        # 2순위: 정확 일치 (구분 무관)
+        for law in laws:
+            law_name = law.get("법령명한글", "")
+            abbr = law.get("법령약칭명", "")
             mst = str(law.get("법령일련번호", law.get("법령ID", "")))
-            if mst:
+            if law_name == name or abbr == name:
                 return {"name": law_name, "mst": mst}
+
+        # 3순위: 검색어가 법령명과 같은 길이거나 더 긴 경우만 (난민법 ≠ 민법 방지)
+        for law in laws:
+            law_name = law.get("법령명한글", "")
+            mst = str(law.get("법령일련번호", law.get("법령ID", "")))
+            if law_name and law_name in name:
+                return {"name": law_name, "mst": mst}
+
+        # 4순위: 첫 번째 법률 결과
+        for law in laws:
+            if law.get("법령구분명") == "법률":
+                law_name = law.get("법령명한글", "")
+                mst = str(law.get("법령일련번호", law.get("법령ID", "")))
+                if mst:
+                    return {"name": law_name, "mst": mst}
 
         return None
     except json.JSONDecodeError:
@@ -204,33 +219,73 @@ def search_statute(name: str) -> dict | None:
         return None
 
 
+DEBUG_ARTICLE = True  # 첫 번째 법령 본문 디버그
+
 def fetch_statute_articles(mst: str, statute_name: str) -> list[dict]:
     """법제처 API로 법령 본문 조회 → 조문별 파싱 (JSON)"""
-    url = "https://www.law.go.kr/DRF/lawService.do"
+    global DEBUG_ARTICLE
+    url = "http://www.law.go.kr/DRF/lawService.do"  # HTTP 직접 사용 (HTTPS 차단됨)
     params = {
         "OC": LAW_API_OC,
         "target": "law",
         "type": "JSON",
-        "ID": mst,
+        "MST": mst,  # ID가 아닌 MST 파라미터 사용
     }
 
     try:
-        resp = _try_request(url, params, timeout=60)
-        if not resp:
-            print(f"  '{statute_name}' 서버 연결 실패")
+        resp = SESSION.get(url, params=params, headers=HEADERS,
+                          timeout=60, allow_redirects=True)
+        if resp.status_code != 200 or len(resp.content) < 100:
+            print(f"  '{statute_name}' HTTP 응답 오류: {resp.status_code}")
             return []
         resp.encoding = "utf-8"
+
+        if DEBUG_ARTICLE:
+            print(f"  [DEBUG-ARTICLE] status={resp.status_code}, len={len(resp.content)}")
+            # JSON 키 구조 출력
+            try:
+                data = resp.json()
+                top_keys = list(data.keys())[:5]
+                print(f"  [DEBUG-ARTICLE] 최상위 키: {top_keys}")
+                for k in top_keys:
+                    v = data[k]
+                    if isinstance(v, dict):
+                        sub_keys = list(v.keys())[:10]
+                        print(f"  [DEBUG-ARTICLE] {k} 하위 키: {sub_keys}")
+                        # 조문 관련 키 찾기
+                        for sk in v:
+                            if "조문" in sk:
+                                sv = v[sk]
+                                if isinstance(sv, list):
+                                    print(f"  [DEBUG-ARTICLE] {sk}: list, len={len(sv)}, 첫 항목 키: {list(sv[0].keys())[:8] if sv and isinstance(sv[0], dict) else type(sv[0]) if sv else 'empty'}")
+                                elif isinstance(sv, dict):
+                                    print(f"  [DEBUG-ARTICLE] {sk}: dict, 키: {list(sv.keys())[:8]}")
+            except Exception as e:
+                print(f"  [DEBUG-ARTICLE] JSON 파싱 실패: {e}")
+                print(f"  [DEBUG-ARTICLE] 앞 500자: {resp.text[:500]}")
+            DEBUG_ARTICLE = False
+
         data = resp.json()
 
         articles = []
 
-        # 조문 데이터 탐색
-        law_data = data.get("법령", data)
-        if isinstance(law_data, dict):
-            # 조문 배열 찾기
-            jo_list = law_data.get("조문", [])
-            if isinstance(jo_list, dict):
-                jo_list = [jo_list]
+        # 조문 데이터 탐색 — 다양한 키 구조 대응
+        law_data = data
+        # 최상위에서 법령 데이터 찾기
+        for top_key in data:
+            if isinstance(data[top_key], dict):
+                law_data = data[top_key]
+                break
+
+        # 조문 배열 찾기 (키 이름이 다를 수 있음)
+        jo_list = []
+        for key in law_data:
+            if "조문" in key:
+                jo_list = law_data[key]
+                break
+
+        if isinstance(jo_list, dict):
+            jo_list = [jo_list]
 
             for jo in jo_list:
                 if isinstance(jo, dict):
