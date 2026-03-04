@@ -297,17 +297,25 @@ def main():
         print("  서식 수집 실패. helplaw24 사이트 시도...")
         all_forms = fetch_from_helplaw24()
 
-    if not first_page:
-        pass
-    else:
-        # 나머지 페이지 수집
-        for page in tqdm(range(2, total_pages + 1), desc="  목록 수집"):
+    if first_page:
+        # 결과가 0건이 될 때까지 계속 다음 페이지 요청 (최대 300페이지)
+        page = 2
+        empty_count = 0
+        while page <= 300 and empty_count < 3:
             try:
                 forms, _ = fetch_page(page)
-                all_forms.extend(forms)
+                if not forms:
+                    empty_count += 1
+                else:
+                    empty_count = 0
+                    all_forms.extend(forms)
+                page += 1
                 time.sleep(0.3)
+                if page % 20 == 0:
+                    print(f"  {page}페이지, 누적 {len(all_forms)}건...")
             except Exception as e:
                 print(f"  {page}페이지 에러: {e}")
+                page += 1
 
     # 중복 제거
     seen = set()
