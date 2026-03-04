@@ -31,3 +31,4 @@ stt-backend/.env
 *.njsproj
 *.sln
 *.sw?
+scripts/config.py
