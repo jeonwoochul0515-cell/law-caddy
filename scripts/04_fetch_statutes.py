@@ -102,18 +102,39 @@ KEY_STATUTES = [
 ]
 
 
+DEBUG = True  # 첫 번째 요청 디버그용
+
 def _try_request(url: str, params: dict, timeout: int = 30) -> requests.Response | None:
-    """HTTPS → HTTP 순으로 시도"""
-    # 1차: HTTPS (커스텀 SSL)
+    """HTTPS → HTTP 순으로 시도, 다양한 방법 시도"""
+    global DEBUG
+
+    # 방법 1: SESSION (커스텀 SSL)
     for base in ["https://www.law.go.kr", "http://www.law.go.kr"]:
         full_url = url.replace("https://www.law.go.kr", base).replace("http://www.law.go.kr", base)
         try:
             resp = SESSION.get(full_url, params=params, headers=HEADERS,
                               timeout=timeout, allow_redirects=True)
+            if DEBUG:
+                print(f"  [DEBUG] {base} → status={resp.status_code}, len={len(resp.content)}")
+                print(f"  [DEBUG] content-type: {resp.headers.get('content-type', '?')}")
+                print(f"  [DEBUG] 응답 앞 300자: {resp.text[:300]}")
+                DEBUG = False
             if resp.status_code == 200 and len(resp.content) > 50:
                 return resp
-        except Exception:
+        except Exception as e:
+            if DEBUG:
+                print(f"  [DEBUG] {base} 실패: {str(e)[:150]}")
             continue
+
+    # 방법 2: requests 직접 (verify=False)
+    try:
+        resp = requests.get(url, params=params, headers=HEADERS,
+                            timeout=timeout, verify=False, allow_redirects=True)
+        if resp.status_code == 200 and len(resp.content) > 50:
+            return resp
+    except Exception:
+        pass
+
     return None
 
 
