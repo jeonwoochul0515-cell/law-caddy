@@ -7,6 +7,7 @@ import useCases from "../hooks/useCases";
 import { AGENTS, DOC_TYPES } from "../config/constants";
 import { createDocument, addTimelineEvent, createRecording } from "../services/firebase/firestore";
 import { uploadRecordingFile } from "../services/firebase/storage";
+import { transcribeFile } from "../services/rtzr";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -65,16 +66,43 @@ export default function AgentsPage() {
   useEffect(() => {
     if (!state || started) return;
     setStarted(true);
-    // 직접 입력한 텍스트가 있으면 사건 개요에 추가
+
     const fullDesc = state.typedNotes
       ? `${state.caseDesc}\n\n[추가 자료]\n${state.typedNotes}`
       : state.caseDesc;
-    runAllAgents({
-      clientName: state.clientName,
-      caseDesc: fullDesc,
-      transcript: "",
-      previousTranscripts: state.previousTranscripts ?? "",
-    });
+
+    // 오디오 파일이 있으면 먼저 STT 요청 → transcribeId 획득 후 에이전트 실행
+    const audioFiles = rawState?.files?.filter((f: File) => f.type.startsWith("audio/")) ?? [];
+
+    if (audioFiles.length > 0) {
+      transcribeFile(audioFiles[0])
+        .then((transcribeId) => {
+          runAllAgents({
+            clientName: state.clientName,
+            caseDesc: fullDesc,
+            transcript: "",
+            transcribeId,
+            previousTranscripts: state.previousTranscripts ?? "",
+          });
+        })
+        .catch((err) => {
+          console.error("STT 요청 실패:", err);
+          // STT 실패해도 나머지 에이전트는 실행
+          runAllAgents({
+            clientName: state.clientName,
+            caseDesc: fullDesc,
+            transcript: "",
+            previousTranscripts: state.previousTranscripts ?? "",
+          });
+        });
+    } else {
+      runAllAgents({
+        clientName: state.clientName,
+        caseDesc: fullDesc,
+        transcript: "",
+        previousTranscripts: state.previousTranscripts ?? "",
+      });
+    }
   }, [state, started, runAllAgents]);
 
   const [isNavigating, setIsNavigating] = useState(false);
