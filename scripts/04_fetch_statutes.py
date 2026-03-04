@@ -3,18 +3,47 @@ Step 4: 법제처 API로 주요 법령 조문 수집 → Supabase statutes 테�
 출처: https://www.law.go.kr/DRF/lawSearch.do (법령 목록)
       https://www.law.go.kr/DRF/lawService.do (법령 본문)
 JSON 포맷 사용 (XML 파싱 오류 방지)
+TLS 호환성 이슈 해결: 커스텀 SSL 어댑터 사용
 """
 
 import time
 import json
 import re
+import ssl
 import urllib3
 import requests
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from config import SUPABASE_URL, SUPABASE_KEY, LAW_API_OC
 
 # SSL 경고 무시 (한국 정부 사이트)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+class LegacySSLAdapter(HTTPAdapter):
+    """한국 정부 사이트 TLS 호환성을 위한 커스텀 어댑터"""
+    def init_poolmanager(self, *args, **kwargs):
+        try:
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            # 낮은 보안 레벨 허용 (오래된 서버 호환)
+            ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+            # TLS 1.0/1.1도 허용
+            ctx.minimum_version = ssl.TLSVersion.TLSv1
+        except Exception:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
+# 세션 설정
+SESSION = requests.Session()
+SESSION.mount("https://", LegacySSLAdapter())
+SESSION.mount("http://", HTTPAdapter(max_retries=3))
+
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -24,7 +53,11 @@ SUPABASE_HEADERS = {
 }
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/html, */*",
+    "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
 }
 
 # 주요 법률 67개 (LAW-CADDY 실무 관련)
@@ -69,6 +102,21 @@ KEY_STATUTES = [
 ]
 
 
+def _try_request(url: str, params: dict, timeout: int = 30) -> requests.Response | None:
+    """HTTPS → HTTP 순으로 시도"""
+    # 1차: HTTPS (커스텀 SSL)
+    for base in ["https://www.law.go.kr", "http://www.law.go.kr"]:
+        full_url = url.replace("https://www.law.go.kr", base).replace("http://www.law.go.kr", base)
+        try:
+            resp = SESSION.get(full_url, params=params, headers=HEADERS,
+                              timeout=timeout, allow_redirects=True)
+            if resp.status_code == 200 and len(resp.content) > 50:
+                return resp
+        except Exception:
+            continue
+    return None
+
+
 def search_statute(name: str) -> dict | None:
     """법제처 API로 법령 검색 → MST번호 획득 (JSON 방식)"""
     url = "https://www.law.go.kr/DRF/lawSearch.do"
@@ -82,8 +130,9 @@ def search_statute(name: str) -> dict | None:
     }
 
     try:
-        resp = requests.get(url, params=params, headers=HEADERS,
-                            timeout=30, verify=False, allow_redirects=True)
+        resp = _try_request(url, params)
+        if not resp:
+            return None
         resp.encoding = "utf-8"
 
         # JSON 파싱
@@ -145,8 +194,10 @@ def fetch_statute_articles(mst: str, statute_name: str) -> list[dict]:
     }
 
     try:
-        resp = requests.get(url, params=params, headers=HEADERS,
-                            timeout=60, verify=False, allow_redirects=True)
+        resp = _try_request(url, params, timeout=60)
+        if not resp:
+            print(f"  '{statute_name}' 서버 연결 실패")
+            return []
         resp.encoding = "utf-8"
         data = resp.json()
 
