@@ -1,16 +1,20 @@
 """
 Step 4: 법제처 API로 주요 법령 조문 수집 → Supabase statutes 테이블
-출처: http://www.law.go.kr/DRF/lawSearch.do (법령 목록)
-      http://www.law.go.kr/DRF/lawService.do (법령 본문)
+출처: https://www.law.go.kr/DRF/lawSearch.do (법령 목록)
+      https://www.law.go.kr/DRF/lawService.do (법령 본문)
+JSON 포맷 사용 (XML 파싱 오류 방지)
 """
 
 import time
 import json
 import re
-import xml.etree.ElementTree as ET
+import urllib3
 import requests
 from tqdm import tqdm
 from config import SUPABASE_URL, SUPABASE_KEY, LAW_API_OC
+
+# SSL 경고 무시 (한국 정부 사이트)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -19,7 +23,11 @@ SUPABASE_HEADERS = {
     "Prefer": "return=minimal",
 }
 
-# 주요 법률 80개 (LAW-CADDY 실무 관련)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+}
+
+# 주요 법률 67개 (LAW-CADDY 실무 관련)
 KEY_STATUTES = [
     # 기본법
     "민법", "형법", "상법", "민사소송법", "형사소송법",
@@ -62,135 +70,231 @@ KEY_STATUTES = [
 
 
 def search_statute(name: str) -> dict | None:
-    """법제처 API로 법령 검색 → MST번호 획득"""
-    url = "http://www.law.go.kr/DRF/lawSearch.do"
+    """법제처 API로 법령 검색 → MST번호 획득 (JSON 방식)"""
+    url = "https://www.law.go.kr/DRF/lawSearch.do"
     params = {
         "OC": LAW_API_OC,
         "target": "law",
-        "type": "XML",
+        "type": "JSON",
         "query": name,
         "display": 5,
         "page": 1,
     }
 
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, headers=HEADERS,
+                            timeout=30, verify=False, allow_redirects=True)
         resp.encoding = "utf-8"
-        root = ET.fromstring(resp.content)
 
-        # 첫 번째 결과에서 MST번호 추출
-        for law in root.findall(".//law"):
-            law_name = ""
-            mst = ""
+        # JSON 파싱
+        data = resp.json()
 
-            for child in law:
-                tag = child.tag
-                if "법령명" in tag or "법령명약칭" in tag:
-                    law_name = child.text or ""
-                if "법령ID" in tag or "법령일련번호" in tag:
-                    mst = child.text or ""
+        # 응답 구조: {"LawSearch": {"law": [...]}} 또는 {"LawSearch": {"law": {...}}}
+        law_search = data.get("LawSearch", data)
+        laws = law_search.get("law", [])
 
-            # 정확한 이름 매칭 또는 포함 매칭
+        # 단일 결과면 리스트로 변환
+        if isinstance(laws, dict):
+            laws = [laws]
+
+        for law in laws:
+            law_name = law.get("법령명한글", law.get("법령명약칭", ""))
+            mst = str(law.get("법령일련번호", law.get("법령ID", "")))
+
             if law_name and (name in law_name or law_name in name):
                 return {"name": law_name, "mst": mst}
 
         # 정확한 매칭이 없으면 첫 번째 결과
-        first = root.find(".//law")
-        if first is not None:
-            law_name = ""
-            mst = ""
-            for child in first:
-                tag = child.tag
-                if "법령명" in tag:
-                    law_name = child.text or ""
-                if "법령ID" in tag or "법령일련번호" in tag:
-                    mst = child.text or ""
+        if laws:
+            law = laws[0]
+            law_name = law.get("법령명한글", law.get("법령명약칭", ""))
+            mst = str(law.get("법령일련번호", law.get("법령ID", "")))
             if mst:
                 return {"name": law_name, "mst": mst}
 
         return None
+    except json.JSONDecodeError:
+        # JSON 실패하면 텍스트에서 직접 추출 시도
+        try:
+            text = resp.text
+            # 법령ID나 법령일련번호 패턴
+            mst_match = re.search(r'"법령일련번호"\s*:\s*"?(\d+)"?', text)
+            name_match = re.search(r'"법령명한글"\s*:\s*"([^"]+)"', text)
+            if mst_match:
+                return {
+                    "name": name_match.group(1) if name_match else name,
+                    "mst": mst_match.group(1),
+                }
+        except Exception:
+            pass
+        print(f"  '{name}' JSON 파싱 실패")
+        return None
     except Exception as e:
-        print(f"  '{name}' 검색 실패: {e}")
+        print(f"  '{name}' 검색 실패: {str(e)[:100]}")
         return None
 
 
 def fetch_statute_articles(mst: str, statute_name: str) -> list[dict]:
-    """법제처 API로 법령 본문 조회 → 조문별 파싱"""
-    url = "http://www.law.go.kr/DRF/lawService.do"
+    """법제처 API로 법령 본문 조회 → 조문별 파싱 (JSON)"""
+    url = "https://www.law.go.kr/DRF/lawService.do"
     params = {
         "OC": LAW_API_OC,
         "target": "law",
-        "type": "XML",
+        "type": "JSON",
         "ID": mst,
     }
 
     try:
-        resp = requests.get(url, params=params, timeout=60)
+        resp = requests.get(url, params=params, headers=HEADERS,
+                            timeout=60, verify=False, allow_redirects=True)
         resp.encoding = "utf-8"
-        root = ET.fromstring(resp.content)
+        data = resp.json()
 
         articles = []
 
-        # 조문 파싱 (여러 가능한 태그명)
-        for article in root.iter():
-            tag = article.tag
+        # 조문 데이터 탐색
+        law_data = data.get("법령", data)
+        if isinstance(law_data, dict):
+            # 조문 배열 찾기
+            jo_list = law_data.get("조문", [])
+            if isinstance(jo_list, dict):
+                jo_list = [jo_list]
 
-            # 조문번호와 내용 추출
-            if "조문번호" in tag or "조번호" in tag:
-                article_num = article.text or ""
-            elif "조문" in tag and "조문내용" not in tag:
-                continue
+            for jo in jo_list:
+                if isinstance(jo, dict):
+                    # 조문단위 안의 조문내용 추출
+                    jo_unit = jo.get("조문단위", jo)
+                    if isinstance(jo_unit, list):
+                        for unit in jo_unit:
+                            article = _parse_article(unit, statute_name, mst)
+                            if article:
+                                articles.append(article)
+                    elif isinstance(jo_unit, dict):
+                        article = _parse_article(jo_unit, statute_name, mst)
+                        if article:
+                            articles.append(article)
+                    else:
+                        article = _parse_article(jo, statute_name, mst)
+                        if article:
+                            articles.append(article)
 
-            # 조문내용 태그 찾기
-            if "조문내용" in tag or "조문" == tag:
-                content_text = article.text or ""
-                if not content_text:
-                    content_text = ET.tostring(article, encoding="unicode", method="text")
-
-                if content_text and len(content_text.strip()) > 5:
-                    # 조문번호 추출 (예: "제750조")
-                    num_match = re.search(r"제\d+조(?:의\d+)?", content_text)
-                    article_number = num_match.group(0) if num_match else ""
-
-                    # 조문 제목 추출 (괄호 안)
-                    title_match = re.search(r"[（(]([^)）]+)[)）]", content_text)
-                    article_title = title_match.group(1) if title_match else ""
-
-                    articles.append({
-                        "statute_name": statute_name,
-                        "statute_mst": mst,
-                        "article_number": article_number,
-                        "article_title": article_title,
-                        "article_content": content_text.strip()[:5000],
-                    })
-
-        # 조문 파싱이 안 되면 전체 텍스트에서 추출
+        # 조문 파싱 실패 시, 전체 텍스트에서 추출
         if not articles:
-            full_text = ET.tostring(root, encoding="unicode", method="text")
-            # "제N조" 패턴으로 분리
-            parts = re.split(r"(제\d+조(?:의\d+)?)", full_text)
-
-            for i in range(1, len(parts) - 1, 2):
-                article_number = parts[i]
-                content = parts[i] + parts[i + 1] if i + 1 < len(parts) else parts[i]
-                content = content.strip()
-
-                if len(content) > 10:
-                    title_match = re.search(r"[（(]([^)）]+)[)）]", content)
-                    article_title = title_match.group(1) if title_match else ""
-
-                    articles.append({
-                        "statute_name": statute_name,
-                        "statute_mst": mst,
-                        "article_number": article_number,
-                        "article_title": article_title,
-                        "article_content": content[:5000],
-                    })
+            full_text = json.dumps(data, ensure_ascii=False)
+            articles = _extract_from_text(full_text, statute_name, mst)
 
         return articles
-    except Exception as e:
-        print(f"  '{statute_name}' 본문 조회 실패: {e}")
+    except json.JSONDecodeError:
+        # JSON 실패시 텍스트에서 추출
+        try:
+            articles = _extract_from_text(resp.text, statute_name, mst)
+            return articles
+        except Exception:
+            pass
+        print(f"  '{statute_name}' 본문 JSON 파싱 실패")
         return []
+    except Exception as e:
+        print(f"  '{statute_name}' 본문 조회 실패: {str(e)[:100]}")
+        return []
+
+
+def _parse_article(jo_data: dict, statute_name: str, mst: str) -> dict | None:
+    """단일 조문 딕셔너리에서 데이터 추출"""
+    content = ""
+    number = ""
+    title = ""
+
+    for key, val in jo_data.items():
+        if "조문내용" in key and val:
+            content = str(val).strip()
+        elif "조문번호" in key and val:
+            number = str(val).strip()
+        elif "조문제목" in key and val:
+            title = str(val).strip()
+        elif "조문여부" in key:
+            continue
+
+    # 내용이 없으면 건너뜀
+    if not content or len(content) < 5:
+        return None
+
+    # 조문번호 포맷
+    if number and not number.startswith("제"):
+        number = f"제{number}조"
+
+    # 제목이 없으면 내용에서 추출
+    if not title:
+        title_match = re.search(r"[（(]([^)）]+)[)）]", content)
+        title = title_match.group(1) if title_match else ""
+
+    # 항 내용도 합치기
+    sub_items = []
+    for key, val in jo_data.items():
+        if "항" in key and isinstance(val, (list, dict)):
+            items = val if isinstance(val, list) else [val]
+            for item in items:
+                if isinstance(item, dict):
+                    for k2, v2 in item.items():
+                        if "항내용" in k2 and v2:
+                            sub_items.append(str(v2).strip())
+
+    if sub_items:
+        content = content + "\n" + "\n".join(sub_items)
+
+    return {
+        "statute_name": statute_name,
+        "statute_mst": mst,
+        "article_number": number,
+        "article_title": title,
+        "article_content": content[:5000],
+    }
+
+
+def _extract_from_text(text: str, statute_name: str, mst: str) -> list[dict]:
+    """텍스트에서 조문 패턴으로 추출 (폴백)"""
+    articles = []
+
+    # "조문내용" 값 추출
+    content_pattern = r'"조문내용"\s*:\s*"([^"]{10,})"'
+    matches = re.findall(content_pattern, text)
+
+    for content in matches:
+        content = content.replace("\\n", "\n").strip()
+
+        num_match = re.search(r"제\d+조(?:의\d+)?", content)
+        article_number = num_match.group(0) if num_match else ""
+
+        title_match = re.search(r"[（(]([^)）]+)[)）]", content)
+        article_title = title_match.group(1) if title_match else ""
+
+        articles.append({
+            "statute_name": statute_name,
+            "statute_mst": mst,
+            "article_number": article_number,
+            "article_title": article_title,
+            "article_content": content[:5000],
+        })
+
+    # 위 방법도 실패하면 "제N조" 패턴으로 분리
+    if not articles:
+        parts = re.split(r"(제\d+조(?:의\d+)?)", text)
+        for i in range(1, len(parts) - 1, 2):
+            article_number = parts[i]
+            content = parts[i] + parts[i + 1][:2000] if i + 1 < len(parts) else parts[i]
+            content = re.sub(r'[{}"\[\],]', '', content).strip()
+
+            if len(content) > 20:
+                title_match = re.search(r"[（(]([^)）]+)[)）]", content)
+                article_title = title_match.group(1) if title_match else ""
+                articles.append({
+                    "statute_name": statute_name,
+                    "statute_mst": mst,
+                    "article_number": article_number,
+                    "article_title": article_title,
+                    "article_content": content[:5000],
+                })
+
+    return articles
 
 
 def upload_to_supabase(articles: list[dict]):
@@ -213,12 +317,13 @@ def upload_to_supabase(articles: list[dict]):
 
 def main():
     print("=" * 60)
-    print("법제처 API - 주요 법령 조문 수집")
+    print("법제처 API - 주요 법령 조문 수집 (JSON 방식)")
     print(f"대상: {len(KEY_STATUTES)}개 법률")
     print("=" * 60)
 
     all_articles = []
     not_found = []
+    found_count = 0
 
     for statute_name in tqdm(KEY_STATUTES, desc="법령 수집"):
         # 1. MST번호 검색
@@ -226,8 +331,10 @@ def main():
         if not result:
             not_found.append(statute_name)
             print(f"  '{statute_name}' MST번호 못 찾음")
-            time.sleep(0.5)
+            time.sleep(1)
             continue
+
+        found_count += 1
 
         # 2. 조문 수집
         articles = fetch_statute_articles(result["mst"], result["name"])
@@ -238,11 +345,12 @@ def main():
         else:
             print(f"  {result['name']}: 조문 파싱 실패")
 
-        time.sleep(0.5)
+        time.sleep(1)
 
-    print(f"\n총 {len(all_articles)}개 조문 수집 완료")
+    print(f"\n검색 성공: {found_count}/{len(KEY_STATUTES)}개 법률")
+    print(f"총 {len(all_articles)}개 조문 수집 완료")
     if not_found:
-        print(f"미발견 법령: {not_found}")
+        print(f"미발견 법령 ({len(not_found)}개): {not_found[:10]}...")
 
     # 업로드
     if all_articles:
