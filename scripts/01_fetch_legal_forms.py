@@ -127,14 +127,22 @@ def fetch_page(page: int = 1, tab_code: str = "") -> tuple[list[dict], int]:
             break
 
     if total_count == 0:
-        # 페이지네이션에서 추정
-        page_links = soup.select("a[onclick*='linkPage']")
-        for link in page_links:
-            match = re.search(r"(\d+)", link.get("onclick", ""))
+        # 페이지네이션에서 마지막 페이지 번호 추출
+        for a_tag in soup.select("a"):
+            onclick = a_tag.get("onclick", "")
+            match = re.search(r"linkPage\((\d+)\)", onclick)
             if match:
-                total_count = max(total_count, int(match.group(1)) * 10)
+                total_count = max(total_count, int(match.group(1)))
+        # total_count가 페이지 번호일 수 있음
+        if total_count > 0 and total_count < 500:
+            total_pages = total_count
+            return forms, total_pages
 
+    # 2143건 / 10건 = 215페이지
     total_pages = max(1, (total_count + 9) // 10)
+    # 안전장치: 최소 215페이지 (2143건 기준)
+    if total_pages < 200 and total_count == 0:
+        total_pages = 215
 
     return forms, total_pages
 
