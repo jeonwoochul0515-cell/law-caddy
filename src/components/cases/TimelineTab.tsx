@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mic, FileText, Calendar, Clock, StickyNote, Plus, X } from "lucide-react";
+import { Mic, FileText, Calendar, Clock, StickyNote, Plus, X, Heart } from "lucide-react";
 import type { TimelineEvent } from "../../types/case";
 
 const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
@@ -8,6 +8,7 @@ const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
   filing: Calendar,
   response: FileText,
   note: StickyNote,
+  client_care: Heart,
 };
 
 interface TimelineTabProps {

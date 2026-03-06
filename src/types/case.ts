@@ -15,7 +15,7 @@ export interface Case {
 }
 
 export interface TimelineEvent {
-  type: "consult" | "doc" | "filing" | "response" | "note";
+  type: "consult" | "doc" | "filing" | "response" | "note" | "client_care";
   date: Timestamp;
   label: string;
   detail: string;

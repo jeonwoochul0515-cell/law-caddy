@@ -12,4 +12,12 @@ export interface User {
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   approvedBy?: string;
+  // 사업자등록증 OCR 정보
+  businessNumber?: string;
+  businessVerified?: boolean;
+  businessLicenseUrl?: string;
+  businessAddress?: string;
+  businessType?: string;
+  businessCategory?: string;
+  businessStartDate?: string;
 }

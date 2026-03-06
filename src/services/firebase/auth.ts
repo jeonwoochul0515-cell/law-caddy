@@ -16,7 +16,8 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { auth, db } from "../../config/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth, db, storage } from "../../config/firebase";
 import type { User } from "../../types/user";
 
 /** 회원가입 시 추가 입력 정보 */
@@ -24,6 +25,13 @@ interface SignUpData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
+  businessNumber?: string;
+  businessVerified?: boolean;
+  businessLicenseFile?: File;
+  businessAddress?: string;
+  businessType?: string;
+  businessCategory?: string;
+  businessStartDate?: string;
 }
 
 /**
@@ -50,6 +58,15 @@ export async function signUp(
     );
     const { uid } = credential.user;
 
+    // 사업자등록증 이미지 업로드
+    let businessLicenseUrl: string | undefined;
+    if (userData.businessLicenseFile && storage) {
+      const ext = userData.businessLicenseFile.name.split(".").pop() || "jpg";
+      const storageRef = ref(storage, `business-licenses/${uid}.${ext}`);
+      await uploadBytes(storageRef, userData.businessLicenseFile);
+      businessLicenseUrl = await getDownloadURL(storageRef);
+    }
+
     // Firestore 사용자 문서 생성
     const userDoc: Omit<User, "createdAt"> & { createdAt: ReturnType<typeof serverTimestamp> } = {
       uid,
@@ -58,9 +75,16 @@ export async function signUp(
       firmName: userData.firmName,
       barLicenseNumber: userData.barLicenseNumber,
       role: "lawyer",
-      status: "approved",
+      status: userData.businessVerified ? "approved" : "pending",
       plan: "free",
       createdAt: serverTimestamp(),
+      businessNumber: userData.businessNumber,
+      businessVerified: userData.businessVerified,
+      businessLicenseUrl,
+      businessAddress: userData.businessAddress,
+      businessType: userData.businessType,
+      businessCategory: userData.businessCategory,
+      businessStartDate: userData.businessStartDate,
     };
 
     await setDoc(doc(db!, "users", uid), userDoc);

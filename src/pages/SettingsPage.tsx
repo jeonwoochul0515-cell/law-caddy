@@ -9,6 +9,9 @@ import {
   Check,
   AlertCircle,
   Building,
+  MapPin,
+  FileCheck,
+  BadgeCheck,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -188,6 +191,66 @@ export default function SettingsPage() {
             </button>
           </div>
 
+          {/* 사업자 정보 */}
+          {user.businessNumber && (
+            <div className="bg-surface border border-border rounded-2xl p-6">
+              <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
+                <FileCheck className="w-4 h-4" />
+                사업자 정보
+                {user.businessVerified && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                    <BadgeCheck className="w-3 h-3" /> 인증완료
+                  </span>
+                )}
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-text-dim">사업자등록번호</span>
+                  <span className="text-text-primary font-mono">
+                    {formatBizNum(user.businessNumber)}
+                  </span>
+                </div>
+                {user.businessAddress && (
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-text-dim flex items-center gap-1"><MapPin className="w-3 h-3" /> 사업장 주소</span>
+                    <span className="text-text-primary text-right max-w-[60%]">{user.businessAddress}</span>
+                  </div>
+                )}
+                {user.businessType && (
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-text-dim">업태</span>
+                    <span className="text-text-primary">{user.businessType}</span>
+                  </div>
+                )}
+                {user.businessCategory && (
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-text-dim">종목</span>
+                    <span className="text-text-primary">{user.businessCategory}</span>
+                  </div>
+                )}
+                {user.businessStartDate && (
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-text-dim">개업일</span>
+                    <span className="text-text-primary">{formatBizDate(user.businessStartDate)}</span>
+                  </div>
+                )}
+                {user.businessLicenseUrl && (
+                  <div className="flex justify-between py-2">
+                    <span className="text-text-dim">등록증 원본</span>
+                    <a
+                      href={user.businessLicenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gold hover:text-gold-bright text-sm transition-colors"
+                    >
+                      이미지 보기
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 비밀번호 변경 */}
           <div className="bg-surface border border-border rounded-2xl p-6">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
@@ -332,4 +395,18 @@ export default function SettingsPage() {
       )}
     </AppLayout>
   );
+}
+
+/** 사업자등록번호 포맷 (000-00-00000) */
+function formatBizNum(num: string): string {
+  const clean = num.replace(/\D/g, "");
+  if (clean.length !== 10) return num;
+  return `${clean.slice(0, 3)}-${clean.slice(3, 5)}-${clean.slice(5)}`;
+}
+
+/** 사업자 개업일 포맷 (YYYYMMDD → YYYY.MM.DD) */
+function formatBizDate(date: string): string {
+  const clean = date.replace(/\D/g, "");
+  if (clean.length !== 8) return date;
+  return `${clean.slice(0, 4)}.${clean.slice(4, 6)}.${clean.slice(6)}`;
 }

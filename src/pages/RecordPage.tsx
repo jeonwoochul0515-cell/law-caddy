@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2 } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, Zap } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -9,9 +9,15 @@ import { createRecording, updateRecording, addTimelineEvent } from "../services/
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 
-
-
+type InputMode = "record" | "type" | "upload" | "quick";
 type Step = "info" | "record" | "agents";
+
+const INPUT_MODES: { mode: InputMode; label: string; desc: string; icon: React.ElementType; color: string }[] = [
+  { mode: "record", label: "상담 녹음", desc: "대면 상담 녹음 + 자료 첨부", icon: Mic, color: "text-gold bg-gold-dim" },
+  { mode: "type", label: "메모 입력", desc: "상담 내용을 직접 타이핑", icon: Type, color: "text-info bg-info/10" },
+  { mode: "upload", label: "자료 첨부", desc: "서류/증거를 업로드하여 분석", icon: Upload, color: "text-success bg-success/10" },
+  { mode: "quick", label: "빠른 분석", desc: "사건 개요만으로 바로 AI 분석", icon: Zap, color: "text-warning bg-warning/10" },
+];
 
 function getFileIcon(file: File) {
   const type = file.type;
@@ -44,8 +50,10 @@ export default function RecordPage() {
     caseId?: string;
     clientName?: string;
     caseDesc?: string;
+    inputMode?: InputMode;
   } | null;
 
+  const [inputMode, setInputMode] = useState<InputMode>(prefilled?.inputMode ?? "record");
   const [step, setStep] = useState<Step>("info");
   const [files, setFiles] = useState<File[]>([]);
   const [typedNotes, setTypedNotes] = useState("");
@@ -57,6 +65,13 @@ export default function RecordPage() {
   // 사건 정보 (프리필 값으로 초기화)
   const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
   const [caseDesc, setCaseDesc] = useState(prefilled?.caseDesc ?? "");
+
+  // 타이핑 모드: Step 2 진입 시 텍스트 영역 자동 포커스
+  useEffect(() => {
+    if (step === "record" && inputMode === "type") {
+      setTimeout(() => document.getElementById("typed-notes-area")?.focus(), 100);
+    }
+  }, [step, inputMode]);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -100,6 +115,29 @@ export default function RecordPage() {
   const handleNext = async () => {
     if (step === "info") {
       if (!clientName || !caseDesc) return;
+      if (inputMode === "quick") {
+        // 빠른 분석: Step 2 스킵, 바로 에이전트로
+        if (!user) return;
+        setUploading(true);
+        try {
+          navigate("/record/agents", {
+            state: {
+              files: [],
+              typedNotes: "",
+              clientName,
+              caseDesc,
+              caseId: prefilled?.caseId,
+              previousTranscripts: "",
+              ownerId: user.uid,
+              firmName: user.firmName,
+              lawyerName: user.name,
+            },
+          });
+        } finally {
+          setUploading(false);
+        }
+        return;
+      }
       setStep("record");
     } else if (step === "record") {
       if ((files.length === 0 && !typedNotes.trim()) || !user) return;
@@ -235,17 +273,24 @@ export default function RecordPage() {
     }
   };
 
+  const steps: Step[] = inputMode === "quick" ? ["info", "agents"] : ["info", "record", "agents"];
+  const stepLabels: Record<Step, string> = {
+    info: "사건 정보",
+    record: inputMode === "type" ? "메모 입력" : inputMode === "upload" ? "자료 첨부" : "녹음/업로드",
+    agents: "AI 분석",
+  };
+
   return (
-    <AppLayout title="새 상담" subtitle="녹음 또는 파일 업로드">
+    <AppLayout title="새 상담" subtitle={INPUT_MODES.find((m) => m.mode === inputMode)?.desc ?? ""}>
       {/* 단계 표시 */}
       <div className="flex items-center gap-3 mb-8">
-        {(["info", "record", "agents"] as const).map((s, i) => (
+        {steps.map((s, i) => (
           <div key={s} className="flex items-center gap-3">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                 step === s
                   ? "bg-gold text-navy"
-                  : i < (["info", "record", "agents"] as const).indexOf(step)
+                  : i < steps.indexOf(step)
                     ? "bg-gold-dim text-gold"
                     : "bg-surface text-text-dim border border-border"
               }`}
@@ -253,9 +298,9 @@ export default function RecordPage() {
               {i + 1}
             </div>
             <span className={`text-sm hidden sm:inline ${step === s ? "text-text-primary" : "text-text-dim"}`}>
-              {s === "info" ? "사건 정보" : s === "record" ? "녹음/업로드" : "AI 분석"}
+              {stepLabels[s]}
             </span>
-            {i < 2 && <ChevronRight className="w-4 h-4 text-text-dim" />}
+            {i < steps.length - 1 && <ChevronRight className="w-4 h-4 text-text-dim" />}
           </div>
         ))}
       </div>
@@ -287,6 +332,35 @@ export default function RecordPage() {
               />
             </div>
 
+            {/* 입력 모드 선택 */}
+            {!prefilled?.caseId && (
+              <div>
+                <label className="block text-sm text-text-dim mb-2">입력 방식</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {INPUT_MODES.map((m) => (
+                    <button
+                      key={m.mode}
+                      type="button"
+                      onClick={() => setInputMode(m.mode)}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
+                        inputMode === m.mode
+                          ? "bg-gold-dim border border-gold/30 text-gold"
+                          : "bg-navy-light border border-border text-text-dim hover:border-border-hover"
+                      }`}
+                    >
+                      <div className={`p-1.5 rounded-lg ${inputMode === m.mode ? "bg-gold/10" : m.color.split(" ")[1]}`}>
+                        <m.icon className={`w-3.5 h-3.5 ${inputMode === m.mode ? "text-gold" : m.color.split(" ")[0]}`} />
+                      </div>
+                      <div>
+                        <p className="font-medium">{m.label}</p>
+                        <p className={`text-xs ${inputMode === m.mode ? "text-gold/60" : "text-text-dim/60"}`}>{m.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={() => navigate("/dashboard")}
@@ -300,7 +374,7 @@ export default function RecordPage() {
                 disabled={!clientName || !caseDesc}
                 className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                다음: 녹음/업로드
+                {inputMode === "quick" ? "AI 분석 시작" : `다음: ${stepLabels.record}`}
               </button>
             </div>
           </div>

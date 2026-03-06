@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, FileText, Heart, Loader2 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
@@ -8,8 +8,9 @@ import CaseHeader from "../components/cases/CaseHeader";
 import OverviewTab from "../components/cases/OverviewTab";
 import TimelineTab from "../components/cases/TimelineTab";
 import DocumentsTab from "../components/cases/DocumentsTab";
+import ClientCareTab from "../components/cases/ClientCareTab";
 
-type TabKey = "overview" | "timeline" | "docs";
+type TabKey = "overview" | "timeline" | "docs" | "clientcare";
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -77,6 +78,7 @@ export default function CaseDetailPage() {
     { key: "overview", label: "개요", icon: LayoutGrid },
     { key: "timeline", label: "타임라인", count: timeline.length, icon: Clock },
     { key: "docs", label: "문서·녹음", count: docsRecCount, icon: FileText },
+    { key: "clientcare", label: "의뢰인 케어", icon: Heart },
   ];
 
   return (
@@ -143,6 +145,17 @@ export default function CaseDetailPage() {
           caseDesc={caseData?.description}
           firmName={user?.firmName}
           lawyerName={user?.name}
+        />
+      )}
+
+      {tab === "clientcare" && (
+        <ClientCareTab
+          caseData={caseData}
+          documents={documents}
+          recordings={recordings}
+          ownerId={user?.uid ?? ""}
+          firmName={user?.firmName ?? ""}
+          lawyerName={user?.name ?? ""}
         />
       )}
     </AppLayout>

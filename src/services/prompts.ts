@@ -3,6 +3,7 @@
 
 import type { DocType, CaseType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
+import type { ClientCarePromptContext } from "../types/clientCare";
 
 /**
  * 모든 법률 에이전트에 공통 적용되는 할루시네이션 방지 규칙
@@ -25,6 +26,8 @@ export interface AgentContext {
   previousTranscripts?: string;
   checkpointAnswers?: CheckpointAnswer[];
   checkQuestions?: CheckQuestion[];
+  ragContext?: string;  // RAG 벡터 검색 결과 텍스트 (선택적)
+  latestPrecedents?: string;  // 법제처 실시간 판례 검색 결과 (선택적)
 }
 
 /** 의뢰인 메시지 전용 컨텍스트 */
@@ -73,6 +76,22 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(ctx.transcript);
   }
 
+  if (ctx.ragContext) {
+    lines.push("");
+    lines.push("[참고 법률 자료 (벡터 검색 결과)]");
+    lines.push(ctx.ragContext);
+    lines.push("");
+    lines.push("※ 위 참고 자료는 AI가 검색한 것으로, 반드시 내용을 검증 후 활용하세요.");
+  }
+
+  if (ctx.latestPrecedents) {
+    lines.push("");
+    lines.push("[최신 관련 판례 (법제처 실시간 검색)]");
+    lines.push(ctx.latestPrecedents);
+    lines.push("");
+    lines.push("※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
+  }
+
   return lines.join("\n");
 }
 
@@ -109,6 +128,8 @@ function formatCheckpointAnswers(
 /** 판례 검색 에이전트 프롬프트 */
 function buildPrecedentPrompt(ctx: AgentContext): string {
   const context = buildContextBlock(ctx);
+  const hasLatestPrecedents = !!ctx.latestPrecedents;
+
   return `당신은 한국 법률 판례 검색 전문가입니다.
 ${ANTI_HALLUCINATION_RULES}
 
@@ -121,7 +142,9 @@ ${context}
 - 판례 유형 및 법원 (예: "대법원 OO년대 부동산 이중매매 관련 판결")
 - 핵심 법리 및 판단 요지
 - 본 사건 시사점 (유리/불리)
-※ 정확한 사건번호가 확실하지 않으면 번호를 기재하지 말고 판례의 법리 내용에 집중하세요.
+${hasLatestPrecedents
+    ? "※ 법제처 실시간 검색으로 확보한 판례는 사건번호가 정확하므로 그대로 인용하세요.\n※ 그 외 기억에 의존하는 판례번호는 기재하지 말고 법리 내용에 집중하세요."
+    : "※ 정확한 사건번호가 확실하지 않으면 번호를 기재하지 말고 판례의 법리 내용에 집중하세요."}
 
 ## 판례 동향 - 최근 법원 판단 경향
 
@@ -396,4 +419,124 @@ ${document}
 4. 수정안 앞에 무엇을 왜 수정했는지 간단히 설명
 5. 한국어로 전문적이되 이해하기 쉽게 작성
 6. 확실하지 않은 정보는 "~로 추정됩니다" 또는 "변호사 확인이 필요합니다"로 표현`;
+}
+
+// ──────────────────────────────────────────────
+// 의뢰인 케어 4단계 프롬프트
+// ──────────────────────────────────────────────
+
+/**
+ * Stage 1: 상담 후 — 상담 요약 + 다음 단계 안내 메시지
+ */
+export function buildPostConsultPrompt(ctx: ClientCarePromptContext): string {
+  return `당신은 친절하고 전문적인 법률 비서입니다. 변호사가 의뢰인과 첫 상담을 마친 직후, 의뢰인에게 보낼 카카오톡 메시지를 작성하세요.
+
+[변호사 정보]
+${ctx.firmName} ${ctx.lawyerName} 변호사
+
+[의뢰인] ${ctx.clientName}
+[사건 유형] ${ctx.caseType}
+[사건 개요] ${ctx.caseDesc}
+
+${ctx.transcript ? `[상담 대화록]\n${ctx.transcript}\n` : ""}
+메시지 작성 규칙:
+1. 오늘 상담에서 다룬 핵심 사항 3~5가지를 쉬운 말로 정리
+2. 다음 단계가 무엇인지 구체적으로 안내 (예: "계약서 사본 준비", "증거 정리")
+3. 변호사가 앞으로 어떤 작업을 할 예정인지 간략히 언급 (투명성)
+4. 의뢰인이 준비해야 할 서류나 자료가 있으면 체크리스트로 정리
+5. 존댓말 + 따뜻하고 안심되는 톤
+6. 200~400자 이내
+7. 이모지 1~2개만 (과하지 않게)
+8. "궁금하신 점 있으시면 편하게 연락 주세요" 포함
+9. ${ctx.firmName} ${ctx.lawyerName} 변호사 서명`;
+}
+
+/**
+ * Stage 2: 진행 중 — 수행 작업 목록 + 현재 단계 안내
+ */
+export function buildProgressUpdatePrompt(ctx: ClientCarePromptContext): string {
+  const workList = ctx.workBreakdown?.map((w) => `- ${w.label}: ${w.count}건`).join("\n") ?? "";
+
+  return `당신은 친절하고 전문적인 법률 비서입니다. 변호사가 사건을 진행하면서 의뢰인에게 중간 진행 상황을 알려주는 카카오톡 메시지를 작성하세요.
+
+[변호사 정보]
+${ctx.firmName} ${ctx.lawyerName} 변호사
+
+[의뢰인] ${ctx.clientName}
+[사건 유형] ${ctx.caseType}
+[사건 개요] ${ctx.caseDesc}
+
+${ctx.timelineSummary ? `[진행 경과]\n${ctx.timelineSummary}\n` : ""}
+${ctx.agentResultsSummary ? `[AI 분석 수행 내역]\n${ctx.agentResultsSummary}\n` : ""}
+${workList ? `[수행 작업 상세]\n${workList}\n` : ""}
+메시지 작성 규칙:
+1. 변호사가 지금까지 한 작업을 구체적 숫자와 함께 나열 (노동 환상 효과)
+   예: "판례 5건 분석", "법조문 12개 확인", "체크포인트 8개 검토"
+2. 현재 어느 단계에 있는지 명확히 안내
+3. 다음에 진행될 작업 1~2가지 예고
+4. 의뢰인이 추가로 해야 할 일이 있으면 안내
+5. 존댓말 + 전문적이면서 따뜻한 톤
+6. 250~400자 이내
+7. 이모지 1~2개만
+8. "진행 상황은 수시로 알려드리겠습니다" 느낌의 마무리
+9. ${ctx.firmName} ${ctx.lawyerName} 변호사 서명`;
+}
+
+/**
+ * Stage 3: 문서 전달 — 문서 설명 + 투입 노력 가시화
+ */
+export function buildDocDeliveryPrompt(ctx: ClientCarePromptContext): string {
+  const workList = ctx.workBreakdown?.map((w) => `- ${w.label}: ${w.count}건`).join("\n") ?? "";
+
+  return `당신은 친절하고 전문적인 법률 비서입니다. 변호사가 법률 문서를 완성하여 의뢰인에게 전달하면서 보낼 카카오톡 메시지를 작성하세요.
+
+[변호사 정보]
+${ctx.firmName} ${ctx.lawyerName} 변호사
+
+[의뢰인] ${ctx.clientName}
+[사건 유형] ${ctx.caseType}
+[사건 개요] ${ctx.caseDesc}
+
+${ctx.documentsSummary ? `[작성된 문서]\n${ctx.documentsSummary}\n` : ""}
+${workList ? `[투입 작업량]\n${workList}\n` : ""}
+메시지 작성 규칙:
+1. 어떤 문서가 완성되었는지 쉬운 말로 설명 (법률 용어 → 일상 언어)
+2. 이 문서가 왜 중요한지, 어떤 효과가 있는지 비유로 설명
+3. 문서 작성에 투입된 구체적 작업량 언급 (판례 분석 N건, 법조문 확인 N개 등)
+4. 다음 절차 안내 (접수, 송달, 기다림 등)
+5. 존댓말 + 안심 + 전문적 톤
+6. 250~400자 이내
+7. 이모지 1~2개만
+8. "궁금하신 점 있으시면 편하게 연락 주세요" 포함
+9. ${ctx.firmName} ${ctx.lawyerName} 변호사 서명`;
+}
+
+/**
+ * Stage 4: 사건 종결 — 최종 보고서 + 감사 메시지
+ */
+export function buildCaseClosurePrompt(ctx: ClientCarePromptContext): string {
+  const workList = ctx.workBreakdown?.map((w) => `- ${w.label}: ${w.count}건`).join("\n") ?? "";
+
+  return `당신은 친절하고 전문적인 법률 비서입니다. 사건이 마무리되어 변호사가 의뢰인에게 보낼 종결 카카오톡 메시지를 작성하세요.
+
+[변호사 정보]
+${ctx.firmName} ${ctx.lawyerName} 변호사
+
+[의뢰인] ${ctx.clientName}
+[사건 유형] ${ctx.caseType}
+[사건 개요] ${ctx.caseDesc}
+
+${ctx.timelineSummary ? `[전체 진행 경과]\n${ctx.timelineSummary}\n` : ""}
+${ctx.documentsSummary ? `[작성된 문서 목록]\n${ctx.documentsSummary}\n` : ""}
+${workList ? `[총 투입 작업량]\n${workList}\n` : ""}
+메시지 작성 규칙:
+1. 사건 전체를 간략히 회고 (시작 → 주요 경과 → 결과)
+2. 총 투입 작업량을 구체적 숫자로 정리 (판례 분석 총 N건, 문서 N건 작성 등)
+3. 사후 관리 안내 (보관할 서류, 주의사항, 시효 등)
+4. "이 변호사가 아니었으면..." 프레이밍은 직접적으로 하지 말고, 수행한 작업량으로 자연스럽게 가치를 느끼게
+5. 감사 인사 + 추후 법률 상담 필요시 연락 안내
+6. 존댓말 + 따뜻하고 격려하는 톤 (Peak-End Rule: 마지막 인상이 가장 중요)
+7. 300~500자 이내
+8. 이모지 1~2개만
+9. ${ctx.firmName} ${ctx.lawyerName} 변호사 서명`;
 }

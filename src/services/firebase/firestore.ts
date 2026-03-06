@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
+import type { ClientCareMessage } from "../../types/clientCare";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
 import type { User } from "../../types/user";
@@ -405,6 +406,69 @@ export async function deleteOpponentDoc(id: string): Promise<void> {
       throw new Error(`상대방 서면 삭제 실패: ${error.message}`);
     }
     throw new Error("상대방 서면 삭제 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+// ──────────────────────────────────────────────
+// Client Care Messages (의뢰인 케어 메시지)
+// ──────────────────────────────────────────────
+
+type CreateClientCareData = Omit<ClientCareMessage, "id" | "createdAt">;
+
+export async function createClientCareMessage(
+  data: CreateClientCareData
+): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db!, "clientCareMessages"), {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`의뢰인 케어 메시지 생성 실패: ${error.message}`);
+    }
+    throw new Error("의뢰인 케어 메시지 생성 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+export async function getClientCareMessages(
+  caseId: string,
+  ownerId: string
+): Promise<ClientCareMessage[]> {
+  try {
+    const q = query(
+      collection(db!, "clientCareMessages"),
+      where("caseId", "==", caseId),
+      where("ownerId", "==", ownerId),
+    );
+    const snapshot = await getDocs(q);
+    const results = snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as ClientCareMessage[];
+    return results.sort((a, b) => {
+      const ta = a.createdAt?.seconds ?? 0;
+      const tb = b.createdAt?.seconds ?? 0;
+      return tb - ta;
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`의뢰인 케어 메시지 조회 실패: ${error.message}`);
+    }
+    throw new Error("의뢰인 케어 메시지 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+export async function deleteClientCareMessage(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "clientCareMessages", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`의뢰인 케어 메시지 삭제 실패: ${error.message}`);
+    }
+    throw new Error("의뢰인 케어 메시지 삭제 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 

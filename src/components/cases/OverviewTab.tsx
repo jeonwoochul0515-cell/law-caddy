@@ -1,4 +1,4 @@
-import { FileText, Mic, Clock, Calendar, StickyNote, FileWarning } from "lucide-react";
+import { FileText, Mic, Clock, Calendar, StickyNote, FileWarning, Heart } from "lucide-react";
 import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
@@ -9,6 +9,7 @@ const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
   filing: Calendar,
   response: FileText,
   note: StickyNote,
+  client_care: Heart,
 };
 
 interface OverviewTabProps {

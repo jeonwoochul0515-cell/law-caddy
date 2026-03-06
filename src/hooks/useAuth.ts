@@ -11,6 +11,13 @@ interface RegisterData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
+  businessNumber?: string;
+  businessVerified?: boolean;
+  businessLicenseFile?: File;
+  businessAddress?: string;
+  businessType?: string;
+  businessCategory?: string;
+  businessStartDate?: string;
 }
 
 /** Auth 스토어 상태 */

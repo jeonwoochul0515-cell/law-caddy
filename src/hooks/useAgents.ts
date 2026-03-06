@@ -93,10 +93,76 @@ async function runSingleAgent(
     return "음성 변환 시간이 초과되었습니다. 녹음 파일을 확인해 주세요.";
   }
 
+  // RAG 벡터 검색 결과 가져오기 (실패해도 기존 동작 유지)
+  // rag.ts가 아직 없을 수 있으므로 동적 경로로 import하여 빌드 에러 방지
+  let ragContext = "";
+  try {
+    const ragModulePath = "../services/rag";
+    const ragModule = await import(/* @vite-ignore */ ragModulePath) as {
+      searchForAgent: (agentId: string, caseDesc: string, caseType?: string) => Promise<string>;
+    };
+    ragContext = await ragModule.searchForAgent(agentId, context.caseDesc, context.caseType);
+  } catch {
+    // RAG 서비스 미구현 또는 검색 실패 시 무시
+  }
+
+  // precedent 에이전트: 법제처 실시간 판례 검색 (실패 시 graceful degradation)
+  let latestPrecedents = "";
+  if (agentId === "precedent") {
+    try {
+      const precedentModule = await import(
+        /* @vite-ignore */ "../services/precedent-api"
+      ) as {
+        searchLatestPrecedents: (query: string, count?: number) => Promise<
+          Array<{
+            serialNumber: string;
+            caseNumber: string;
+            caseName: string;
+            court: string;
+            date: string;
+            summary: string;
+            keyPoints: string;
+            refStatutes: string;
+            refCases: string;
+            content: string;
+          }>
+        >;
+        formatPrecedentsForPrompt: (
+          precedents: Array<{
+            serialNumber: string;
+            caseNumber: string;
+            caseName: string;
+            court: string;
+            date: string;
+            summary: string;
+            keyPoints: string;
+            refStatutes: string;
+            refCases: string;
+            content: string;
+          }>,
+        ) => string;
+      };
+
+      // 사건 유형 + 사건 개요를 검색어로 조합
+      const searchQuery = context.caseType
+        ? `${context.caseType} ${context.caseDesc}`
+        : context.caseDesc;
+      const precedents = await precedentModule.searchLatestPrecedents(searchQuery, 5);
+      latestPrecedents = precedentModule.formatPrecedentsForPrompt(precedents);
+    } catch {
+      // 법제처 API 실패 시 기존 RAG 결과만 사용
+    }
+  }
+
   // 일반 에이전트: Claude API 호출
   // docgen 에이전트는 체크포인트 질문 생성 단계에서 docgen_questions 프롬프트 사용
   const promptId = agentId === "docgen" ? "docgen_questions" : agentId;
-  const prompt = buildPrompt(promptId, context);
+  const contextWithRAG: RunAgentsContext = {
+    ...context,
+    ...(ragContext ? { ragContext } : {}),
+    ...(latestPrecedents ? { latestPrecedents } : {}),
+  };
+  const prompt = buildPrompt(promptId, contextWithRAG);
 
   const userMessage =
     agentId === "docgen"

@@ -14,6 +14,13 @@ export default function RegisterPage() {
     name: string;
     firmName: string;
     barLicenseNumber: string;
+    businessNumber?: string;
+    businessVerified?: boolean;
+    businessLicenseFile?: File;
+    businessAddress?: string;
+    businessType?: string;
+    businessCategory?: string;
+    businessStartDate?: string;
   }) => {
     setError("");
     try {
@@ -21,6 +28,13 @@ export default function RegisterPage() {
         name: data.name,
         firmName: data.firmName,
         barLicenseNumber: data.barLicenseNumber,
+        businessNumber: data.businessNumber,
+        businessVerified: data.businessVerified,
+        businessLicenseFile: data.businessLicenseFile,
+        businessAddress: data.businessAddress,
+        businessType: data.businessType,
+        businessCategory: data.businessCategory,
+        businessStartDate: data.businessStartDate,
       });
       navigate("/pending");
     } catch (err) {
