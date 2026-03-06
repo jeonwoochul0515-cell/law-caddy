@@ -421,6 +421,26 @@ ${document}
 6. 확실하지 않은 정보는 "~로 추정됩니다" 또는 "변호사 확인이 필요합니다"로 표현`;
 }
 
+/**
+ * AI 분석 결과를 바탕으로 사건 개요를 자동 생성합니다.
+ */
+export function buildCaseDescriptionPrompt(
+  clientName: string,
+  analysisResult: string,
+  sttResult: string,
+  typedNotes: string,
+): string {
+  return `아래 AI 분석 결과와 상담 내용을 참고하여, 이 사건의 개요를 2~3문장(100자 내외)으로 요약하세요.
+의뢰인 이름은 제외하고, 사건의 핵심 사실관계와 쟁점만 간결하게 작성하세요.
+다른 텍스트 없이 요약문만 출력하세요.
+
+[의뢰인] ${clientName}
+
+${sttResult ? `[상담 대화록]\n${sttResult.slice(0, 2000)}\n` : ""}
+${typedNotes ? `[메모]\n${typedNotes.slice(0, 1000)}\n` : ""}
+${analysisResult ? `[쟁점 분석]\n${analysisResult.slice(0, 2000)}\n` : ""}`;
+}
+
 // ──────────────────────────────────────────────
 // 의뢰인 케어 4단계 프롬프트
 // ──────────────────────────────────────────────

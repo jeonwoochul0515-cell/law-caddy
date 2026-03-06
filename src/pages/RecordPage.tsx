@@ -64,7 +64,7 @@ export default function RecordPage() {
 
   // 사건 정보 (프리필 값으로 초기화)
   const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
-  const [caseDesc, setCaseDesc] = useState(prefilled?.caseDesc ?? "");
+  const [caseDesc] = useState(prefilled?.caseDesc ?? "");
 
   // 타이핑 모드: Step 2 진입 시 텍스트 영역 자동 포커스
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function RecordPage() {
 
   const handleNext = async () => {
     if (step === "info") {
-      if (!clientName || !caseDesc) return;
+      if (!clientName) return;
       if (inputMode === "quick") {
         // 빠른 분석: Step 2 스킵, 바로 에이전트로
         if (!user) return;
@@ -321,17 +321,6 @@ export default function RecordPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm text-text-dim mb-1.5">사건 개요</label>
-              <textarea
-                value={caseDesc}
-                onChange={(e) => setCaseDesc(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary focus:border-gold focus:outline-none transition-colors resize-y"
-                placeholder="사건의 주요 내용을 간략히 입력해주세요"
-              />
-            </div>
-
             {/* 입력 모드 선택 */}
             {!prefilled?.caseId && (
               <div>
@@ -371,7 +360,7 @@ export default function RecordPage() {
               </button>
               <button
                 onClick={handleNext}
-                disabled={!clientName || !caseDesc}
+                disabled={!clientName}
                 className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {inputMode === "quick" ? "AI 분석 시작" : `다음: ${stepLabels.record}`}

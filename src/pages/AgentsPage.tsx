@@ -8,6 +8,8 @@ import { AGENTS, DOC_TYPES } from "../config/constants";
 import { createDocument, addTimelineEvent, createRecording } from "../services/firebase/firestore";
 import { uploadRecordingFile } from "../services/firebase/storage";
 import { transcribeFile } from "../services/rtzr";
+import { callClaude } from "../services/claude";
+import { buildCaseDescriptionPrompt } from "../services/prompts";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -115,6 +117,30 @@ export default function AgentsPage() {
   }, [state, started, runAllAgents]);
 
   const [isNavigating, setIsNavigating] = useState(false);
+  const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
+
+  const completedCount = Object.values(agents).filter((a) => a.status === "completed").length;
+  const allCompleted = completedCount === 6 && !isRunning;
+
+  // 에이전트 완료 후 사건 개요가 없으면 AI로 자동 생성
+  useEffect(() => {
+    if (!allCompleted || !state || generatedDesc !== null) return;
+    if (state.caseDesc && state.caseDesc.trim().length > 10) {
+      setGeneratedDesc(state.caseDesc);
+      return;
+    }
+    const analysisResult = agents.analysis?.result ?? "";
+    const sttResult = agents.stt?.result ?? "";
+    const prompt = buildCaseDescriptionPrompt(
+      state.clientName,
+      analysisResult,
+      sttResult,
+      state.typedNotes ?? "",
+    );
+    callClaude(prompt, "사건 개요를 요약해 주세요.")
+      .then((desc) => setGeneratedDesc(desc.trim()))
+      .catch(() => setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`));
+  }, [allCompleted, state, agents, generatedDesc]);
 
   const handleCreateCase = async () => {
     if (!state || !classifiedCaseType || isCreatingCase || createdCaseId) return;
@@ -125,7 +151,7 @@ export default function AgentsPage() {
       const caseId = await addCase({
         clientName: state.clientName,
         caseType: classifiedCaseType as CaseType,
-        description: state.caseDesc,
+        description: generatedDesc || state.caseDesc || "",
       });
       setCreatedCaseId(caseId);
 
@@ -178,9 +204,6 @@ export default function AgentsPage() {
       </AppLayout>
     );
   }
-
-  const completedCount = Object.values(agents).filter((a) => a.status === "completed").length;
-  const allCompleted = completedCount === 6 && !isRunning;
 
   return (
     <AppLayout title="AI 분석" subtitle={state.clientName}>
