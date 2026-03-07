@@ -110,15 +110,23 @@ export default function RecordPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const [recordError, setRecordError] = useState<string | null>(null);
+
   const handleRecord = useCallback(async () => {
-    if (isRecording) {
-      const blob = await stopRecording();
-      if (blob) {
-        const audioFile = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
-        setFiles((prev) => [...prev, audioFile]);
+    setRecordError(null);
+    try {
+      if (isRecording) {
+        const blob = await stopRecording();
+        if (blob) {
+          const audioFile = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
+          setFiles((prev) => [...prev, audioFile]);
+        }
+      } else {
+        await startRecording();
       }
-    } else {
-      await startRecording();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "녹음을 시작할 수 없습니다.";
+      setRecordError(msg);
     }
   }, [isRecording, startRecording, stopRecording]);
 
@@ -428,6 +436,13 @@ export default function RecordPage() {
               <p className="text-sm text-text-dim">
                 {isRecording ? "녹음 중... 클릭하여 정지" : "클릭하여 녹음 시작"}
               </p>
+              {recordError && (
+                <p className="text-xs text-error mt-2 text-center">
+                  {recordError.includes("not found")
+                    ? "마이크를 찾을 수 없습니다. 파일 첨부로 녹음 파일을 업로드하세요."
+                    : recordError}
+                </p>
+              )}
             </div>
           </div>
 
