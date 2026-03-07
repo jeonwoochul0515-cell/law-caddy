@@ -158,7 +158,9 @@ export default function useDocument(): UseDocumentReturn {
 
       try {
         const prompt = buildClientMessagePrompt(context);
-        const userMessage = "의뢰인에게 보낼 카카오톡 메시지를 작성해 주세요.";
+        const userMessage = context.finalDocument
+          ? `작성된 "${context.docType}" 문서 내용을 참고하여, 의뢰인이 이해할 수 있는 카카오톡 메시지를 작성해 주세요.`
+          : "의뢰인에게 보낼 카카오톡 메시지를 작성해 주세요.";
 
         const message = await callClaude(prompt, userMessage);
         setClientMessage(message);
