@@ -1,5 +1,5 @@
 """
-Step 5: legal_forms, easy_law, statutes 테이블 Voyage 임베딩
+Step 5: legal_forms, easy_law, statutes, aihub_legal_qa 테이블 Voyage 임베딩
 모든 테이블의 embedding=null인 행에 대해 임베딩 생성
 """
 
@@ -33,21 +33,30 @@ def estimate_tokens(text: str) -> int:
     return len(text) * 2
 
 
-def fetch_rows_without_embedding(table: str, text_column: str, limit: int = 500) -> list[dict]:
-    """임베딩이 없는 행 조회"""
+def fetch_rows_without_embedding(table: str, text_columns: list[str], limit: int = 500) -> list[dict]:
+    """임베딩이 없는 행 조회 (재시도 포함)"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
+    select_cols = ",".join(["id"] + text_columns)
     params = {
-        "select": f"id,{text_column}",
+        "select": select_cols,
         "embedding": "is.null",
         "order": "id",
         "limit": limit,
     }
-    resp = requests.get(url, headers=SUPABASE_HEADERS, params=params, timeout=30)
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        print(f"  조회 에러 ({table}): {resp.status_code}")
-        return []
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, headers=SUPABASE_HEADERS, params=params, timeout=30)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                print(f"  조회 에러 ({table}): {resp.status_code}")
+                return []
+        except requests.exceptions.ConnectionError as e:
+            wait = 5 * (attempt + 1)
+            print(f"  Supabase 연결 에러 (시도 {attempt+1}/3), {wait}초 대기: {e}")
+            time.sleep(wait)
+    print(f"  조회 실패 ({table}): 3회 재시도 후 포기")
+    return []
 
 
 def get_embedding_batch(texts: list[str]) -> list[list[float]]:
@@ -78,16 +87,23 @@ def get_embedding_batch(texts: list[str]) -> list[list[float]]:
 
 
 def update_embedding(table: str, row_id: int, embedding: list[float]):
-    """Supabase 행의 embedding 업데이트"""
+    """Supabase 행의 embedding 업데이트 (재시도 포함)"""
     url = f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{row_id}"
     headers = {**SUPABASE_HEADERS, "Prefer": "return=minimal"}
     payload = {"embedding": json.dumps(embedding)}
-    resp = requests.patch(url, headers=headers, json=payload, timeout=30)
-    return resp.status_code in (200, 204)
+    for attempt in range(3):
+        try:
+            resp = requests.patch(url, headers=headers, json=payload, timeout=30)
+            return resp.status_code in (200, 204)
+        except requests.exceptions.ConnectionError as e:
+            wait = 3 * (attempt + 1)
+            print(f"  업데이트 연결 에러 (id={row_id}, 시도 {attempt+1}/3), {wait}초 대기")
+            time.sleep(wait)
+    return False
 
 
-def process_table(table: str, text_column: str):
-    """테이블의 모든 행에 임베딩 생성"""
+def process_table(table: str, text_columns: list[str]):
+    """테이블의 모든 행에 임베딩 생성 (여러 텍스트 컬럼을 합칠 수 있음)"""
 
     # 총 건수 확인
     url = f"{SUPABASE_URL}/rest/v1/{table}?select=id&embedding=is.null"
@@ -105,9 +121,17 @@ def process_table(table: str, text_column: str):
     processed = 0
     errors = 0
 
+    skipped_ids: set[int] = set()  # 텍스트가 너무 짧아서 건너뛴 행 ID
+
     while True:
-        rows = fetch_rows_without_embedding(table, text_column, limit=200)
+        rows = fetch_rows_without_embedding(table, text_columns, limit=200)
         if not rows:
+            break
+
+        # 모든 행이 이미 건너뛴 행이면 종료 (무한 루프 방지)
+        new_rows = [r for r in rows if r["id"] not in skipped_ids]
+        if not new_rows:
+            print(f"  남은 {len(rows)}건은 텍스트가 너무 짧아 건너뜀")
             break
 
         # 동적 배치 구성
@@ -116,8 +140,17 @@ def process_table(table: str, text_column: str):
         batch_tokens = 0
 
         for row in rows:
-            text = row.get(text_column, "") or ""
+            if row["id"] in skipped_ids:
+                continue
+            # 여러 컬럼을 "\n\n"으로 합침
+            parts = []
+            for col in text_columns:
+                val = row.get(col, "") or ""
+                if val:
+                    parts.append(val)
+            text = "\n\n".join(parts)
             if not text or len(text) < 5:
+                skipped_ids.add(row["id"])
                 continue
 
             tokens = estimate_tokens(text)
@@ -169,16 +202,22 @@ def main():
     print("=" * 60)
 
     tables = [
-        ("legal_forms", "content"),
-        ("easy_law", "content"),
-        ("statutes", "article_content"),
+        ("legal_forms", ["content"]),
+        ("statutes", ["article_content"]),
+        ("legal_knowledge", ["title", "content"]),
+        ("legal_terms", ["term", "definition"]),
+        ("easy_law", ["content"]),
+        ("legal_judgments", ["summary", "content"]),
+        ("legal_mrc", ["question", "answer", "context"]),
+        ("aihub_legal_qa", ["question", "answer"]),
+        ("cases", ["summary", "full_text"]),
     ]
 
-    for table, text_col in tables:
+    for table, text_cols in tables:
         print(f"\n{'─' * 40}")
-        print(f"테이블: {table} (텍스트 컬럼: {text_col})")
+        print(f"테이블: {table} (텍스트 컬럼: {', '.join(text_cols)})")
         print(f"{'─' * 40}")
-        process_table(table, text_col)
+        process_table(table, text_cols)
 
     print("\n" + "=" * 60)
     print("전체 임베딩 완료!")

@@ -268,10 +268,18 @@ export default function CheckpointPage() {
   }).length;
 
   const canProceed = checkQuestions.length > 0;
+  const [showSkipWarning, setShowSkipWarning] = useState(false);
 
   /** 다음 단계로 이동 */
   const handleNext = () => {
     if (!state) return;
+
+    // 답변이 하나도 없으면 경고 표시
+    if (answeredCount === 0 && !showSkipWarning) {
+      setShowSkipWarning(true);
+      return;
+    }
+
     const checkpointAnswers: CheckpointAnswer[] = checkQuestions.map((q) =>
       getAnswer(q.id),
     );
@@ -545,14 +553,29 @@ export default function CheckpointPage() {
 
         {/* 하단 안내 + 진행 버튼 */}
         {checkQuestions.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 space-y-3">
+            {showSkipWarning && (
+              <div className="flex items-start gap-2.5 bg-amber/5 border border-amber/20 rounded-xl px-4 py-3">
+                <Lightbulb className="w-4 h-4 text-amber shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber font-medium">답변 없이 진행하시겠습니까?</p>
+                  <p className="text-xs text-text-dim mt-1">
+                    체크포인트 답변이 없으면 문서에 빈칸이 많아집니다.
+                    최소한 핵심 사실관계(금액, 날짜, 경위 등)는 입력하시는 것을 권장합니다.
+                  </p>
+                  <p className="text-xs text-text-dim mt-0.5">
+                    그래도 진행하려면 다시 "문서 생성" 버튼을 눌러주세요.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end">
               <button
                 disabled={!canProceed}
                 onClick={handleNext}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                문서 생성
+                {showSkipWarning ? "답변 없이 문서 생성" : "문서 생성"}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

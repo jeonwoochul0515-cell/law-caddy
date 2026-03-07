@@ -1,8 +1,11 @@
 import type { Timestamp } from "firebase/firestore";
 
 export type DocType =
-  | "내용증명" | "소장" | "답변서" | "준비서면" | "의견서"
-  | "합의서" | "고소장" | "지급명령신청서" | "상담 요약 리포트";
+  | "소장" | "답변서" | "준비서면" | "내용증명"
+  | "가압류신청서" | "가처분신청서" | "지급명령신청서"
+  | "이의신청서" | "조정신청서"
+  | "고소장" | "고발장" | "항소장"
+  | "합의서" | "상담 요약 리포트";
 
 export interface LegalDocument {
   id: string;
