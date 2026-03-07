@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc } from "../services/firebase/firestore";
+import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc, deleteCase as firestoreDeleteCase } from "../services/firebase/firestore";
 import { uploadOpponentDocFile } from "../services/firebase/storage";
 import { isDemoMode, mockTimestamp } from "../config/demo";
 import useAuth from "./useAuth";
-import type { Case, TimelineEvent, OpponentDoc } from "../types/case";
+import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../types/case";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
 
@@ -18,6 +18,11 @@ interface UseCaseDetailReturn {
   addNote: (label: string, detail: string) => Promise<void>;
   uploadOpponentDoc: (file: File, label: string) => Promise<void>;
   removeOpponentDoc: (docId: string) => Promise<void>;
+  removeCase: () => Promise<void>;
+  updateContractPayment: (data: ContractPayment) => Promise<void>;
+  addCostItem: (item: Omit<CostItem, "id">) => Promise<void>;
+  updateCostItem: (itemId: string, data: Partial<CostItem>) => Promise<void>;
+  removeCostItem: (itemId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -42,11 +47,9 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setRecordings([]);
         setOpponentDocs([]);
       } else {
-        // 사건 데이터를 먼저 로드 (필수)
         const c = await getCase(caseId);
         setCaseData(c);
 
-        // 하위 데이터는 개별 로드 (하나 실패해도 나머지 표시)
         const [docsResult, recsResult, oppDocsResult] = await Promise.allSettled([
           getDocuments(caseId, user.uid),
           getRecordings(caseId, user.uid),
@@ -56,7 +59,6 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setRecordings(recsResult.status === "fulfilled" ? recsResult.value : []);
         setOpponentDocs(oppDocsResult.status === "fulfilled" ? oppDocsResult.value : []);
 
-        // 실패한 쿼리 로깅
         [docsResult, recsResult, oppDocsResult].forEach((r) => {
           if (r.status === "rejected") console.warn("하위 데이터 로딩 실패:", r.reason);
         });
@@ -83,10 +85,8 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
       const oldStatus = caseData.status;
       if (oldStatus === newStatus) return;
 
-      // 낙관적 업데이트
       setCaseData((prev) => prev ? { ...prev, status: newStatus } : prev);
 
-      // 타임라인에 상태 변경 이벤트 추가
       const event: TimelineEvent = {
         type: "note",
         date: mockTimestamp(new Date()),
@@ -107,7 +107,6 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
             detail: `사건 상태가 "${oldStatus}"에서 "${newStatus}"(으)로 변경되었습니다.`,
           });
         } catch {
-          // 롤백
           setCaseData((prev) => prev ? { ...prev, status: oldStatus } : prev);
         }
       }
@@ -126,7 +125,6 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         detail,
       };
 
-      // 낙관적 업데이트
       setCaseData((prev) => {
         if (!prev) return prev;
         return { ...prev, timeline: [...(prev.timeline ?? []), event] };
@@ -136,7 +134,6 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         try {
           await addTimelineEvent(caseId, { type: "note", label, detail });
         } catch {
-          // 롤백
           setCaseData((prev) => {
             if (!prev) return prev;
             return {
@@ -201,6 +198,93 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     [],
   );
 
+  // 사건 삭제
+  const removeCase = useCallback(async () => {
+    if (!caseId) return;
+    if (!isDemoMode) {
+      await firestoreDeleteCase(caseId);
+    }
+  }, [caseId]);
+
+  // 계약/수임료 상태 업데이트
+  const updateContractPayment = useCallback(
+    async (data: ContractPayment) => {
+      if (!caseData) return;
+      const old = caseData.contractPayment;
+      setCaseData((prev) => prev ? { ...prev, contractPayment: data } : prev);
+
+      if (!isDemoMode) {
+        try {
+          await updateCase(caseId, { contractPayment: data });
+        } catch {
+          setCaseData((prev) => prev ? { ...prev, contractPayment: old } : prev);
+        }
+      }
+    },
+    [caseData, caseId],
+  );
+
+  // 부가비용 추가
+  const addCostItem = useCallback(
+    async (item: Omit<CostItem, "id">) => {
+      if (!caseData) return;
+      const newItem: CostItem = { ...item, id: crypto.randomUUID() };
+      const oldCosts = caseData.costs ?? [];
+      const newCosts = [...oldCosts, newItem];
+
+      setCaseData((prev) => prev ? { ...prev, costs: newCosts } : prev);
+
+      if (!isDemoMode) {
+        try {
+          await updateCase(caseId, { costs: newCosts });
+        } catch {
+          setCaseData((prev) => prev ? { ...prev, costs: oldCosts } : prev);
+        }
+      }
+    },
+    [caseData, caseId],
+  );
+
+  // 부가비용 수정
+  const updateCostItem = useCallback(
+    async (itemId: string, data: Partial<CostItem>) => {
+      if (!caseData) return;
+      const oldCosts = caseData.costs ?? [];
+      const newCosts = oldCosts.map((c) => c.id === itemId ? { ...c, ...data } : c);
+
+      setCaseData((prev) => prev ? { ...prev, costs: newCosts } : prev);
+
+      if (!isDemoMode) {
+        try {
+          await updateCase(caseId, { costs: newCosts });
+        } catch {
+          setCaseData((prev) => prev ? { ...prev, costs: oldCosts } : prev);
+        }
+      }
+    },
+    [caseData, caseId],
+  );
+
+  // 부가비용 삭제
+  const removeCostItem = useCallback(
+    async (itemId: string) => {
+      if (!caseData) return;
+      const oldCosts = caseData.costs ?? [];
+      const newCosts = oldCosts.filter((c) => c.id !== itemId);
+
+      setCaseData((prev) => prev ? { ...prev, costs: newCosts } : prev);
+
+      if (!isDemoMode) {
+        try {
+          await updateCase(caseId, { costs: newCosts });
+        } catch {
+          setCaseData((prev) => prev ? { ...prev, costs: oldCosts } : prev);
+        }
+      }
+    },
+    [caseData, caseId],
+  );
+
   return {
     caseData,
     documents,
@@ -212,6 +296,11 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     addNote,
     uploadOpponentDoc,
     removeOpponentDoc,
+    removeCase,
+    updateContractPayment,
+    addCostItem,
+    updateCostItem,
+    removeCostItem,
     refresh: fetchAll,
   };
 }

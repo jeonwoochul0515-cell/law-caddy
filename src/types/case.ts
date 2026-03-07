@@ -2,6 +2,23 @@ import type { Timestamp } from "firebase/firestore";
 
 export type CaseType = "민사" | "형사" | "가사" | "행정" | "노동" | "부동산" | "채권·채무" | "손해배상" | "기타";
 
+/** 계약/수임료 상태 */
+export interface ContractPayment {
+  contractSigned: boolean;       // 계약 체결 유무
+  retainerPaid: boolean;         // 착수금 입금 유무
+  successFeeAgreed: boolean;     // 성공보수 약정 유무
+  successFeeAmount?: number;     // 성공보수 금액 (원)
+}
+
+/** 부가비용 항목 */
+export interface CostItem {
+  id: string;
+  description: string;           // 송달료, 인지대 등
+  amount: number;                // 금액 (원)
+  paid: boolean;                 // 납부 여부
+  date: string;                  // ISO date string (YYYY-MM-DD)
+}
+
 export interface Case {
   id: string;
   ownerId: string;
@@ -12,6 +29,8 @@ export interface Case {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   timeline: TimelineEvent[];
+  contractPayment?: ContractPayment;
+  costs?: CostItem[];
 }
 
 export interface TimelineEvent {

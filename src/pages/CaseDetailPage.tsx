@@ -28,6 +28,11 @@ export default function CaseDetailPage() {
     addNote,
     uploadOpponentDoc,
     removeOpponentDoc,
+    removeCase,
+    updateContractPayment,
+    addCostItem,
+    updateCostItem,
+    removeCostItem,
   } = useCaseDetail(id ?? "");
 
   const handleNavigateToRecord = () => {
@@ -39,6 +44,11 @@ export default function CaseDetailPage() {
         caseDesc: caseData.description,
       },
     });
+  };
+
+  const handleDeleteCase = async () => {
+    await removeCase();
+    navigate("/cases");
   };
 
   if (loading) {
@@ -91,7 +101,11 @@ export default function CaseDetailPage() {
       </button>
 
       {/* 사건 헤더 */}
-      <CaseHeader caseData={caseData} onStatusChange={updateStatus} />
+      <CaseHeader
+        caseData={caseData}
+        onStatusChange={updateStatus}
+        onDelete={handleDeleteCase}
+      />
 
       {/* 탭 네비게이션 */}
       <div className="flex gap-2 mb-6 overflow-x-auto">
@@ -125,6 +139,10 @@ export default function CaseDetailPage() {
           opponentDocs={opponentDocs}
           onNavigateToRecord={handleNavigateToRecord}
           onSwitchTab={(t) => setTab(t as TabKey)}
+          onUpdateContractPayment={updateContractPayment}
+          onAddCostItem={addCostItem}
+          onUpdateCostItem={updateCostItem}
+          onRemoveCostItem={removeCostItem}
         />
       )}
 

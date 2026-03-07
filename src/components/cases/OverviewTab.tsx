@@ -1,7 +1,9 @@
 import { FileText, Mic, Clock, Calendar, StickyNote, FileWarning, Heart } from "lucide-react";
-import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
+import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
+import ContractPaymentSection from "./ContractPaymentSection";
+import CostsSection from "./CostsSection";
 
 const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
   consult: Mic,
@@ -19,6 +21,10 @@ interface OverviewTabProps {
   opponentDocs: OpponentDoc[];
   onNavigateToRecord: () => void;
   onSwitchTab: (tab: string) => void;
+  onUpdateContractPayment: (data: ContractPayment) => Promise<void>;
+  onAddCostItem: (item: Omit<CostItem, "id">) => Promise<void>;
+  onUpdateCostItem: (id: string, data: Partial<CostItem>) => Promise<void>;
+  onRemoveCostItem: (id: string) => Promise<void>;
 }
 
 export default function OverviewTab({
@@ -28,6 +34,10 @@ export default function OverviewTab({
   opponentDocs,
   onNavigateToRecord,
   onSwitchTab,
+  onUpdateContractPayment,
+  onAddCostItem,
+  onUpdateCostItem,
+  onRemoveCostItem,
 }: OverviewTabProps) {
   const timeline = caseData.timeline ?? [];
   const createdDate = caseData.createdAt?.toDate?.()
@@ -43,6 +53,12 @@ export default function OverviewTab({
     processing: "bg-warning/15 text-warning",
     checkpoint: "bg-info/15 text-info",
     generating: "bg-warning/15 text-warning",
+  };
+
+  const contractPayment = caseData.contractPayment ?? {
+    contractSigned: false,
+    retainerPaid: false,
+    successFeeAgreed: false,
   };
 
   return (
@@ -65,6 +81,20 @@ export default function OverviewTab({
             <p className="text-xs text-text-dim">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* 계약/수임료 현황 + 부가비용 관리 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ContractPaymentSection
+          data={contractPayment}
+          onUpdate={onUpdateContractPayment}
+        />
+        <CostsSection
+          costs={caseData.costs ?? []}
+          onAdd={onAddCostItem}
+          onUpdate={onUpdateCostItem}
+          onRemove={onRemoveCostItem}
+        />
       </div>
 
       {/* 최근 타임라인 */}

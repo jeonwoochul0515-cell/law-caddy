@@ -409,6 +409,21 @@ export async function deleteOpponentDoc(id: string): Promise<void> {
   }
 }
 
+/**
+ * 사건을 삭제합니다.
+ */
+export async function deleteCase(caseId: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "cases", caseId));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건 삭제 실패: ${error.message}`);
+    }
+    throw new Error("사건 삭제 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
 // ──────────────────────────────────────────────
 // Client Care Messages (의뢰인 케어 메시지)
 // ──────────────────────────────────────────────
