@@ -146,10 +146,12 @@ export async function callClaude(
   userMessage: string,
 ): Promise<string> {
   try {
-    const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-
-    if (directApiKey && typeof directApiKey === "string") {
-      return await callClaudeDirect(systemPrompt, userMessage, directApiKey);
+    // 로컬 개발 환경에서만 직접 호출, 프로덕션은 항상 프록시 사용
+    if (isDev) {
+      const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (directApiKey && typeof directApiKey === "string") {
+        return await callClaudeDirect(systemPrompt, userMessage, directApiKey);
+      }
     }
 
     return await callClaudeProxy(systemPrompt, userMessage);
@@ -174,10 +176,12 @@ export async function callClaudeChat(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-
-    if (directApiKey && typeof directApiKey === "string") {
-      return await callClaudeChatDirect(systemPrompt, messages, directApiKey);
+    // 로컬 개발 환경에서만 직접 호출, 프로덕션은 항상 프록시 사용
+    if (isDev) {
+      const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (directApiKey && typeof directApiKey === "string") {
+        return await callClaudeChatDirect(systemPrompt, messages, directApiKey);
+      }
     }
 
     return await callClaudeChatProxy(systemPrompt, messages);
