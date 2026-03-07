@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, Zap, FolderOpen } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, FolderOpen } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -10,14 +10,13 @@ import { createRecording, updateRecording, addTimelineEvent } from "../services/
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 
-type InputMode = "record" | "type" | "upload" | "quick";
+type InputMode = "record" | "type" | "upload";
 type Step = "info" | "record" | "agents";
 
 const INPUT_MODES: { mode: InputMode; label: string; desc: string; icon: React.ElementType; color: string }[] = [
   { mode: "record", label: "상담 녹음", desc: "대면 상담 녹음 + 자료 첨부", icon: Mic, color: "text-gold bg-gold-dim" },
   { mode: "type", label: "메모 입력", desc: "상담 내용을 직접 타이핑", icon: Type, color: "text-info bg-info/10" },
   { mode: "upload", label: "자료 첨부", desc: "서류/증거를 업로드하여 분석", icon: Upload, color: "text-success bg-success/10" },
-  { mode: "quick", label: "빠른 분석", desc: "사건 개요만으로 바로 AI 분석", icon: Zap, color: "text-warning bg-warning/10" },
 ];
 
 function getFileIcon(file: File) {
@@ -133,29 +132,6 @@ export default function RecordPage() {
   const handleNext = async () => {
     if (step === "info") {
       if (!clientName) return;
-      if (inputMode === "quick") {
-        // 빠른 분석: Step 2 스킵, 바로 에이전트로
-        if (!user) return;
-        setUploading(true);
-        try {
-          navigate("/record/agents", {
-            state: {
-              files: [],
-              typedNotes: "",
-              clientName,
-              caseDesc,
-              caseId: prefilled?.caseId,
-              previousTranscripts: "",
-              ownerId: user.uid,
-              firmName: user.firmName,
-              lawyerName: user.name,
-            },
-          });
-        } finally {
-          setUploading(false);
-        }
-        return;
-      }
       setStep("record");
     } else if (step === "record") {
       if ((files.length === 0 && !typedNotes.trim()) || !user) return;
@@ -291,7 +267,7 @@ export default function RecordPage() {
     }
   };
 
-  const steps: Step[] = inputMode === "quick" ? ["info", "agents"] : ["info", "record", "agents"];
+  const steps: Step[] = ["info", "record", "agents"];
   const stepLabels: Record<Step, string> = {
     info: "사건 정보",
     record: inputMode === "type" ? "메모 입력" : inputMode === "upload" ? "자료 첨부" : "녹음/업로드",
@@ -381,7 +357,7 @@ export default function RecordPage() {
                 disabled={!clientName}
                 className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {inputMode === "quick" ? "AI 분석 시작" : `다음: ${stepLabels.record}`}
+                {`다음: ${stepLabels.record}`}
               </button>
             </div>
           </div>

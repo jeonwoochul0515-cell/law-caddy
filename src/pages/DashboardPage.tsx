@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, FolderOpen, FileText, TrendingUp, Plus, Upload, Type, Zap } from "lucide-react";
+import { Mic, FolderOpen, FileText, TrendingUp, Plus, Upload, Type } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
@@ -116,7 +116,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 빠른 실행 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <button
           onClick={() => navigate("/record", { state: { inputMode: "record" } })}
           className="flex flex-col items-center gap-3 bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/20 rounded-2xl p-5 hover:border-gold/40 transition-colors text-center"
@@ -156,18 +156,6 @@ export default function DashboardPage() {
           </div>
         </button>
 
-        <button
-          onClick={() => navigate("/record", { state: { inputMode: "quick" } })}
-          className="flex flex-col items-center gap-3 bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-colors text-center"
-        >
-          <div className="w-11 h-11 bg-warning/10 rounded-full flex items-center justify-center">
-            <Zap className="w-5 h-5 text-warning" />
-          </div>
-          <div>
-            <p className="font-semibold text-text-primary text-sm">빠른 분석</p>
-            <p className="text-xs text-text-dim mt-0.5">사건 개요만으로 AI 분석</p>
-          </div>
-        </button>
       </div>
 
       {/* 사건 관리 바로가기 */}
