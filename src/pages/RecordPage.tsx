@@ -486,14 +486,14 @@ export default function RecordPage() {
                     폴더 내 파일 일괄 첨부
                   </span>
                 </button>
-                {/* @ts-expect-error webkitdirectory는 표준 속성이 아님 */}
                 <input
                   ref={folderInputRef}
                   type="file"
                   multiple
-                  webkitdirectory=""
                   onChange={handleFileSelect}
                   className="hidden"
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
                 />
 
                 {/* 카메라 촬영 */}

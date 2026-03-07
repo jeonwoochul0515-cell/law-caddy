@@ -21,7 +21,7 @@ export default function useDropZone(
   accept?: string[],
 ): UseDropZoneReturn {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragCounter, setDragCounter] = useState(0);
+  const counterRef = { current: 0 };
 
   const onDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -31,23 +31,15 @@ export default function useDropZone(
   const onDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter((c) => {
-      if (c === 0) setIsDragging(true);
-      return c + 1;
-    });
+    counterRef.current += 1;
+    if (counterRef.current === 1) setIsDragging(true);
   }, []);
 
   const onDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter((c) => {
-      const next = c - 1;
-      if (next <= 0) {
-        setIsDragging(false);
-        return 0;
-      }
-      return next;
-    });
+    counterRef.current = Math.max(0, counterRef.current - 1);
+    if (counterRef.current === 0) setIsDragging(false);
   }, []);
 
   const onDrop = useCallback(
@@ -55,7 +47,7 @@ export default function useDropZone(
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-      setDragCounter(0);
+      counterRef.current = 0;
 
       const droppedFiles = Array.from(e.dataTransfer.files);
       if (droppedFiles.length === 0) return;
