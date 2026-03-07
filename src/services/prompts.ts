@@ -28,6 +28,8 @@ export interface AgentContext {
   checkQuestions?: CheckQuestion[];
   ragContext?: string;  // RAG 벡터 검색 결과 텍스트 (선택적)
   latestPrecedents?: string;  // 법제처 실시간 판례 검색 결과 (선택적)
+  lawyerName?: string;  // 변호사 이름 (프로필)
+  firmName?: string;    // 법률사무소 이름 (프로필)
 }
 
 /** 의뢰인 메시지 전용 컨텍스트 */
@@ -36,6 +38,7 @@ export interface ClientMessageContext {
   lawyerName: string;
   docType: DocType;
   caseDesc: string;
+  finalDocument?: string;  // 생성된 문서 내용 (있으면 참고하여 메시지 작성)
 }
 
 /** 에이전트 ID (docgen_questions, client_message 포함) */
@@ -56,6 +59,9 @@ function buildContextBlock(ctx: AgentContext): string {
   const lines: string[] = [
     `의뢰인: ${ctx.clientName}`,
   ];
+  if (ctx.lawyerName) {
+    lines.push(`대리인 변호사: ${ctx.lawyerName}${ctx.firmName ? ` (${ctx.firmName})` : ""}`);
+  }
   if (ctx.caseType) {
     lines.push(`사건 유형: ${ctx.caseType}`);
   }
@@ -402,19 +408,28 @@ export function buildPrompt(agentId: PromptAgentId, context: AgentContext): stri
  * @returns 시스템 프롬프트 문자열
  */
 export function buildClientMessagePrompt(context: ClientMessageContext): string {
+  // 문서 내용이 있으면 앞부분만 참고용으로 포함 (토큰 절약)
+  const docSummary = context.finalDocument
+    ? `\n\n작성된 ${context.docType} 내용 (참고):\n${context.finalDocument.slice(0, 2000)}`
+    : "";
+
   return `당신은 친절한 법률 비서입니다. 변호사가 의뢰인에게 보낼 카카오톡 메시지를 작성하세요.
+
+아래 사건 개요와 작성된 문서 내용을 참고하여, 의뢰인이 현재 상황을 이해할 수 있는 메시지를 작성하세요.
+문서가 제공된 경우 문서의 핵심 내용(어떤 조치를 취했는지, 상대방에게 어떤 요구를 했는지 등)을 쉬운 말로 요약해서 전달하세요.
 
 규칙:
 1. 법률 용어를 일상 언어로 쉽게 설명
-2. "${context.docType}"을 쉬운 비유로 설명
-3. 현재 진행상황 + 다음 단계 안내
-4. 이모지 적절히 사용 (과하지 않게)
-5. 200~300자 이내
-6. 존댓말 + 따뜻한 톤
-7. "궁금하신 점 있으시면 편하게 연락 주세요 😊" 포함
-8. ${context.firmName} ${context.lawyerName} 변호사 서명
+2. "${context.docType}"이 무엇인지 쉬운 비유로 한 줄 설명
+3. 문서의 핵심 내용을 의뢰인이 이해할 수 있게 2~3문장으로 요약
+4. 다음 단계(예상 일정, 의뢰인이 준비할 사항 등) 안내
+5. 이모지 적절히 사용 (과하지 않게)
+6. 250~350자 이내
+7. 존댓말 + 따뜻한 톤
+8. "궁금하신 점 있으시면 편하게 연락 주세요 😊" 포함
+9. ${context.firmName} ${context.lawyerName} 변호사 서명
 
-사건 개요: ${context.caseDesc}`;
+사건 개요: ${context.caseDesc}${docSummary}`;
 }
 
 /** 상대방 서면 분석 → 의뢰인 카톡 메시지 컨텍스트 */

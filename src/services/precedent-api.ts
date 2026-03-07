@@ -59,11 +59,7 @@ export async function searchLatestPrecedents(
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json()) as ProxyErrorResponse;
-      console.warn(
-        "[판례검색] 법제처 API 검색 실패:",
-        errorBody.detail ?? errorBody.error ?? `HTTP ${response.status}`,
-      );
+      console.warn(`[판례검색] 법제처 API 검색 실패: HTTP ${response.status}`);
       return [];
     }
 
@@ -99,11 +95,7 @@ export async function getPrecedentDetail(
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json()) as ProxyErrorResponse;
-      console.warn(
-        "[판례검색] 판례 상세 조회 실패:",
-        errorBody.detail ?? errorBody.error ?? `HTTP ${response.status}`,
-      );
+      console.warn(`[판례검색] 판례 상세 조회 실패: HTTP ${response.status}`);
       return null;
     }
 

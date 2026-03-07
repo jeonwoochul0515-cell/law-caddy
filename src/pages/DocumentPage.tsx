@@ -127,6 +127,8 @@ export default function DocumentPage() {
         caseDesc: state.caseDesc,
         docType: state.docType,
         transcript: state.agentResults.stt ?? "",
+        lawyerName: state.lawyerName,
+        firmName: state.firmName,
       },
       state.checkQuestions ?? [],
       state.checkpointAnswers ?? [],
@@ -182,6 +184,7 @@ export default function DocumentPage() {
       lawyerName: state.lawyerName,
       docType: state.docType,
       caseDesc: state.caseDesc,
+      finalDocument: finalDocument || undefined,
     });
   };
 
