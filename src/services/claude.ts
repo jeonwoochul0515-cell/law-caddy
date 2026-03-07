@@ -1,5 +1,6 @@
 // Anthropic Claude API 서비스
-// Cloudflare Functions 프록시 또는 직접 호출 (로컬 개발 폴백)
+// 프로덕션: Cloudflare Functions 프록시 (/api/claude)
+// 로컬 개발: VITE_ANTHROPIC_API_KEY로 직접 호출
 
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
