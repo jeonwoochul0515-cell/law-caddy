@@ -26,11 +26,6 @@ interface PrecedentDetailResponse {
   precedent: PrecedentCase | null;
 }
 
-/** 프록시 에러 응답 */
-interface ProxyErrorResponse {
-  error: string;
-  detail?: string;
-}
 
 /** dev 환경에서는 Vite 프록시 사용 */
 const isDev = import.meta.env.DEV;

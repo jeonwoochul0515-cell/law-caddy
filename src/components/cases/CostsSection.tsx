@@ -36,10 +36,6 @@ export default function CostsSection({ costs, onAdd, onUpdate, onRemove }: Costs
     setAdding(false);
   };
 
-  const handlePreset = (label: string) => {
-    setDesc(label);
-    setAdding(true);
-  };
 
   return (
     <div className="bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
