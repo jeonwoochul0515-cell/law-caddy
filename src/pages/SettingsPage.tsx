@@ -25,6 +25,7 @@ export default function SettingsPage() {
   // 프로필 편집
   const [editName, setEditName] = useState(user?.name ?? "");
   const [editFirmName, setEditFirmName] = useState(user?.firmName ?? "");
+  const [editPhone, setEditPhone] = useState(user?.phone ?? "");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -46,13 +47,13 @@ export default function SettingsPage() {
     setProfileMsg(null);
     try {
       if (isDemoMode) {
-        // 데모에서는 로컬만 업데이트
         await new Promise((r) => setTimeout(r, 500));
       } else {
         const { updateUserProfile } = await import("../services/firebase/auth");
         await updateUserProfile(user.uid, {
           name: editName.trim(),
           firmName: editFirmName.trim(),
+          phone: editPhone.trim() || undefined,
         });
       }
       setProfileMsg({ type: "success", text: "프로필이 저장되었습니다." });
@@ -156,6 +157,15 @@ export default function SettingsPage() {
                     className={`${inputClass} pl-9`}
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm text-text-dim mb-1.5">연락처</label>
+                <input
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="010-0000-0000"
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className="block text-sm text-text-dim mb-1.5">이메일</label>

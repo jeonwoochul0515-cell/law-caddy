@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 
 interface RegisterFormProps {
@@ -8,6 +8,8 @@ interface RegisterFormProps {
     name: string;
     firmName: string;
     barLicenseNumber: string;
+    phone?: string;
+    privacyConsented?: boolean;
     businessNumber?: string;
     businessVerified?: boolean;
     businessLicenseFile?: File;
@@ -40,9 +42,12 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     name: "",
     firmName: "",
     barLicenseNumber: "",
+    phone: "",
   });
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [privacyConsented, setPrivacyConsented] = useState(false);
+  const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
 
   // 사업자등록증 관련 상태
   const [businessFile, setBusinessFile] = useState<File | null>(null);
@@ -51,6 +56,7 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
   const [verifyStatus, setVerifyStatus] = useState<VerifyStatus>("idle");
   const [verifyMessage, setVerifyMessage] = useState("");
   const [businessVerified, setBusinessVerified] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,18 +64,12 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  /** 사업자등록증 파일 선택/촬영 */
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 파일 크기 제한 (10MB)
+  /** 파일 처리 공통 함수 */
+  const processFile = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       setLocalError("파일 크기는 10MB 이하여야 합니다.");
       return;
     }
-
-    // 이미지 파일 확인
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
       setLocalError("이미지 파일(JPG, PNG) 또는 PDF만 업로드 가능합니다.");
       return;
@@ -79,15 +79,37 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     setLocalError("");
     setVerifyStatus("uploading");
 
-    // 미리보기 생성
     if (file.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
     }
 
-    // OCR 실행
     await runOcr(file);
   };
+
+  /** 사업자등록증 파일 선택/촬영 */
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  /** 드래그앤드롭 */
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) await processFile(file);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
 
   /** Claude Vision OCR 실행 */
   const runOcr = async (file: File) => {
@@ -99,7 +121,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
       const result = await ocrBusinessLicense(file);
       setOcrResult(result);
 
-      // OCR 결과로 폼 자동입력
       if (result.representativeName && !form.name) {
         setForm((prev) => ({ ...prev, name: result.representativeName }));
       }
@@ -113,7 +134,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
         return;
       }
 
-      // 국세청 진위확인 실행
       await runVerify(result);
     } catch (err) {
       setVerifyStatus("failed");
@@ -148,7 +168,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
         );
       }
     } catch {
-      // 진위확인 실패해도 가입은 가능 (관리자가 수동 확인)
       setVerifyStatus("unverified");
       setBusinessVerified(false);
       setVerifyMessage("국세청 조회에 실패했습니다. 관리자가 수동 확인합니다.");
@@ -176,6 +195,16 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
       return;
     }
 
+    if (!form.phone.trim()) {
+      setLocalError("연락처(휴대폰)를 입력해 주세요.");
+      return;
+    }
+
+    if (!privacyConsented) {
+      setLocalError("개인정보 수집·이용에 동의해 주세요.");
+      return;
+    }
+
     if (form.password !== form.passwordConfirm) {
       setLocalError("비밀번호가 일치하지 않습니다.");
       return;
@@ -193,6 +222,8 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
         name: form.name,
         firmName: form.firmName,
         barLicenseNumber: form.barLicenseNumber,
+        phone: form.phone.trim(),
+        privacyConsented,
         businessNumber: ocrResult?.businessNumber,
         businessVerified,
         businessLicenseFile: businessFile,
@@ -208,16 +239,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
 
   const displayError = localError || error;
 
-  const statusIcon: Record<VerifyStatus, string> = {
-    idle: "",
-    uploading: "",
-    ocr: "",
-    verifying: "",
-    verified: "check_circle",
-    failed: "error",
-    unverified: "info",
-  };
-
   const statusColor: Record<VerifyStatus, string> = {
     idle: "",
     uploading: "text-blue-400",
@@ -227,6 +248,9 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     failed: "text-red-400",
     unverified: "text-amber-400",
   };
+
+  const inputClass =
+    "w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-navy px-4 py-8">
@@ -253,13 +277,24 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
               </label>
 
               {!businessFile ? (
-                <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-gold/40 transition-colors">
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                    dragOver
+                      ? "border-gold bg-gold/5"
+                      : "border-border hover:border-gold/40"
+                  }`}
+                >
                   <div className="text-3xl mb-3 opacity-60">📄</div>
-                  <p className="text-sm text-text-dim mb-4">
-                    사업자등록증을 촬영하거나 파일을 업로드하세요
+                  <p className="text-sm text-text-dim mb-1">
+                    사업자등록증을 드래그하여 놓거나
+                  </p>
+                  <p className="text-xs text-text-dim/60 mb-4">
+                    촬영 또는 파일을 선택하세요
                   </p>
                   <div className="flex gap-3 justify-center">
-                    {/* 카메라 촬영 */}
                     <label className="cursor-pointer px-4 py-2.5 bg-navy-light border border-border rounded-lg text-sm text-text-primary hover:border-gold/40 transition-colors flex items-center gap-2">
                       <span>📷</span> 촬영
                       <input
@@ -271,7 +306,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                         className="hidden"
                       />
                     </label>
-                    {/* 파일 업로드 */}
                     <label className="cursor-pointer px-4 py-2.5 bg-gradient-to-r from-gold/20 to-gold-bright/20 border border-gold/30 rounded-lg text-sm text-gold hover:from-gold/30 hover:to-gold-bright/30 transition-colors flex items-center gap-2">
                       <span>📁</span> 파일 선택
                       <input
@@ -289,7 +323,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 </div>
               ) : (
                 <div className="border border-border rounded-xl overflow-hidden">
-                  {/* 이미지 미리보기 */}
                   {previewUrl && (
                     <div className="relative bg-black/20">
                       <img
@@ -307,18 +340,16 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                     </div>
                   )}
 
-                  {/* 상태 표시 */}
                   <div className={`p-3 flex items-center gap-2 ${statusColor[verifyStatus]}`}>
                     {(verifyStatus === "ocr" || verifyStatus === "verifying" || verifyStatus === "uploading") && (
                       <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
                     )}
-                    {statusIcon[verifyStatus] === "check_circle" && <span>✅</span>}
-                    {statusIcon[verifyStatus] === "error" && <span>❌</span>}
-                    {statusIcon[verifyStatus] === "info" && <span>⚠️</span>}
+                    {verifyStatus === "verified" && <span>✅</span>}
+                    {verifyStatus === "failed" && <span>❌</span>}
+                    {verifyStatus === "unverified" && <span>⚠️</span>}
                     <span className="text-sm">{verifyMessage}</span>
                   </div>
 
-                  {/* OCR 추출 결과 */}
                   {ocrResult && verifyStatus !== "failed" && (
                     <div className="px-3 pb-3 space-y-1">
                       <div className="bg-navy-light rounded-lg p-3 text-xs space-y-1">
@@ -346,7 +377,6 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                     </div>
                   )}
 
-                  {/* 재업로드 버튼 */}
                   {(verifyStatus === "failed" || verifyStatus === "verified" || verifyStatus === "unverified") && (
                     <div className="px-3 pb-3">
                       <button
@@ -369,7 +399,7 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="홍길동"
               />
             </div>
@@ -381,7 +411,7 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.firmName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="법무법인 OO"
               />
             </div>
@@ -393,8 +423,24 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.barLicenseNumber}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="12345"
+              />
+            </div>
+
+            {/* 연락처 */}
+            <div>
+              <label className="block text-sm text-text-dim mb-1.5">
+                연락처 (휴대폰) <span className="text-gold">*</span>
+              </label>
+              <input
+                name="phone"
+                type="tel"
+                value={form.phone}
+                onChange={handleChange}
+                required
+                className={inputClass}
+                placeholder="010-0000-0000"
               />
             </div>
 
@@ -406,7 +452,7 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="email@lawfirm.com"
               />
             </div>
@@ -419,7 +465,7 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.password}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="6자 이상"
               />
             </div>
@@ -432,14 +478,57 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
                 value={form.passwordConfirm}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+                className={inputClass}
                 placeholder="비밀번호 재입력"
               />
             </div>
 
+            {/* 개인정보 수집·이용 동의 */}
+            <div className="bg-navy-light/50 border border-border rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyConsented}
+                  onChange={(e) => setPrivacyConsented(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-gold rounded"
+                />
+                <div>
+                  <span className="text-sm text-text-primary font-medium">
+                    개인정보 수집·이용 동의 <span className="text-gold">*</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrivacyDetail(!showPrivacyDetail)}
+                    className="ml-2 text-xs text-gold hover:text-gold-bright transition-colors underline"
+                  >
+                    {showPrivacyDetail ? "접기" : "상세보기"}
+                  </button>
+                </div>
+              </label>
+
+              {showPrivacyDetail && (
+                <div className="mt-3 p-3 bg-surface rounded-lg text-xs text-text-dim leading-relaxed space-y-2 max-h-48 overflow-y-auto">
+                  <p className="font-medium text-text-primary">수집하는 개인정보 항목</p>
+                  <p>- 필수: 이름, 이메일, 비밀번호, 변호사 등록번호, 연락처(휴대폰), 사업자등록증(사업자등록번호, 상호, 대표자명, 사업장 주소, 개업일, 업태/종목)</p>
+
+                  <p className="font-medium text-text-primary mt-2">수집·이용 목적</p>
+                  <p>- 변호사 본인 확인 및 가입 승인</p>
+                  <p>- 서비스 제공(사건 관리, 문서 생성, 의뢰인 관리)</p>
+                  <p>- 이용료 청구 및 계산서 발행</p>
+                  <p>- 서비스 관련 공지, 고객 문의 응대</p>
+
+                  <p className="font-medium text-text-primary mt-2">보유·이용 기간</p>
+                  <p>- 회원 탈퇴 시까지 (관계 법령에 따라 보존이 필요한 경우 해당 기간까지)</p>
+
+                  <p className="font-medium text-text-primary mt-2">동의 거부 권리</p>
+                  <p>- 위 개인정보 수집·이용에 동의하지 않을 수 있으나, 동의를 거부할 경우 서비스 이용이 제한됩니다.</p>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
-              disabled={loading || !businessFile || verifyStatus === "ocr" || verifyStatus === "verifying"}
+              disabled={loading || !businessFile || !privacyConsented || verifyStatus === "ocr" || verifyStatus === "verifying"}
               className="w-full py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

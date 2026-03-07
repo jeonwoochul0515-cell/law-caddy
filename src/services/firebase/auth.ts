@@ -25,6 +25,8 @@ interface SignUpData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
+  phone?: string;
+  privacyConsented?: boolean;
   businessNumber?: string;
   businessVerified?: boolean;
   businessLicenseFile?: File;
@@ -78,6 +80,9 @@ export async function signUp(
       status: userData.businessVerified ? "approved" : "pending",
       plan: "free",
       createdAt: serverTimestamp(),
+      phone: userData.phone,
+      privacyConsented: userData.privacyConsented,
+      ...(userData.privacyConsented ? { privacyConsentedAt: serverTimestamp() } : {}),
       businessNumber: userData.businessNumber,
       businessVerified: userData.businessVerified,
       businessLicenseUrl,
@@ -243,7 +248,7 @@ export async function changePassword(
  */
 export async function updateUserProfile(
   uid: string,
-  data: { name?: string; firmName?: string }
+  data: { name?: string; firmName?: string; phone?: string }
 ): Promise<void> {
   try {
     await updateDoc(doc(db!, "users", uid), { ...data });

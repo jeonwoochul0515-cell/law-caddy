@@ -11,6 +11,8 @@ interface RegisterData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
+  phone?: string;
+  privacyConsented?: boolean;
   businessNumber?: string;
   businessVerified?: boolean;
   businessLicenseFile?: File;

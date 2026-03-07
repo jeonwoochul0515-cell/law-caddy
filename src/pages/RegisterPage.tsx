@@ -14,6 +14,8 @@ export default function RegisterPage() {
     name: string;
     firmName: string;
     barLicenseNumber: string;
+    phone?: string;
+    privacyConsented?: boolean;
     businessNumber?: string;
     businessVerified?: boolean;
     businessLicenseFile?: File;
@@ -28,6 +30,8 @@ export default function RegisterPage() {
         name: data.name,
         firmName: data.firmName,
         barLicenseNumber: data.barLicenseNumber,
+        phone: data.phone,
+        privacyConsented: data.privacyConsented,
         businessNumber: data.businessNumber,
         businessVerified: data.businessVerified,
         businessLicenseFile: data.businessLicenseFile,
