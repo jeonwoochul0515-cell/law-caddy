@@ -110,7 +110,7 @@ export default function OverviewTab({
             <h3 className="text-sm font-semibold text-text-primary">최근 문서</h3>
             {documents.length > 2 && (
               <button
-                onClick={() => onSwitchTab("docs")}
+                onClick={() => onSwitchTab("timeline")}
                 className="text-xs text-gold hover:text-gold-bright transition-colors"
               >
                 전체 보기
@@ -140,7 +140,7 @@ export default function OverviewTab({
             <h3 className="text-sm font-semibold text-text-primary">최근 녹음</h3>
             {recordings.length > 2 && (
               <button
-                onClick={() => onSwitchTab("docs")}
+                onClick={() => onSwitchTab("timeline")}
                 className="text-xs text-gold hover:text-gold-bright transition-colors"
               >
                 전체 보기
@@ -171,7 +171,7 @@ export default function OverviewTab({
           <h3 className="text-sm font-semibold text-text-primary">상대방 서면</h3>
           {opponentDocs.length > 0 && (
             <button
-              onClick={() => onSwitchTab("docs")}
+              onClick={() => onSwitchTab("timeline")}
               className="text-xs text-gold hover:text-gold-bright transition-colors"
             >
               전체 보기
@@ -182,7 +182,7 @@ export default function OverviewTab({
           <div className="text-center py-4">
             <p className="text-sm text-text-dim mb-3">등록된 상대방 서면이 없습니다.</p>
             <button
-              onClick={() => onSwitchTab("docs")}
+              onClick={() => onSwitchTab("timeline")}
               className="px-4 py-2 bg-gold-dim text-gold rounded-lg text-sm hover:bg-gold/20 transition-colors"
             >
               상대방 서면 등록하기
@@ -218,7 +218,7 @@ export default function OverviewTab({
           추가 상담 녹음
         </button>
         <button
-          onClick={() => onSwitchTab("docs")}
+          onClick={() => onSwitchTab("timeline")}
           className="flex items-center gap-2 px-5 py-2.5 border border-amber/30 text-amber rounded-lg hover:border-amber/60 hover:bg-amber/5 transition-colors text-sm"
         >
           <FileWarning className="w-4 h-4" />

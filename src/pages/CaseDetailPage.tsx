@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, FileText, Heart, Loader2 } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
 import CaseHeader from "../components/cases/CaseHeader";
 import OverviewTab from "../components/cases/OverviewTab";
-import TimelineTab from "../components/cases/TimelineTab";
-import DocumentsTab from "../components/cases/DocumentsTab";
+import UnifiedTimelineTab from "../components/cases/UnifiedTimelineTab";
 import ClientCareTab from "../components/cases/ClientCareTab";
 
-type TabKey = "overview" | "timeline" | "docs" | "clientcare";
+type TabKey = "overview" | "timeline" | "clientcare";
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -72,12 +71,11 @@ export default function CaseDetailPage() {
   }
 
   const timeline = caseData.timeline ?? [];
-  const docsRecCount = documents.length + recordings.length + opponentDocs.length;
+  const totalCount = timeline.length + documents.length + recordings.length + opponentDocs.length;
 
   const tabs: { key: TabKey; label: string; count?: number; icon: React.ElementType }[] = [
     { key: "overview", label: "개요", icon: LayoutGrid },
-    { key: "timeline", label: "타임라인", count: timeline.length, icon: Clock },
-    { key: "docs", label: "문서·녹음", count: docsRecCount, icon: FileText },
+    { key: "timeline", label: "활동 기록", count: totalCount, icon: Clock },
     { key: "clientcare", label: "의뢰인 케어", icon: Heart },
   ];
 
@@ -131,20 +129,15 @@ export default function CaseDetailPage() {
       )}
 
       {tab === "timeline" && (
-        <TimelineTab timeline={timeline} onAddNote={addNote} />
-      )}
-
-      {tab === "docs" && (
-        <DocumentsTab
+        <UnifiedTimelineTab
+          timeline={timeline}
           documents={documents}
           recordings={recordings}
           opponentDocs={opponentDocs}
+          onAddNote={addNote}
           onNavigateToRecord={handleNavigateToRecord}
           onUploadOpponentDoc={uploadOpponentDoc}
           onRemoveOpponentDoc={removeOpponentDoc}
-          caseDesc={caseData?.description}
-          firmName={user?.firmName}
-          lawyerName={user?.name}
         />
       )}
 

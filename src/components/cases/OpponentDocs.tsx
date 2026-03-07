@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   Upload, FileText, Trash2, Plus, X, ExternalLink,
   Loader2, MessageSquare, Copy, Check,
 } from "lucide-react";
 import { callClaude } from "../../services/claude";
 import { buildOpponentDocMessagePrompt } from "../../services/prompts";
+import useDropZone from "../../hooks/useDropZone";
 import type { OpponentDoc } from "../../types/case";
 
 interface OpponentDocsProps {
@@ -31,6 +32,20 @@ export default function OpponentDocs({
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 드래그 앤 드롭
+  const { isDragging, dropZoneProps } = useDropZone(
+    useCallback((droppedFiles: File[]) => {
+      if (droppedFiles.length > 0) {
+        setSelectedFile(droppedFiles[0]);
+        if (!docLabel.trim()) {
+          setDocLabel(droppedFiles[0].name.replace(/\.[^/.]+$/, ""));
+        }
+        setShowForm(true);
+      }
+    }, [docLabel]),
+    [".pdf", ".hwp", ".doc", ".docx", "image/*"],
+  );
 
   // 카톡 메시지 생성 상태
   const [generatingMsgId, setGeneratingMsgId] = useState<string | null>(null);
@@ -135,7 +150,14 @@ export default function OpponentDocs({
   };
 
   return (
-    <div>
+    <div {...dropZoneProps}>
+      {/* 드래그 오버레이 */}
+      {isDragging && (
+        <div className="flex flex-col items-center gap-3 py-8 mb-4 border-2 border-dashed border-gold rounded-xl bg-gold/5">
+          <Upload className="w-8 h-8 text-gold animate-bounce" />
+          <p className="text-sm text-gold font-medium">상대방 서면을 여기에 놓으세요</p>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-text-primary">
           상대방 서면 ({opponentDocs.length})

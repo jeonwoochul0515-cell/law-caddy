@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, Zap } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, Zap, FolderOpen } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
+import useDropZone from "../hooks/useDropZone";
 import { uploadRecordingFile } from "../services/firebase/storage";
 import { createRecording, updateRecording, addTimelineEvent } from "../services/firebase/firestore";
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
@@ -61,6 +62,15 @@ export default function RecordPage() {
   const [savingOnly, setSavingOnly] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // 드래그 앤 드롭
+  const { isDragging, dropZoneProps } = useDropZone(
+    useCallback((droppedFiles: File[]) => {
+      setFiles((prev) => [...prev, ...droppedFiles]);
+    }, []),
+  );
 
   // 사건 정보 (프리필 값으로 초기화)
   const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
@@ -422,66 +432,111 @@ export default function RecordPage() {
           </div>
 
           {/* 파일 업로드 + 카메라 + 직접 입력 */}
-          <div className="bg-surface border border-border rounded-2xl p-6 backdrop-blur-sm">
+          <div
+            className={`bg-surface border rounded-2xl p-6 backdrop-blur-sm transition-colors ${
+              isDragging ? "border-gold bg-gold/5" : "border-border"
+            }`}
+            {...dropZoneProps}
+          >
             <h3 className="text-lg font-semibold text-text-primary mb-4">자료 첨부</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* 파일 선택 */}
-              <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
-                <Upload className="w-8 h-8 text-text-dim" />
-                <span className="text-sm text-text-dim text-center">
-                  파일 선택
-                </span>
-                <span className="text-xs text-text-dim">
-                  오디오, 이미지, 문서 등
-                </span>
+
+            {/* 드래그 오버레이 */}
+            {isDragging && (
+              <div className="flex flex-col items-center gap-3 py-10 mb-4 border-2 border-dashed border-gold rounded-xl bg-gold/5">
+                <Upload className="w-10 h-10 text-gold animate-bounce" />
+                <p className="text-sm text-gold font-medium">여기에 파일을 놓으세요</p>
+              </div>
+            )}
+
+            {!isDragging && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* 파일 선택 */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-text-dim" />
+                  <span className="text-sm text-text-dim text-center">
+                    파일 선택
+                  </span>
+                  <span className="text-xs text-text-dim">
+                    오디오, 이미지, 문서 등
+                  </span>
+                </button>
                 <input
+                  ref={fileInputRef}
                   type="file"
                   multiple
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-              </label>
 
-              {/* 카메라 촬영 */}
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-              >
-                <Camera className="w-8 h-8 text-text-dim" />
-                <span className="text-sm text-text-dim text-center">
-                  카메라 촬영
-                </span>
-                <span className="text-xs text-text-dim">
-                  사진 직접 촬영
-                </span>
-              </button>
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleCameraCapture}
-                className="hidden"
-              />
+                {/* 폴더 업로드 */}
+                <button
+                  type="button"
+                  onClick={() => folderInputRef.current?.click()}
+                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+                >
+                  <FolderOpen className="w-8 h-8 text-text-dim" />
+                  <span className="text-sm text-text-dim text-center">
+                    폴더 선택
+                  </span>
+                  <span className="text-xs text-text-dim">
+                    폴더 내 파일 일괄 첨부
+                  </span>
+                </button>
+                {/* @ts-expect-error webkitdirectory는 표준 속성이 아님 */}
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  multiple
+                  webkitdirectory=""
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
 
-              {/* 직접 입력 안내 */}
-              <button
-                type="button"
-                onClick={() => {
-                  document.getElementById("typed-notes-area")?.focus();
-                }}
-                className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-              >
-                <Type className="w-8 h-8 text-text-dim" />
-                <span className="text-sm text-text-dim text-center">
-                  직접 입력
-                </span>
-                <span className="text-xs text-text-dim">
-                  상담 내용 타이핑
-                </span>
-              </button>
-            </div>
+                {/* 카메라 촬영 */}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+                >
+                  <Camera className="w-8 h-8 text-text-dim" />
+                  <span className="text-sm text-text-dim text-center">
+                    카메라 촬영
+                  </span>
+                  <span className="text-xs text-text-dim">
+                    사진 직접 촬영
+                  </span>
+                </button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCameraCapture}
+                  className="hidden"
+                />
+
+                {/* 직접 입력 안내 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.getElementById("typed-notes-area")?.focus();
+                  }}
+                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
+                >
+                  <Type className="w-8 h-8 text-text-dim" />
+                  <span className="text-sm text-text-dim text-center">
+                    직접 입력
+                  </span>
+                  <span className="text-xs text-text-dim">
+                    상담 내용 타이핑
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* 직접 입력 텍스트 영역 */}
             <div className="mt-4">
@@ -508,16 +563,14 @@ export default function RecordPage() {
                 <h4 className="text-sm font-medium text-text-primary">
                   첨부 파일 ({files.length}개)
                 </h4>
-                <label className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors"
+                >
                   <Plus className="w-3.5 h-3.5" />
                   추가
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
+                </button>
               </div>
               {files.map((f, i) => (
                 <div
