@@ -2,45 +2,125 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 사용자 프로필
-    match /users/{uid} {
-      // 본인 문서 읽기/쓰기 허용
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      // 관리자(admin)는 모든 사용자 문서 읽기/쓰기 가능
-      allow read, write: if request.auth != null
+    // ── 헬퍼 함수 ──
+
+    // 로그인 여부 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 관리자 역할 확인
+    function isAdmin() {
+      return isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // 사건
+    // 본인 문서 확인 (ownerId 필드 기준)
+    function isOwner() {
+      return isAuthenticated()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // 생성 시 본인 ownerId 필드 확인
+    function isOwnerOnCreate() {
+      return isAuthenticated()
+        && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── 사용자 프로필 ──
+    match /users/{uid} {
+      // 본인 문서 읽기
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+
+      // 본인 문서 쓰기 (역할/상태 값 검증 포함)
+      allow write: if isAuthenticated() && request.auth.uid == uid
+        && request.resource.data.role in ["lawyer", "admin"]
+        && request.resource.data.status in ["pending", "approved", "rejected"];
+
+      // 관리자: 모든 사용자 문서 읽기/쓰기 (역할/상태 값 검증 포함)
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+        && request.resource.data.role in ["lawyer", "admin"]
+        && request.resource.data.status in ["pending", "approved", "rejected"];
+    }
+
+    // ── 사건 ──
     match /cases/{caseId} {
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      // 생성 시 ownerId 검증 + status 유효값 검증
+      allow create: if isOwnerOnCreate()
+        && request.resource.data.status in ["진행중", "완료", "보류"];
+
+      // 본인 문서 읽기
+      allow read: if isOwner();
+
+      // 수정 시 status 유효값 검증
+      allow update: if isOwner()
+        && request.resource.data.status in ["진행중", "완료", "보류"];
+
+      // 삭제는 본인만
+      allow delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+
+      // ── 의뢰인 케어 메시지 (서브컬렉션) ──
+      match /clientCareMessages/{messageId} {
+        // 사건 소유자만 읽기/쓰기
+        allow read, write: if isAuthenticated()
+          && get(/databases/$(database)/documents/cases/$(caseId)).data.ownerId == request.auth.uid;
+
+        // 관리자: 읽기 허용
+        allow read: if isAdmin();
+      }
     }
 
-    // 녹음
+    // ── 녹음 ──
     match /recordings/{recordingId} {
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
     }
 
-    // 법률 문서
+    // ── 법률 문서 ──
     match /documents/{documentId} {
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
     }
 
-    // 상대방 서면
+    // ── 상대방 서면 ──
     match /opponentDocs/{docId} {
-      allow create: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+    }
+
+    // ── 구독 정보 ──
+    // 사용자는 본인 구독만 읽기 가능, 쓰기는 서버(Admin SDK) 또는 관리자만
+    match /subscriptions/{uid} {
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow read: if isAdmin();
+
+      // 클라이언트 쓰기 차단 — Admin SDK(서버)에서만 쓰기 가능
+      // 관리자도 콘솔/서버에서 처리하므로 클라이언트 쓰기 불필요
+      allow write: if false;
+    }
+
+    // ── 결제 내역 ──
+    // 사용자는 본인 결제 내역만 읽기 가능, 쓰기는 서버(Admin SDK)에서만
+    match /paymentHistory/{paymentId} {
+      allow read: if isAuthenticated()
+        && resource.data.uid == request.auth.uid;
+      allow read: if isAdmin();
+
+      // 클라이언트 쓰기 차단 — Admin SDK(서버)에서만 쓰기 가능
+      allow write: if false;
     }
   }
 }

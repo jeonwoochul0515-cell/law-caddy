@@ -1,8 +1,10 @@
 import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import useAuth from "./hooks/useAuth";
 import LoginPage from "./pages/LoginPage";
 import LandingPage from "./pages/LandingPage";
+import ErrorFallback from "./components/ui/ErrorFallback";
 
 // Lazy-loaded pages (코드 스플리팅)
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
@@ -96,6 +98,7 @@ export default function App() {
   }, [initialize]);
 
   return (
+    <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
     <BrowserRouter>
       <Suspense fallback={<LazyFallback />}>
         <Routes>
@@ -121,5 +124,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
+    </Sentry.ErrorBoundary>
   );
 }

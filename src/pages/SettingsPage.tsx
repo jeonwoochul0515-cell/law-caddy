@@ -15,11 +15,16 @@ import {
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
+import usePlanLimits from "../hooks/usePlanLimits";
 import { isDemoMode } from "../config/demo";
 import { PLANS } from "../config/constants";
+import UsageSummary from "../components/payment/UsageSummary";
+import PlanSelector from "../components/payment/PlanSelector";
+import PaymentModal from "../components/payment/PaymentModal";
 
 export default function SettingsPage() {
   const user = useAuth((s) => s.user);
+  const { plan, recordingsUsed, recordingsLimit, docsUsed, docsLimit } = usePlanLimits();
   const [tab, setTab] = useState<"profile" | "plan" | "system">("profile");
 
   // 프로필 편집
@@ -28,6 +33,10 @@ export default function SettingsPage() {
   const [editPhone, setEditPhone] = useState(user?.phone ?? "");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // 요금제 모달
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ id: string; name: string; price: string } | null>(null);
 
   // 비밀번호 변경
   const [currentPw, setCurrentPw] = useState("");
@@ -328,39 +337,34 @@ export default function SettingsPage() {
 
       {/* 요금제 */}
       {tab === "plan" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
-          {PLANS.map((plan) => {
-            const isCurrent = user?.plan === plan.id;
-            return (
-              <div
-                key={plan.id}
-                className={`rounded-2xl p-6 border ${
-                  plan.id === "pro"
-                    ? "bg-gold/5 border-gold/30"
-                    : "bg-surface border-border"
-                }`}
-              >
-                {plan.id === "pro" && (
-                  <span className="inline-block px-2 py-0.5 bg-gold text-navy text-xs font-semibold rounded-full mb-3">
-                    추천
-                  </span>
-                )}
-                <h3 className="text-lg font-semibold text-text-primary">{plan.name}</h3>
-                <p className="text-2xl font-bold text-gold mt-2">{plan.price}</p>
-                <p className="text-sm text-text-dim mt-2">{plan.features}</p>
-                <button
-                  disabled={isCurrent}
-                  className={`w-full mt-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isCurrent
-                      ? "bg-gold-dim text-gold cursor-default"
-                      : "border border-border text-text-dim hover:border-gold hover:text-gold"
-                  }`}
-                >
-                  {isCurrent ? "현재 플랜" : "변경하기"}
-                </button>
-              </div>
-            );
-          })}
+        <div className="max-w-5xl space-y-6">
+          <UsageSummary
+            plan={plan}
+            recordingsUsed={recordingsUsed}
+            recordingsLimit={recordingsLimit}
+            docsUsed={docsUsed}
+            docsLimit={docsLimit}
+          />
+          <PlanSelector
+            currentPlan={user?.plan ?? "free"}
+            onSelectPlan={(planId) => {
+              const found = PLANS.find((p) => p.id === planId);
+              if (found) {
+                setSelectedPlan({ id: found.id, name: found.name, price: found.price });
+                setShowPaymentModal(true);
+              }
+            }}
+          />
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedPlan(null);
+            }}
+            planId={selectedPlan?.id ?? ""}
+            planName={selectedPlan?.name ?? ""}
+            planPrice={selectedPlan?.price ?? ""}
+          />
         </div>
       )}
 

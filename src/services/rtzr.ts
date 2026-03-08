@@ -1,6 +1,7 @@
 // 리턴제로 RTZR STT API 서비스
-// Cloudflare Functions 프록시 또는 별도 STT 백엔드를 통한 음성 전사
+// Cloudflare Functions 프록시 (/api/transcribe)를 통한 음성 전사
 
+import * as Sentry from "@sentry/react";
 import type { Utterance } from "../types/recording";
 
 /** RTZR 전사 상태 */
@@ -33,18 +34,8 @@ interface RtzrUtterance {
   msg: string;
 }
 
-/**
- * API URL을 생성합니다.
- * - VITE_STT_BACKEND_URL이 있으면: 기존 Express 백엔드 사용
- * - 없으면: /api/transcribe (Cloudflare Functions 프록시)
- */
+/** Cloudflare Functions API 경로를 반환합니다. */
 function getApiUrl(path: string): string {
-  const sttBackendUrl = import.meta.env.VITE_STT_BACKEND_URL;
-
-  if (sttBackendUrl && typeof sttBackendUrl === "string") {
-    return `${sttBackendUrl.replace(/\/+$/, "")}/${path}`;
-  }
-
   return `/api/${path}`;
 }
 
@@ -76,9 +67,10 @@ export async function transcribeFile(file: File): Promise<string> {
 
     return data.id;
   } catch (error: unknown) {
+    Sentry.captureException(error);
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.",
+        "STT 서비스에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
       );
     }
     if (error instanceof Error) {
@@ -134,9 +126,10 @@ export async function pollTranscription(
 
     return { status: "transcribing" };
   } catch (error: unknown) {
+    Sentry.captureException(error);
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "STT 백엔드에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.",
+        "STT 서비스에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
       );
     }
     if (error instanceof Error) {

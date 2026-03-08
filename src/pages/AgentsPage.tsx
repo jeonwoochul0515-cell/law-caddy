@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle, FolderPlus } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import useCases from "../hooks/useCases";
@@ -141,6 +141,14 @@ export default function AgentsPage() {
       .then((desc) => setGeneratedDesc(desc.trim()))
       .catch(() => setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`));
   }, [allCompleted, state, agents, generatedDesc]);
+
+  // 에이전트 완료 + 사건 개요 준비 → 자동으로 사건 파일 생성
+  useEffect(() => {
+    if (!allCompleted || !classifiedCaseType || !generatedDesc) return;
+    if (hasExistingCase || createdCaseId || isCreatingCase) return;
+    handleCreateCase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCompleted, classifiedCaseType, generatedDesc, hasExistingCase, createdCaseId, isCreatingCase]);
 
   const handleCreateCase = async () => {
     if (!state || !classifiedCaseType || isCreatingCase || createdCaseId) return;
@@ -321,41 +329,32 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* 사건 파일 생성 — 이미 사건 파일이 있는 경우 숨김 */}
-      {allCompleted && classifiedCaseType && !hasExistingCase && (
-        <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FolderPlus className="w-5 h-5 text-gold" />
-              <h3 className="font-semibold text-text-primary">사건 파일</h3>
+      {/* 사건 파일 자동 생성 상태 */}
+      {allCompleted && !hasExistingCase && (
+        <div className="mt-6">
+          {isCreatingCase && (
+            <div className="flex items-center gap-2 text-text-dim text-sm bg-surface border border-border rounded-2xl p-4">
+              <Loader2 className="w-4 h-4 animate-spin text-gold" />
+              사건 파일 생성 중...
             </div>
-            {!createdCaseId && !isCreatingCase && (
-              <button
-                onClick={handleCreateCase}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
-              >
-                <FolderPlus className="w-4 h-4" />
-                사건 파일 생성
-              </button>
-            )}
-            {isCreatingCase && (
-              <div className="flex items-center gap-2 text-text-dim text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                생성 중...
-              </div>
-            )}
-          </div>
+          )}
           {caseError && (
-            <div className="mt-3 flex items-center gap-2 text-error text-sm">
+            <div className="flex items-center gap-2 text-error text-sm bg-surface border border-error/20 rounded-2xl p-4">
               <AlertCircle className="w-4 h-4" />
               {caseError}
+              <button
+                onClick={handleCreateCase}
+                className="ml-auto text-gold hover:underline text-xs"
+              >
+                다시 시도
+              </button>
             </div>
           )}
           {createdCaseId && (
-            <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center justify-between bg-surface border border-success/20 rounded-2xl p-4">
               <div className="flex items-center gap-2 text-success text-sm">
                 <CheckCircle2 className="w-4 h-4" />
-                사건 파일이 생성되었습니다.
+                사건 파일이 자동 생성되었습니다.
               </div>
               <button
                 onClick={() => navigate(`/cases/${createdCaseId}`)}

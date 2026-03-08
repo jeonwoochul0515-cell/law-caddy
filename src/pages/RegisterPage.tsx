@@ -40,7 +40,8 @@ export default function RegisterPage() {
         businessCategory: data.businessCategory,
         businessStartDate: data.businessStartDate,
       });
-      navigate("/pending");
+      // 변호사업 사업자등록 확인된 경우 바로 대시보드로, 아니면 승인 대기
+      navigate(data.businessVerified ? "/dashboard" : "/pending");
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);

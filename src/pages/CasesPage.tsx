@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Search, Plus, FolderOpen, ChevronRight, FileSignature,
   Banknote, Trophy, Receipt, CheckCircle2, XCircle, CreditCard,
-  Wallet, Building2, ReceiptText,
+  Wallet, Building2, ReceiptText, ArrowUpDown, X as XIcon,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -44,6 +44,9 @@ export default function CasesPage() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("전체");
   const [filterStatus, setFilterStatus] = useState<string>("전체");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,13 +70,54 @@ export default function CasesPage() {
     fetch();
   }, [user]);
 
-  const filtered = cases.filter((c) => {
-    const matchSearch =
-      c.clientName.includes(search) || c.description.includes(search);
-    const matchType = filterType === "전체" || c.caseType === filterType;
-    const matchStatus = filterStatus === "전체" || c.status === filterStatus;
-    return matchSearch && matchType && matchStatus;
-  });
+  const activeFilterCount = [
+    search !== "",
+    filterType !== "전체",
+    filterStatus !== "전체",
+    filterDateFrom !== "",
+    filterDateTo !== "",
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setFilterType("전체");
+    setFilterStatus("전체");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
+  const filtered = cases
+    .filter((c) => {
+      const matchSearch =
+        c.clientName.includes(search) || c.description.includes(search);
+      const matchType = filterType === "전체" || c.caseType === filterType;
+      const matchStatus = filterStatus === "전체" || c.status === filterStatus;
+      // 날짜 범위 필터
+      let matchDate = true;
+      if (filterDateFrom || filterDateTo) {
+        const caseDate = c.createdAt?.toDate?.();
+        if (caseDate) {
+          if (filterDateFrom) {
+            const from = new Date(filterDateFrom);
+            from.setHours(0, 0, 0, 0);
+            if (caseDate < from) matchDate = false;
+          }
+          if (filterDateTo) {
+            const to = new Date(filterDateTo);
+            to.setHours(23, 59, 59, 999);
+            if (caseDate > to) matchDate = false;
+          }
+        } else {
+          matchDate = false;
+        }
+      }
+      return matchSearch && matchType && matchStatus && matchDate;
+    })
+    .sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.()?.getTime() ?? 0;
+      const dateB = b.createdAt?.toDate?.()?.getTime() ?? 0;
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
 
   // 인라인 계약/수임료 업데이트
   const handleUpdatePayment = useCallback(
@@ -103,38 +147,81 @@ export default function CasesPage() {
   };
 
   return (
-    <AppLayout title="사건 관리" subtitle={`총 ${cases.length}건`}>
+    <AppLayout title="사건 관리" subtitle={activeFilterCount > 0 ? `${filtered.length}건 / 전체 ${cases.length}건` : `총 ${cases.length}건`}>
       {/* 검색 + 필터 */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="의뢰인 이름 또는 사건 내용 검색..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
-          />
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="의뢰인 이름 또는 사건 내용 검색..."
+              className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm placeholder-text-dim focus:border-gold focus:outline-none transition-colors"
+            />
+          </div>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-3 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none appearance-none"
+          >
+            <option value="전체">유형: 전체</option>
+            {CASE_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none appearance-none"
+          >
+            <option value="전체">상태: 전체</option>
+            <option value="진행중">진행중</option>
+            <option value="완료">완료</option>
+            <option value="보류">보류</option>
+          </select>
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none appearance-none"
-        >
-          <option value="전체">유형: 전체</option>
-          {CASE_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2.5 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none appearance-none"
-        >
-          <option value="전체">상태: 전체</option>
-          <option value="진행중">진행중</option>
-          <option value="완료">완료</option>
-          <option value="보류">보류</option>
-        </select>
+
+        {/* 날짜 범위 + 정렬 + 필터 초기화 */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-dim shrink-0">기간</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none transition-colors"
+            />
+            <span className="text-xs text-text-dim">~</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary text-sm focus:border-gold focus:outline-none transition-colors"
+            />
+          </div>
+
+          <button
+            onClick={() => setSortOrder(sortOrder === "newest" ? "oldest" : "newest")}
+            className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary hover:border-gold transition-colors"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5 text-text-dim" />
+            {sortOrder === "newest" ? "최신순" : "오래된순"}
+          </button>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gold-dim text-gold rounded-lg text-sm hover:bg-gold/20 transition-colors"
+            >
+              <XIcon className="w-3.5 h-3.5" />
+              초기화
+              <span className="bg-gold/20 text-gold text-xs px-1.5 py-0.5 rounded-full font-medium">
+                {activeFilterCount}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 사건 목록 */}

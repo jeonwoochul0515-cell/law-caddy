@@ -2,22 +2,67 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // 녹음 파일: 본인만 읽기/쓰기
+    // ── 헬퍼 함수 ──
+
+    // 로그인 여부 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 관리자 역할 확인 (Firestore에서 역할 조회)
+    function isAdmin() {
+      return isAuthenticated()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // ── 녹음 파일: 본인만 읽기/쓰기 ──
     match /recordings/{ownerId}/{caseId}/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == ownerId;
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        // 최대 500MB, 오디오 파일만 허용
+        && request.resource.size < 500 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
     }
 
-    // 상대방 서면 파일: 본인만 읽기/쓰기
+    // ── 상대방 서면 파일: 본인만 읽기/쓰기 ──
     match /opponent-docs/{ownerId}/{caseId}/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == ownerId;
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        // 최대 50MB, PDF/이미지/문서 파일만 허용
+        && request.resource.size < 50 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+            || request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('application/.*'));
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
     }
 
-    // 문서 내보내기 파일: 본인만 읽기/쓰기
+    // ── 문서 내보내기 파일: 본인만 읽기/쓰기 ──
     match /documents/{ownerId}/{caseId}/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == ownerId;
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        // 최대 50MB
+        && request.resource.size < 50 * 1024 * 1024;
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+    }
+
+    // ── 사업자등록증 파일 ──
+    match /business-registrations/{ownerId}/{fileName} {
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        // 최대 10MB, PDF/이미지만 허용
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+            || request.resource.contentType.matches('image/.*'));
+
+      // 관리자: 읽기 허용 (가입 심사용)
+      allow read: if isAdmin();
     }
   }
 }

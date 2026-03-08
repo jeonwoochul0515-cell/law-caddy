@@ -6,7 +6,6 @@ import {
   Check,
   MessageSquare,
   Loader2,
-  Download,
   Save,
   Send,
   Bot,
@@ -16,7 +15,12 @@ import {
   MessageCircle,
   AlertTriangle,
   ChevronLeft,
+  ChevronDown,
+  FileDown,
+  Printer,
 } from "lucide-react";
+import { exportToDocx } from "../services/docxExport";
+import { exportToHwpx } from "../services/hwpxExport";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
 import useDocumentChat, { type DocChatMessage } from "../hooks/useDocumentChat";
@@ -98,6 +102,10 @@ export default function DocumentPage() {
   const [msgSaved, setMsgSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
+  const [exportingHwpx, setExportingHwpx] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     console.log("[DocumentPage] useEffect 실행", { hasState: !!state, initialized, status });
@@ -171,6 +179,18 @@ export default function DocumentPage() {
       startAutoReview();
     }
   }, [finalDocument, status, startAutoReview]);
+
+  // 내보내기 메뉴 외부 클릭 닫기
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showExportMenu]);
 
   // 새 메시지 시 스크롤
   useEffect(() => {
@@ -325,28 +345,91 @@ export default function DocumentPage() {
               <div className="flex items-center gap-2">
                 {finalDocument && (
                   <>
-                    <button
-                      onClick={() => handleCopy(finalDocument, "doc")}
-                      className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
-                    >
-                      {copied === "doc" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copied === "doc" ? "복사됨" : "복사"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([finalDocument], { type: "text/plain;charset=utf-8" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${state.docType}_${state.clientName}_${new Date().toISOString().slice(0, 10)}.txt`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      내보내기
-                    </button>
+                    {/* 내보내기 드롭다운 */}
+                    <div className="relative" ref={exportMenuRef}>
+                      <button
+                        onClick={() => setShowExportMenu((v) => !v)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
+                      >
+                        {(exportingDocx || exportingHwpx) ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <FileDown className="w-3.5 h-3.5" />
+                        )}
+                        내보내기
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+
+                      {showExportMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-navy-light border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                          <button
+                            onClick={async () => {
+                              setShowExportMenu(false);
+                              setExportingDocx(true);
+                              try {
+                                await exportToDocx(finalDocument, {
+                                  docType: state.docType,
+                                  clientName: state.clientName,
+                                  date: new Date().toISOString().slice(0, 10),
+                                });
+                              } catch (err) {
+                                console.error("DOCX 내보내기 실패:", err);
+                              } finally {
+                                setExportingDocx(false);
+                              }
+                            }}
+                            disabled={exportingDocx}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-dim hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40"
+                          >
+                            <FileDown className="w-3.5 h-3.5" />
+                            {exportingDocx ? "변환 중..." : "DOCX 다운로드"}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setShowExportMenu(false);
+                              setExportingHwpx(true);
+                              try {
+                                await exportToHwpx(finalDocument, {
+                                  docType: state.docType,
+                                  clientName: state.clientName,
+                                  date: new Date().toISOString().slice(0, 10),
+                                });
+                              } catch (err) {
+                                console.error("HWPX 내보내기 실패:", err);
+                              } finally {
+                                setExportingHwpx(false);
+                              }
+                            }}
+                            disabled={exportingHwpx}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-dim hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            {exportingHwpx ? "변환 중..." : "HWP 다운로드"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowExportMenu(false);
+                              handleCopy(finalDocument, "doc");
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-dim hover:bg-surface hover:text-text-primary transition-colors"
+                          >
+                            {copied === "doc" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copied === "doc" ? "복사됨" : "텍스트 복사"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowExportMenu(false);
+                              window.print();
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-dim hover:bg-surface hover:text-text-primary transition-colors"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            PDF 인쇄
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleSave}
                       disabled={saving}

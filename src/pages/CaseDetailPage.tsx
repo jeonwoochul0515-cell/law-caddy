@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2 } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
@@ -91,14 +91,23 @@ export default function CaseDetailPage() {
 
   return (
     <AppLayout title={caseData.clientName} subtitle={caseData.caseType}>
-      {/* 뒤로가기 */}
-      <button
-        onClick={() => navigate("/cases")}
-        className="flex items-center gap-2 text-text-dim hover:text-gold transition-colors mb-6"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm">사건 목록</span>
-      </button>
+      {/* 상단 네비 */}
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate("/cases")}
+          className="flex items-center gap-2 text-text-dim hover:text-gold transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm">사건 목록</span>
+        </button>
+        <button
+          onClick={handleNavigateToRecord}
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-xs hover:opacity-90 transition-opacity"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          추가 상담
+        </button>
+      </div>
 
       {/* 사건 헤더 */}
       <CaseHeader

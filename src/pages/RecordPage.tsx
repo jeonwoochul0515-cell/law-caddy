@@ -10,14 +10,7 @@ import { createRecording, updateRecording, addTimelineEvent } from "../services/
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 
-type InputMode = "record" | "type" | "upload";
 type Step = "info" | "record" | "agents";
-
-const INPUT_MODES: { mode: InputMode; label: string; desc: string; icon: React.ElementType; color: string }[] = [
-  { mode: "record", label: "상담 녹음", desc: "대면 상담 녹음 + 자료 첨부", icon: Mic, color: "text-gold bg-gold-dim" },
-  { mode: "type", label: "메모 입력", desc: "상담 내용을 직접 타이핑", icon: Type, color: "text-info bg-info/10" },
-  { mode: "upload", label: "자료 첨부", desc: "서류/증거를 업로드하여 분석", icon: Upload, color: "text-success bg-success/10" },
-];
 
 function getFileIcon(file: File) {
   const type = file.type;
@@ -50,10 +43,8 @@ export default function RecordPage() {
     caseId?: string;
     clientName?: string;
     caseDesc?: string;
-    inputMode?: InputMode;
   } | null;
 
-  const [inputMode, setInputMode] = useState<InputMode>(prefilled?.inputMode ?? "record");
   const [step, setStep] = useState<Step>("info");
   const [files, setFiles] = useState<File[]>([]);
   const [typedNotes, setTypedNotes] = useState("");
@@ -75,12 +66,14 @@ export default function RecordPage() {
   const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
   const [caseDesc] = useState(prefilled?.caseDesc ?? "");
 
-  // 타이핑 모드: Step 2 진입 시 텍스트 영역 자동 포커스
+  // 기존 사건에서 온 경우 바로 녹음 단계로 이동
   useEffect(() => {
-    if (step === "record" && inputMode === "type") {
-      setTimeout(() => document.getElementById("typed-notes-area")?.focus(), 100);
+    if (prefilled?.caseId && step === "info") {
+      setStep("record");
     }
-  }, [step, inputMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -270,12 +263,12 @@ export default function RecordPage() {
   const steps: Step[] = ["info", "record", "agents"];
   const stepLabels: Record<Step, string> = {
     info: "사건 정보",
-    record: inputMode === "type" ? "메모 입력" : inputMode === "upload" ? "자료 첨부" : "녹음/업로드",
+    record: "자료 입력",
     agents: "AI 분석",
   };
 
   return (
-    <AppLayout title="새 상담" subtitle={INPUT_MODES.find((m) => m.mode === inputMode)?.desc ?? ""}>
+    <AppLayout title={prefilled?.caseId ? "추가 상담" : "새 상담"} subtitle={prefilled?.caseId ? `${clientName} · 기존 사건에 추가` : "녹음 · 메모 · 파일 첨부 → AI 분석"}>
       {/* 단계 표시 */}
       <div className="flex items-center gap-3 mb-8">
         {steps.map((s, i) => (
@@ -310,39 +303,14 @@ export default function RecordPage() {
               <input
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                className="w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary focus:border-gold focus:outline-none transition-colors"
+                readOnly={!!prefilled?.caseId}
+                className={`w-full px-4 py-3 bg-navy-light border border-border rounded-lg text-text-primary focus:border-gold focus:outline-none transition-colors ${prefilled?.caseId ? "opacity-60 cursor-not-allowed" : ""}`}
                 placeholder="의뢰인 성명"
               />
+              {prefilled?.caseId && (
+                <p className="text-xs text-text-dim mt-1">기존 사건의 의뢰인 정보입니다.</p>
+              )}
             </div>
-
-            {/* 입력 모드 선택 */}
-            {!prefilled?.caseId && (
-              <div>
-                <label className="block text-sm text-text-dim mb-2">입력 방식</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {INPUT_MODES.map((m) => (
-                    <button
-                      key={m.mode}
-                      type="button"
-                      onClick={() => setInputMode(m.mode)}
-                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-all text-sm ${
-                        inputMode === m.mode
-                          ? "bg-gold-dim border border-gold/30 text-gold"
-                          : "bg-navy-light border border-border text-text-dim hover:border-border-hover"
-                      }`}
-                    >
-                      <div className={`p-1.5 rounded-lg ${inputMode === m.mode ? "bg-gold/10" : m.color.split(" ")[1]}`}>
-                        <m.icon className={`w-3.5 h-3.5 ${inputMode === m.mode ? "text-gold" : m.color.split(" ")[0]}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium">{m.label}</p>
-                        <p className={`text-xs ${inputMode === m.mode ? "text-gold/60" : "text-text-dim/60"}`}>{m.desc}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-3">
               <button
@@ -357,7 +325,7 @@ export default function RecordPage() {
                 disabled={!clientName}
                 className="flex-1 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {`다음: ${stepLabels.record}`}
+                다음: 자료 입력
               </button>
             </div>
           </div>

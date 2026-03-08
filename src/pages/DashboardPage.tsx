@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, FolderOpen, FileText, TrendingUp, Plus, Upload, Type } from "lucide-react";
+import { Mic, FolderOpen, FileText, TrendingUp, Plus } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
@@ -115,62 +115,34 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 빠른 실행 */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      {/* 새 상담 시작 + 사건 관리 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <button
-          onClick={() => navigate("/record", { state: { inputMode: "record" } })}
-          className="flex flex-col items-center gap-3 bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/20 rounded-2xl p-5 hover:border-gold/40 transition-colors text-center"
+          onClick={() => navigate("/record")}
+          className="flex items-center gap-4 bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/20 rounded-2xl p-5 hover:border-gold/40 transition-colors text-left"
         >
-          <div className="w-11 h-11 bg-gold-dim rounded-full flex items-center justify-center">
-            <Mic className="w-5 h-5 text-gold" />
+          <div className="w-12 h-12 bg-gold-dim rounded-full flex items-center justify-center shrink-0">
+            <Mic className="w-6 h-6 text-gold" />
           </div>
           <div>
-            <p className="font-semibold text-text-primary text-sm">상담 녹음</p>
-            <p className="text-xs text-text-dim mt-0.5">대면 상담 녹음</p>
+            <p className="font-semibold text-text-primary">새 상담 시작</p>
+            <p className="text-sm text-text-dim mt-0.5">녹음 · 메모 · 파일 첨부 → AI 분석</p>
           </div>
         </button>
 
         <button
-          onClick={() => navigate("/record", { state: { inputMode: "type" } })}
-          className="flex flex-col items-center gap-3 bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-colors text-center"
+          onClick={() => navigate("/cases")}
+          className="flex items-center gap-4 bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-colors text-left"
         >
-          <div className="w-11 h-11 bg-info/10 rounded-full flex items-center justify-center">
-            <Type className="w-5 h-5 text-info" />
+          <div className="w-12 h-12 bg-info/10 rounded-full flex items-center justify-center shrink-0">
+            <FolderOpen className="w-6 h-6 text-info" />
           </div>
           <div>
-            <p className="font-semibold text-text-primary text-sm">메모 입력</p>
-            <p className="text-xs text-text-dim mt-0.5">상담 내용 타이핑</p>
+            <p className="font-semibold text-text-primary">사건 관리</p>
+            <p className="text-sm text-text-dim mt-0.5">진행중인 사건 확인 및 관리</p>
           </div>
         </button>
-
-        <button
-          onClick={() => navigate("/record", { state: { inputMode: "upload" } })}
-          className="flex flex-col items-center gap-3 bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-colors text-center"
-        >
-          <div className="w-11 h-11 bg-success/10 rounded-full flex items-center justify-center">
-            <Upload className="w-5 h-5 text-success" />
-          </div>
-          <div>
-            <p className="font-semibold text-text-primary text-sm">자료 첨부</p>
-            <p className="text-xs text-text-dim mt-0.5">서류/증거 업로드</p>
-          </div>
-        </button>
-
       </div>
-
-      {/* 사건 관리 바로가기 */}
-      <button
-        onClick={() => navigate("/cases")}
-        className="w-full flex items-center gap-4 bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-colors text-left mb-8"
-      >
-        <div className="w-10 h-10 bg-info/10 rounded-full flex items-center justify-center">
-          <FolderOpen className="w-5 h-5 text-info" />
-        </div>
-        <div>
-          <p className="font-semibold text-text-primary">사건 관리</p>
-          <p className="text-sm text-text-dim">진행중인 사건 확인 및 관리</p>
-        </div>
-      </button>
 
       {/* 최근 사건 */}
       <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">

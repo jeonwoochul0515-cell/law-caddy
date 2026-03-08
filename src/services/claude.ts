@@ -2,6 +2,8 @@
 // 프로덕션: Cloudflare Functions 프록시 (/api/claude)
 // 로컬 개발: VITE_ANTHROPIC_API_KEY로 직접 호출
 
+import * as Sentry from "@sentry/react";
+
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -157,6 +159,7 @@ export async function callClaude(
 
     return await callClaudeProxy(systemPrompt, userMessage);
   } catch (error: unknown) {
+    Sentry.captureException(error);
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
         "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
@@ -187,6 +190,7 @@ export async function callClaudeChat(
 
     return await callClaudeChatProxy(systemPrompt, messages);
   } catch (error: unknown) {
+    Sentry.captureException(error);
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
         "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",

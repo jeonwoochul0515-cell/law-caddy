@@ -141,6 +141,13 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     }
   };
 
+  /** 업태/종목에 변호사업 관련 키워드가 포함되어 있는지 확인 */
+  const isLawyerBusiness = (ocr: OcrResult): boolean => {
+    const keywords = ["변호사", "법률", "법무"];
+    const target = `${ocr.businessType || ""} ${ocr.businessCategory || ""}`.toLowerCase();
+    return keywords.some((kw) => target.includes(kw));
+  };
+
   /** 국세청 사업자등록 진위확인 */
   const runVerify = async (ocr: OcrResult) => {
     setVerifyStatus("verifying");
@@ -155,11 +162,17 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
       );
 
       if (result.verified) {
-        setVerifyStatus("verified");
-        setBusinessVerified(true);
-        setVerifyMessage(
-          `사업자등록 확인 완료 (${result.data?.status || "계속사업자"})`,
-        );
+        if (isLawyerBusiness(ocr)) {
+          setVerifyStatus("verified");
+          setBusinessVerified(true);
+          setVerifyMessage("변호사업 사업자등록 확인 완료 — 가입 즉시 승인됩니다");
+        } else {
+          setVerifyStatus("unverified");
+          setBusinessVerified(false);
+          setVerifyMessage(
+            "사업자등록은 확인되었으나, 업태/종목에 변호사업이 확인되지 않습니다. 관리자가 수동 확인합니다.",
+          );
+        }
       } else {
         setVerifyStatus("unverified");
         setBusinessVerified(false);
