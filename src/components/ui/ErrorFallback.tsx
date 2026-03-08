@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 interface ErrorFallbackProps {
-  error: Error;
+  error: unknown;
   resetError: () => void;
 }
 
@@ -12,7 +12,7 @@ export default function ErrorFallback({
 }: ErrorFallbackProps) {
   return (
     <div className="min-h-screen bg-navy flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-surface border border-border rounded-2xl p-8 text-center">
+      <div role="alert" className="max-w-md w-full bg-surface border border-border rounded-2xl p-8 text-center">
         <div className="text-4xl mb-4">&#9888;&#65039;</div>
         <h1 className="text-xl font-bold text-gold mb-2">
           오류가 발생했습니다
@@ -23,7 +23,7 @@ export default function ErrorFallback({
 
         <div className="bg-navy/60 border border-border rounded-lg p-4 mb-6 text-left">
           <p className="text-text-dim text-xs font-mono break-all">
-            {error.message}
+            {error instanceof Error ? error.message : String(error)}
           </p>
         </div>
 

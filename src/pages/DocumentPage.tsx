@@ -108,17 +108,8 @@ export default function DocumentPage() {
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    console.log("[DocumentPage] useEffect 실행", { hasState: !!state, initialized, status });
     if (!state || initialized) return;
     setInitialized(true);
-
-    console.log("[DocumentPage] 문서 생성 시작", {
-      clientName: state.clientName,
-      docType: state.docType,
-      hasAgentResults: !!state.agentResults,
-      checkQuestionsCount: state.checkQuestions?.length ?? 0,
-      checkpointAnswersCount: state.checkpointAnswers?.length ?? 0,
-    });
 
     // 체크포인트 데이터를 Firestore에 저장
     if (state.documentId && state.checkQuestions?.length) {

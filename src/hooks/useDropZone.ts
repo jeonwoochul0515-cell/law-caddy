@@ -1,4 +1,4 @@
-import { useState, useCallback, type DragEvent } from "react";
+import { useState, useCallback, useRef, type DragEvent } from "react";
 
 interface UseDropZoneReturn {
   isDragging: boolean;
@@ -21,7 +21,7 @@ export default function useDropZone(
   accept?: string[],
 ): UseDropZoneReturn {
   const [isDragging, setIsDragging] = useState(false);
-  const counterRef = { current: 0 };
+  const counterRef = useRef(0);
 
   const onDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();

@@ -365,6 +365,7 @@ export default function RecordPage() {
 
               <button
                 onClick={handleRecord}
+                aria-label={isRecording ? "녹음 정지" : "녹음 시작"}
                 className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
                   isRecording
                     ? "bg-error hover:bg-error/80"
@@ -427,6 +428,7 @@ export default function RecordPage() {
                   ref={fileInputRef}
                   type="file"
                   multiple
+                  aria-label="파일 선택"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -449,6 +451,7 @@ export default function RecordPage() {
                   ref={folderInputRef}
                   type="file"
                   multiple
+                  aria-label="폴더 선택"
                   onChange={handleFileSelect}
                   className="hidden"
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -474,6 +477,7 @@ export default function RecordPage() {
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  aria-label="카메라 촬영"
                   onChange={handleCameraCapture}
                   className="hidden"
                 />

@@ -63,12 +63,13 @@ export default function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* 네비게이션 */}
-      <nav className="flex-1 overflow-y-auto px-2 py-4 lg:px-3">
+      <nav aria-label="메인 네비게이션" className="flex-1 overflow-y-auto px-2 py-4 lg:px-3">
         <ul className="flex flex-col gap-1">
           {visibleItems.map((item) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
+                aria-label={item.label}
                 className={({ isActive }) =>
                   [
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",

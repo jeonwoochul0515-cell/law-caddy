@@ -8,13 +8,18 @@ import type { SearchResult, RankedResult, SourceTable } from "./reranker";
 // ──────────────────────────────────────────────
 // Supabase 접속 정보
 // ──────────────────────────────────────────────
-const SUPABASE_URL =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ??
-  "https://eafcyvbgcedvhlwqotis.supabase.co";
+function getRequiredEnv(key: string): string {
+  const value = import.meta.env[key] as string | undefined;
+  if (!value) {
+    throw new Error(
+      `환경변수 ${key}가 설정되지 않았습니다. .env 파일에 ${key}=<값>을 추가하세요.`,
+    );
+  }
+  return value;
+}
 
-const SUPABASE_KEY =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhZmN5dmJnY2Vkdmhsd3FvdGlzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjA4NjI0NiwiZXhwIjoyMDg3NjYyMjQ2fQ.MFQ39uy3DWI2BSnnYBqDgiH24eTc9Hwtsq9lE0cC8og";
+const SUPABASE_URL = getRequiredEnv("VITE_SUPABASE_URL");
+const SUPABASE_KEY = getRequiredEnv("VITE_SUPABASE_ANON_KEY");
 
 // ──────────────────────────────────────────────
 // Voyage AI 설정

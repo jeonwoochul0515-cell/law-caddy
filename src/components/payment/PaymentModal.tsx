@@ -21,7 +21,7 @@ export default function PaymentModal({
   void planId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
       {/* 백드롭 */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -32,9 +32,10 @@ export default function PaymentModal({
       <div className="relative w-full max-w-md bg-[#0f1729] border border-border rounded-2xl shadow-2xl">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
-          <h3 className="text-lg font-semibold text-text-primary">플랜 변경</h3>
+          <h3 id="payment-modal-title" className="text-lg font-semibold text-text-primary">플랜 변경</h3>
           <button
             onClick={onClose}
+            aria-label="닫기"
             className="p-1.5 rounded-lg text-text-dim hover:text-text-primary hover:bg-white/5 transition-colors"
           >
             <X className="w-5 h-5" />

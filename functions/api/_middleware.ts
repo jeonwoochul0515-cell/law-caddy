@@ -4,6 +4,7 @@
 import type { Env } from "./_shared/types";
 import { authenticateRequest } from "./_shared/auth";
 import { handleOptions, withSecurityHeaders } from "./_shared/cors";
+import { checkRateLimit } from "./_shared/rate-limit";
 
 /** 인증이 필요 없는 경로 */
 const PUBLIC_PATHS = [
@@ -17,6 +18,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // CORS preflight
   if (request.method === "OPTIONS") {
     return handleOptions(request);
+  }
+
+  // 레이트 리밋 확인 (/api/claude, /api/transcribe — 60req/min per IP)
+  const rateLimitResponse = checkRateLimit(request);
+  if (rateLimitResponse) {
+    return withSecurityHeaders(rateLimitResponse, request);
   }
 
   const url = new URL(request.url);

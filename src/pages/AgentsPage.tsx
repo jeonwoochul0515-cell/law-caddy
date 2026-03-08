@@ -80,14 +80,9 @@ export default function AgentsPage() {
       return isAudio;
     });
 
-    console.log("[AgentsPage] 전체 파일:", allFiles.length, "개, 오디오:", audioFiles.length, "개");
-    allFiles.forEach((f: File) => console.log("  -", f.name, f.type, f.size, "bytes"));
-
     if (audioFiles.length > 0) {
-      console.log("[AgentsPage] STT 요청 시작:", audioFiles[0].name);
       transcribeFile(audioFiles[0])
         .then((transcribeId) => {
-          console.log("[AgentsPage] transcribeId 획득:", transcribeId);
           runAllAgents({
             clientName: state.clientName,
             caseDesc: fullDesc,
@@ -241,10 +236,10 @@ export default function AgentsPage() {
       </div>
 
       {/* 진행률 */}
-      <div className="mb-6">
+      <div className="mb-6" aria-live="polite" aria-atomic="true">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-text-dim">분석 진행률</span>
-          <span className="text-sm text-gold font-medium">{completedCount}/6</span>
+          <span className="text-sm text-gold font-medium" aria-label={`6개 중 ${completedCount}개 완료`}>{completedCount}/6</span>
         </div>
         <div className="h-2 bg-surface rounded-full overflow-hidden">
           <div
@@ -255,13 +250,16 @@ export default function AgentsPage() {
       </div>
 
       {/* 에이전트 상태 그리드 */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div role="tablist" aria-label="에이전트 결과 탭" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {AGENTS.map((agent) => {
           const agentState = agents[agent.id];
           const isActive = activeTab === agent.id;
           return (
             <button
               key={agent.id}
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`${agent.name} ${agentState?.status === "completed" ? "완료" : agentState?.status === "running" ? "진행 중" : agentState?.status === "error" ? "오류" : "대기"}`}
               onClick={() => setActiveTab(agent.id)}
               className={`p-3 rounded-xl border text-left transition-all ${
                 isActive
@@ -288,7 +286,7 @@ export default function AgentsPage() {
       </div>
 
       {/* 결과 탭 */}
-      <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
+      <div role="tabpanel" aria-label={`${AGENTS.find((a) => a.id === activeTab)?.name} 결과`} className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
         <div className="p-5 border-b border-border">
           <h3 className="font-semibold text-text-primary">
             {AGENTS.find((a) => a.id === activeTab)?.icon}{" "}

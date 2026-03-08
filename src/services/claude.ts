@@ -4,6 +4,7 @@
 
 import * as Sentry from "@sentry/react";
 import { authHeaders } from "./api-auth";
+import { withRetry } from "./retry";
 
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
@@ -12,13 +13,13 @@ export interface ChatMessage {
 }
 
 /** Claude API 응답 content 블록 타입 */
-interface ContentBlock {
+export interface ContentBlock {
   type: "text";
   text: string;
 }
 
 /** Claude API 응답 타입 */
-interface ClaudeApiResponse {
+export interface ClaudeApiResponse {
   id: string;
   type: "message";
   role: "assistant";
@@ -59,7 +60,7 @@ const TEMPERATURE = 0.2;
 /**
  * Claude API 응답에서 텍스트를 추출합니다.
  */
-function extractText(data: ClaudeApiResponse): string {
+export function extractText(data: ClaudeApiResponse): string {
   if (!data.content || data.content.length === 0) {
     throw new Error("Claude API에서 빈 응답을 반환했습니다.");
   }
@@ -123,22 +124,24 @@ async function callClaudeProxy(
   systemPrompt: string,
   userMessage: string,
 ): Promise<string> {
-  const headers = await authHeaders({ "Content-Type": "application/json" });
-  const response = await fetch("/api/claude", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ systemPrompt, userMessage }),
+  return withRetry(async () => {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch("/api/claude", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ systemPrompt, userMessage }),
+    });
+
+    if (!response.ok) {
+      const errorBody = (await response.json()) as ProxyErrorResponse;
+      throw new Error(
+        `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
+      );
+    }
+
+    const data = (await response.json()) as ClaudeApiResponse;
+    return extractText(data);
   });
-
-  if (!response.ok) {
-    const errorBody = (await response.json()) as ProxyErrorResponse;
-    throw new Error(
-      `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
-    );
-  }
-
-  const data = (await response.json()) as ClaudeApiResponse;
-  return extractText(data);
 }
 
 /**
@@ -245,20 +248,22 @@ async function callClaudeChatProxy(
   systemPrompt: string,
   messages: ChatMessage[],
 ): Promise<string> {
-  const headers = await authHeaders({ "Content-Type": "application/json" });
-  const response = await fetch("/api/claude", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ systemPrompt, messages }),
+  return withRetry(async () => {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch("/api/claude", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ systemPrompt, messages }),
+    });
+
+    if (!response.ok) {
+      const errorBody = (await response.json()) as ProxyErrorResponse;
+      throw new Error(
+        `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
+      );
+    }
+
+    const data = (await response.json()) as ClaudeApiResponse;
+    return extractText(data);
   });
-
-  if (!response.ok) {
-    const errorBody = (await response.json()) as ProxyErrorResponse;
-    throw new Error(
-      `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
-    );
-  }
-
-  const data = (await response.json()) as ClaudeApiResponse;
-  return extractText(data);
 }

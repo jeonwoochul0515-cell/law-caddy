@@ -31,7 +31,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
         <Header title={title} subtitle={subtitle} />
 
         {/* 콘텐츠 */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main role="main" aria-label={title} className="flex-1 overflow-y-auto p-6">
           {children}
         </main>
       </div>

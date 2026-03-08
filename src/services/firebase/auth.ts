@@ -70,7 +70,7 @@ export async function signUp(
     }
 
     // Firestore 사용자 문서 생성
-    const userDoc: Omit<User, "createdAt"> & { createdAt: ReturnType<typeof serverTimestamp> } = {
+    const userDoc: Omit<User, "createdAt" | "privacyConsentedAt"> & { createdAt: ReturnType<typeof serverTimestamp>; privacyConsentedAt?: ReturnType<typeof serverTimestamp> } = {
       uid,
       email,
       name: userData.name,

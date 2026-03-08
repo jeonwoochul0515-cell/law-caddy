@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight,
@@ -83,14 +83,36 @@ export default function CheckpointPage() {
     } catch { return null; }
   })();
 
-  // 체크포인트 질문 (agentResults.docgen에서 파싱)
-  const [checkQuestions, setCheckQuestions] = useState<CheckQuestion[]>([]);
-  const [parseError, setParseError] = useState(false);
+  // 체크포인트 질문 (agentResults.docgen에서 파싱) — lazy 초기화
+  const [parseError] = useState(() => {
+    if (!state?.agentResults?.docgen) return false;
+    try {
+      parseCheckQuestionsResponse(state.agentResults.docgen);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  const [checkQuestions] = useState<CheckQuestion[]>(() => {
+    if (!state?.agentResults?.docgen) return [];
+    try {
+      return parseCheckQuestionsResponse(state.agentResults.docgen);
+    } catch {
+      return [];
+    }
+  });
 
   // 각 질문별 답변 상태
   const [answers, setAnswers] = useState<Map<number, CheckpointAnswer>>(new Map());
-  const [initialized, setInitialized] = useState(false);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(() => {
+    if (!state?.agentResults?.docgen) return null;
+    try {
+      const questions = parseCheckQuestionsResponse(state.agentResults.docgen);
+      return questions.length > 0 ? questions[0].id : null;
+    } catch {
+      return null;
+    }
+  });
 
   // 파일 입력 ref (질문별)
   const fileInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
@@ -106,29 +128,6 @@ export default function CheckpointPage() {
     stream: null,
     timerInterval: null,
   });
-
-  // agentResults.docgen에서 체크포인트 질문 파싱
-  useEffect(() => {
-    if (!state || initialized) return;
-    setInitialized(true);
-
-    try {
-      const docgenResult = state.agentResults?.docgen;
-      if (docgenResult) {
-        const questions = parseCheckQuestionsResponse(docgenResult);
-        setCheckQuestions(questions);
-      }
-    } catch {
-      setParseError(true);
-    }
-  }, [state, initialized]);
-
-  // 질문이 로드되면 첫 번째 질문 확장
-  useEffect(() => {
-    if (checkQuestions.length > 0 && expandedId === null) {
-      setExpandedId(checkQuestions[0].id);
-    }
-  }, [checkQuestions, expandedId]);
 
   /** 질문에 대한 현재 답변 가져오기 (없으면 초기값) */
   const getAnswer = useCallback(
@@ -353,7 +352,7 @@ export default function CheckpointPage() {
           <div className="text-center py-16 text-text-dim">
             체크포인트 질문을 불러오는 데 실패했습니다.
           </div>
-        ) : checkQuestions.length === 0 && initialized ? (
+        ) : checkQuestions.length === 0 && state ? (
           <div className="text-center py-16 text-text-dim">
             체크포인트 질문이 없습니다. 문서 생성을 진행하세요.
           </div>
