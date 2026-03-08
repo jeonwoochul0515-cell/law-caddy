@@ -1,6 +1,8 @@
 // 법제처 판례 검색 OpenAPI 프론트엔드 서비스
 // Cloudflare Functions 프록시(/api/precedent-search)를 통해 법제처 API 호출
 
+import { authHeaders } from "./api-auth";
+
 /** 판례 검색 결과 항목 */
 export interface PrecedentCase {
   serialNumber: string;   // 판례일련번호
@@ -47,9 +49,10 @@ export async function searchLatestPrecedents(
   }
 
   try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
     const response = await fetch(PROXY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ query, count }),
     });
 
@@ -83,9 +86,10 @@ export async function getPrecedentDetail(
   }
 
   try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
     const response = await fetch(PROXY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ id: serialNumber }),
     });
 

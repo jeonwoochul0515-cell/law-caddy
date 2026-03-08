@@ -3,6 +3,7 @@
 // 로컬 개발: VITE_ANTHROPIC_API_KEY로 직접 호출
 
 import * as Sentry from "@sentry/react";
+import { authHeaders } from "./api-auth";
 
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
@@ -122,9 +123,10 @@ async function callClaudeProxy(
   systemPrompt: string,
   userMessage: string,
 ): Promise<string> {
+  const headers = await authHeaders({ "Content-Type": "application/json" });
   const response = await fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ systemPrompt, userMessage }),
   });
 
@@ -243,9 +245,10 @@ async function callClaudeChatProxy(
   systemPrompt: string,
   messages: ChatMessage[],
 ): Promise<string> {
+  const headers = await authHeaders({ "Content-Type": "application/json" });
   const response = await fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ systemPrompt, messages }),
   });
 

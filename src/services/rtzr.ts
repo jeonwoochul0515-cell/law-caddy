@@ -3,6 +3,7 @@
 
 import * as Sentry from "@sentry/react";
 import type { Utterance } from "../types/recording";
+import { authHeaders } from "./api-auth";
 
 /** RTZR 전사 상태 */
 export type TranscriptionStatus = "transcribing" | "completed" | "failed";
@@ -47,8 +48,10 @@ export async function transcribeFile(file: File): Promise<string> {
     const formData = new FormData();
     formData.append("file", file);
 
+    const headers = await authHeaders();
     const response = await fetch(getApiUrl("transcribe"), {
       method: "POST",
+      headers,
       body: formData,
     });
 
@@ -99,9 +102,10 @@ export async function pollTranscription(
   transcribeId: string,
 ): Promise<TranscriptionResult> {
   try {
+    const headers = await authHeaders();
     const response = await fetch(
       getApiUrl(`transcribe/${encodeURIComponent(transcribeId)}`),
-      { method: "GET" },
+      { method: "GET", headers },
     );
 
     if (!response.ok) {
