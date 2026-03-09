@@ -83,8 +83,15 @@ export default function RecordPage() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
+    console.log("[RecordPage] handleFileSelect fired, files:", selected?.length);
     if (selected && selected.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(selected)]);
+      const newFiles = Array.from(selected);
+      console.log("[RecordPage] Adding files:", newFiles.map((f) => f.name));
+      setFiles((prev) => {
+        const updated = [...prev, ...newFiles];
+        console.log("[RecordPage] Total files after update:", updated.length);
+        return updated;
+      });
     }
     // input value 초기화 (같은 파일 재선택 가능)
     e.target.value = "";
