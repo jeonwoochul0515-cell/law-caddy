@@ -408,55 +408,43 @@ export default function RecordPage() {
             {!isDragging && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* 파일 선택 — label + input 네이티브 방식 */}
-                <label
-                  htmlFor="file-input"
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <Upload className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">파일 선택</span>
                   <span className="text-xs text-text-dim">오디오, 이미지, 문서 등</span>
                   <input
-                    id="file-input"
                     type="file"
                     multiple
                     onChange={handleFileSelect}
-                    className="hidden"
+                    className="sr-only"
                   />
                 </label>
 
                 {/* 폴더 업로드 */}
-                <label
-                  htmlFor="folder-input"
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <FolderOpen className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">폴더 선택</span>
                   <span className="text-xs text-text-dim">폴더 내 파일 일괄 첨부</span>
                   <input
-                    id="folder-input"
                     type="file"
                     multiple
                     onChange={handleFileSelect}
-                    className="hidden"
+                    className="sr-only"
                     {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
                   />
                 </label>
 
                 {/* 카메라 촬영 */}
-                <label
-                  htmlFor="camera-input"
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <Camera className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">카메라 촬영</span>
                   <span className="text-xs text-text-dim">사진 직접 촬영</span>
                   <input
-                    id="camera-input"
                     type="file"
                     accept="image/*"
                     capture="environment"
                     onChange={handleCameraCapture}
-                    className="hidden"
+                    className="sr-only"
                   />
                 </label>
 
@@ -482,18 +470,14 @@ export default function RecordPage() {
                   <h4 className="text-sm font-medium text-text-primary">
                     첨부 파일 ({files.length}개)
                   </h4>
-                  <label
-                    htmlFor="file-input-add"
-                    className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors"
-                  >
+                  <label className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
                     <Plus className="w-3.5 h-3.5" />
                     추가
                     <input
-                      id="file-input-add"
                       type="file"
                       multiple
                       onChange={handleFileSelect}
-                      className="hidden"
+                      className="sr-only"
                     />
                   </label>
                 </div>
