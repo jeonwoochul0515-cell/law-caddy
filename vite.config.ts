@@ -35,9 +35,7 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // HTML/JS/CSS는 항상 네트워크 우선 — 배포 즉시 반영
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api/],
+        // navigateFallback 제거 — HTML은 네트워크에서 직접 가져옴
         runtimeCaching: [
           {
             // JS/CSS → 네트워크 우선, 실패 시 캐시 폴백
