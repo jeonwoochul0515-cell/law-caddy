@@ -408,6 +408,34 @@ export default function RecordPage() {
               </div>
             )}
 
+            {/* hidden file inputs — 항상 렌더링 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              aria-label="파일 선택"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              aria-label="폴더 선택"
+              onChange={handleFileSelect}
+              className="hidden"
+              {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              aria-label="카메라 촬영"
+              onChange={handleCameraCapture}
+              className="hidden"
+            />
+
             {!isDragging && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* 파일 선택 */}
@@ -424,14 +452,6 @@ export default function RecordPage() {
                     오디오, 이미지, 문서 등
                   </span>
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  aria-label="파일 선택"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
 
                 {/* 폴더 업로드 */}
                 <button
@@ -447,15 +467,6 @@ export default function RecordPage() {
                     폴더 내 파일 일괄 첨부
                   </span>
                 </button>
-                <input
-                  ref={folderInputRef}
-                  type="file"
-                  multiple
-                  aria-label="폴더 선택"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                />
 
                 {/* 카메라 촬영 */}
                 <button
@@ -471,15 +482,6 @@ export default function RecordPage() {
                     사진 직접 촬영
                   </span>
                 </button>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  aria-label="카메라 촬영"
-                  onChange={handleCameraCapture}
-                  className="hidden"
-                />
 
                 {/* 직접 입력 안내 */}
                 <button
