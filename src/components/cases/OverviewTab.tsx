@@ -186,7 +186,7 @@ export default function OverviewTab({
                   <Mic className="w-4 h-4 text-amber shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-text-primary truncate">{r.fileName}</p>
-                    <p className="text-xs text-text-dim">{r.fileSizeMB.toFixed(1)} MB</p>
+                    <p className="text-xs text-text-dim">{(r.fileSizeMB ?? 0).toFixed(1)} MB</p>
                   </div>
                 </div>
               ))}

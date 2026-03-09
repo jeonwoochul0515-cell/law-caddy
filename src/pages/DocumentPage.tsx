@@ -55,7 +55,7 @@ export default function DocumentPage() {
       // CheckpointAnswer의 files/audioBlob은 직렬화 불가 → 텍스트만 보존
       const serializable: DocumentState = {
         ...rawState,
-        checkpointAnswers: rawState.checkpointAnswers.map((a) => ({
+        checkpointAnswers: (rawState.checkpointAnswers ?? []).map((a) => ({
           ...a,
           files: [],
           audioBlob: null,
