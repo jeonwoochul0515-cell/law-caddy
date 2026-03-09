@@ -15,13 +15,18 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // ── 녹음 파일: 본인만 읽기/쓰기 ──
+    // ── 상담 파일: 본인만 읽기/쓰기 (녹음, 이미지, 문서 등) ──
     match /recordings/{ownerId}/{caseId}/{fileName} {
       allow read: if isAuthenticated() && request.auth.uid == ownerId;
       allow write: if isAuthenticated() && request.auth.uid == ownerId
-        // 최대 500MB, 오디오 파일만 허용
+        // 최대 500MB, 오디오/이미지/PDF/문서 파일 허용
         && request.resource.size < 500 * 1024 * 1024
-        && request.resource.contentType.matches('audio/.*');
+        && (request.resource.contentType.matches('audio/.*')
+            || request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('video/.*')
+            || request.resource.contentType.matches('application/pdf')
+            || request.resource.contentType.matches('application/.*')
+            || request.resource.contentType.matches('text/.*'));
 
       // 관리자: 읽기 허용
       allow read: if isAdmin();
