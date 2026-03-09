@@ -1,12 +1,14 @@
-// 배포 후 캐시된 HTML이 이전 JS 청크를 요청하면 1회만 리로드
+// 기존 서비스 워커 완전 제거 + 캐시 클리어 (1회 실행 후 자동 정리)
 (function () {
-  window.addEventListener("vite:preloadError", function () {
-    var reloaded = sessionStorage.getItem("preload-reload");
-    if (reloaded) {
-      sessionStorage.removeItem("preload-reload");
-      return;
-    }
-    sessionStorage.setItem("preload-reload", "1");
-    location.reload();
-  });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      if (regs.length === 0) return;
+      regs.forEach(function (r) { r.unregister(); });
+      if ("caches" in window) {
+        caches.keys().then(function (names) {
+          names.forEach(function (name) { caches.delete(name); });
+        });
+      }
+    });
+  }
 })();
