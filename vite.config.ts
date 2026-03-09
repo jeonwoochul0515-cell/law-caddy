@@ -35,7 +35,7 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // navigateFallback 제거 — HTML은 네트워크에서 직접 가져옴
+        navigateFallback: null,
         runtimeCaching: [
           {
             // JS/CSS → 네트워크 우선, 실패 시 캐시 폴백
