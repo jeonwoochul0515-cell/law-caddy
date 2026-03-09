@@ -13,8 +13,8 @@ function getOptionalEnv(key: string): string {
   return (import.meta.env[key] as string | undefined) ?? "";
 }
 
-const SUPABASE_URL = getOptionalEnv("VITE_SUPABASE_URL").trim();
-const SUPABASE_KEY = getOptionalEnv("VITE_SUPABASE_ANON_KEY").trim();
+const SUPABASE_URL = getOptionalEnv("VITE_SUPABASE_URL").replace(/\s+/g, "");
+const SUPABASE_KEY = getOptionalEnv("VITE_SUPABASE_ANON_KEY").replace(/\s+/g, "");
 
 /** Supabase 설정이 없으면 RAG 검색을 건너뛴다 */
 export const isRagAvailable = Boolean(SUPABASE_URL && SUPABASE_KEY);
