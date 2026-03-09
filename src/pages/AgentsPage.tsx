@@ -45,6 +45,7 @@ export default function AgentsPage() {
   const rawState = location.state as (AgentsState & { files?: File[] }) | null;
   const state: AgentsState | null = (() => {
     if (rawState) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { files: _files, ...serializable } = rawState;
       try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(serializable)); } catch { /* quota */ }
       return rawState;
@@ -109,6 +110,7 @@ export default function AgentsPage() {
         previousTranscripts: state.previousTranscripts ?? "",
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, started, runAllAgents]);
 
   const [isNavigating, setIsNavigating] = useState(false);
@@ -279,7 +281,7 @@ export default function AgentsPage() {
                   <AlertCircle className="w-4 h-4 text-error" />
                 )}
               </div>
-              <p className="text-xs font-medium text-text-primary">{agent.name}</p>
+              <p className="text-xs font-medium text-text-primary">{agent.nickname} <span className="text-text-dim">· {agent.name}</span></p>
             </button>
           );
         })}

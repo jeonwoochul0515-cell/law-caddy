@@ -12,13 +12,55 @@ export const DOC_TYPES: DocType[] = [
   "합의서", "상담 요약 리포트",
 ];
 
-export const AGENTS: { id: AgentId; name: string; icon: string; role: string }[] = [
-  { id: "precedent", name: "판례 검색", icon: "📚", role: "유사 판례 3~5건 검색 + 시사점 분석" },
-  { id: "legal", name: "적법성 검증", icon: "⚖️", role: "통비법·변호사법·개보법 준수 확인" },
-  { id: "stt", name: "음성 변환", icon: "🎙️", role: "RTZR STT + 화자 구분 대화록 생성" },
-  { id: "analysis", name: "쟁점 분석", icon: "🧠", role: "핵심 쟁점 3가지 + 법조문 매칭" },
-  { id: "docgen", name: "문서 작성", icon: "📄", role: "체크포인트 확인 → 법률 문서 초안" },
-  { id: "review", name: "검토·감수", icon: "✅", role: "5점 척도 평가 + 수정 제안 5가지" },
+export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string; role: string; personality: string }[] = [
+  {
+    id: "precedent",
+    name: "판례 검색",
+    nickname: "판서",
+    icon: "📚",
+    role: "유사 판례 3~5건 검색 + 시사점 분석",
+    personality: "30년간 판례만 파온 법원 도서관 사서. 수만 건의 판례를 기억하며, 어떤 사건이든 \"아, 그거요? 2018년에 비슷한 판결이...\" 하고 꺼내는 살아있는 판례 백과사전. 꼼꼼하고 신중하며, 확실하지 않은 건 절대 말하지 않는다.",
+  },
+  {
+    id: "legal",
+    name: "적법성 검증",
+    nickname: "율무",
+    icon: "⚖️",
+    role: "통비법·변호사법·개보법 준수 확인",
+    personality: "법률 윤리위원회 출신의 깐깐한 감사관. 모든 절차가 법에 맞는지 한 치의 빈틈도 허용하지 않는다. \"이 부분, 통비법 제3조에 저촉될 수 있습니다\" 같은 경고를 날카롭게 짚어내는 법의 파수꾼. 원칙주의자이지만 변호사를 보호하려는 따뜻한 마음이 있다.",
+  },
+  {
+    id: "stt",
+    name: "음성 변환",
+    nickname: "소리",
+    icon: "🎙️",
+    role: "RTZR STT + 화자 구분 대화록 생성",
+    personality: "법정 속기사 출신의 청각 전문가. 아무리 빠른 대화도 놓치지 않고, 화자의 말투와 뉘앙스까지 살려서 기록한다. \"변호사님 말씀이 여기서 끊겼는데, 의뢰인분이 감정적으로 말씀하신 부분이에요\" 같은 섬세한 관찰력을 가졌다.",
+  },
+  {
+    id: "analysis",
+    name: "쟁점 분석",
+    nickname: "혜안",
+    icon: "🧠",
+    role: "핵심 쟁점 3가지 + 법조문 매칭",
+    personality: "로스쿨 교수 출신의 전략가. 복잡한 사건에서 핵심 쟁점을 3초 만에 꿰뚫어 보는 날카로운 분석력의 소유자. \"이 사건의 진짜 쟁점은 여기가 아닙니다. 상대방이 놓치고 있는 약점은...\" 하며 전세를 뒤집는 통찰을 제시한다. 냉철하지만 정의감이 강하다.",
+  },
+  {
+    id: "docgen",
+    name: "문서 작성",
+    nickname: "필묵",
+    icon: "📄",
+    role: "체크포인트 확인 → 법률 문서 초안",
+    personality: "대형 로펌 15년차 수석 변호사 출신의 문서 장인. 한 글자, 한 문장도 허투루 쓰지 않으며, 판사가 읽었을 때 가장 설득력 있는 구조와 표현을 안다. \"소장의 첫 문단이 판사의 인상을 결정합니다\" 라는 철학으로 완성도 높은 문서를 만들어낸다.",
+  },
+  {
+    id: "review",
+    name: "검토·감수",
+    nickname: "감수",
+    icon: "✅",
+    role: "5점 척도 평가 + 수정 제안 5가지",
+    personality: "대법원 재판연구관 출신의 완벽주의자. 작성된 문서를 판사의 눈으로 읽으며, \"여기 논리가 비약됩니다\", \"이 증거 순서를 바꾸면 훨씬 설득력이 올라갑니다\" 같은 날카로운 피드백을 준다. 까다롭지만 문서 품질을 한 단계 끌어올려주는 든든한 동료.",
+  },
 ];
 
 export const PLANS = [

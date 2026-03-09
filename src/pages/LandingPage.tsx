@@ -144,38 +144,44 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 const AGENTS = [
   {
     icon: <Search className="w-5 h-5" />,
+    nickname: "판서",
     name: "판례 검색",
-    desc: "유사 판례 3~5건을 즉시 검색하고 시사점을 분석합니다",
+    desc: "30년 경력의 판례 전문가. 유사 판례 3~5건을 즉시 검색하고 시사점을 분석합니다",
     color: "text-blue",
   },
   {
     icon: <Shield className="w-5 h-5" />,
+    nickname: "율무",
     name: "적법성 검증",
-    desc: "통비법·변호사법·개보법 준수 여부를 자동 확인합니다",
+    desc: "윤리위원회 출신 감사관. 통비법·변호사법·개보법 준수 여부를 빈틈없이 확인합니다",
     color: "text-success",
   },
   {
     icon: <Mic className="w-5 h-5" />,
+    nickname: "소리",
     name: "음성 변환",
-    desc: "RTZR STT로 화자를 구분한 정확한 대화록을 생성합니다",
+    desc: "법정 속기사 출신 청각 전문가. RTZR STT로 화자를 구분한 정확한 대화록을 생성합니다",
     color: "text-warning",
   },
   {
     icon: <Brain className="w-5 h-5" />,
+    nickname: "혜안",
     name: "쟁점 분석",
-    desc: "핵심 쟁점 3가지를 도출하고 관련 법조문을 매칭합니다",
+    desc: "로스쿨 교수 출신 전략가. 핵심 쟁점 3가지를 꿰뚫어보고 법조문을 매칭합니다",
     color: "text-error",
   },
   {
     icon: <FileText className="w-5 h-5" />,
+    nickname: "필묵",
     name: "문서 작성",
-    desc: "체크포인트 확인 후 실무 양식에 맞는 초안을 작성합니다",
+    desc: "대형 로펌 15년차 문서 장인. 판사를 설득하는 완성도 높은 법률 문서를 작성합니다",
     color: "text-gold",
   },
   {
     icon: <Award className="w-5 h-5" />,
+    nickname: "감수",
     name: "검토·감수",
-    desc: "5점 척도로 품질을 평가하고 수정 사항 5가지를 제안합니다",
+    desc: "대법원 재판연구관 출신. 5점 척도 품질 평가와 수정 제안으로 문서를 한 단계 끌어올립니다",
     color: "text-info",
   },
 ];
@@ -505,7 +511,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-text-primary mb-1">
-                      {agent.name}
+                      {agent.nickname} <span className="text-text-dim font-normal text-sm">· {agent.name}</span>
                     </h4>
                     <p className="text-sm text-text-dim leading-relaxed">
                       {agent.desc}
