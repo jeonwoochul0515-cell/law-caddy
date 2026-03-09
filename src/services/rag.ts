@@ -8,18 +8,15 @@ import type { SearchResult, RankedResult, SourceTable } from "./reranker";
 // ──────────────────────────────────────────────
 // Supabase 접속 정보
 // ──────────────────────────────────────────────
-function getRequiredEnv(key: string): string {
-  const value = import.meta.env[key] as string | undefined;
-  if (!value) {
-    throw new Error(
-      `환경변수 ${key}가 설정되지 않았습니다. .env 파일에 ${key}=<값>을 추가하세요.`,
-    );
-  }
-  return value;
+function getOptionalEnv(key: string): string {
+  return (import.meta.env[key] as string | undefined) ?? "";
 }
 
-const SUPABASE_URL = getRequiredEnv("VITE_SUPABASE_URL");
-const SUPABASE_KEY = getRequiredEnv("VITE_SUPABASE_ANON_KEY");
+const SUPABASE_URL = getOptionalEnv("VITE_SUPABASE_URL");
+const SUPABASE_KEY = getOptionalEnv("VITE_SUPABASE_ANON_KEY");
+
+/** Supabase 설정이 없으면 RAG 검색을 건너뛴다 */
+export const isRagAvailable = Boolean(SUPABASE_URL && SUPABASE_KEY);
 
 // ──────────────────────────────────────────────
 // Voyage AI 설정
@@ -627,7 +624,6 @@ export async function searchAll(
     const contextKey = TABLE_CONTEXT_KEY_MAP[table];
     if (contextKey && resultMap[table]) {
       // 각 필드에 타입 캐스팅하여 할당
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (context as unknown as Record<string, unknown>)[contextKey] = resultMap[table];
     }
   }
@@ -783,6 +779,8 @@ export async function searchForAgent(
   query: string,
   caseType?: string,
 ): Promise<RAGContext> {
+  if (!isRagAvailable) return emptyRAGContext();
+
   const config = AGENT_SEARCH_CONFIG[agentId];
   if (!config) {
     return emptyRAGContext();
