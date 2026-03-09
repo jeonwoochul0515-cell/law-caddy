@@ -407,44 +407,44 @@ export default function RecordPage() {
 
             {!isDragging && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* 파일 선택 — label + input 네이티브 방식 */}
-                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
-                  <Upload className="w-8 h-8 text-text-dim" />
-                  <span className="text-sm text-text-dim text-center">파일 선택</span>
-                  <span className="text-xs text-text-dim">오디오, 이미지, 문서 등</span>
+                {/* 파일 선택 — input을 투명하게 label 전체 덮기 */}
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
+                  <Upload className="w-8 h-8 text-text-dim pointer-events-none" />
+                  <span className="text-sm text-text-dim text-center pointer-events-none">파일 선택</span>
+                  <span className="text-xs text-text-dim pointer-events-none">오디오, 이미지, 문서 등</span>
                   <input
                     type="file"
                     multiple
                     onChange={handleFileSelect}
-                    className="sr-only"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                 </label>
 
                 {/* 폴더 업로드 */}
-                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
-                  <FolderOpen className="w-8 h-8 text-text-dim" />
-                  <span className="text-sm text-text-dim text-center">폴더 선택</span>
-                  <span className="text-xs text-text-dim">폴더 내 파일 일괄 첨부</span>
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
+                  <FolderOpen className="w-8 h-8 text-text-dim pointer-events-none" />
+                  <span className="text-sm text-text-dim text-center pointer-events-none">폴더 선택</span>
+                  <span className="text-xs text-text-dim pointer-events-none">폴더 내 파일 일괄 첨부</span>
                   <input
                     type="file"
                     multiple
                     onChange={handleFileSelect}
-                    className="sr-only"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
                   />
                 </label>
 
                 {/* 카메라 촬영 */}
-                <label className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
-                  <Camera className="w-8 h-8 text-text-dim" />
-                  <span className="text-sm text-text-dim text-center">카메라 촬영</span>
-                  <span className="text-xs text-text-dim">사진 직접 촬영</span>
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
+                  <Camera className="w-8 h-8 text-text-dim pointer-events-none" />
+                  <span className="text-sm text-text-dim text-center pointer-events-none">카메라 촬영</span>
+                  <span className="text-xs text-text-dim pointer-events-none">사진 직접 촬영</span>
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     onChange={handleCameraCapture}
-                    className="sr-only"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                 </label>
 
@@ -470,14 +470,14 @@ export default function RecordPage() {
                   <h4 className="text-sm font-medium text-text-primary">
                     첨부 파일 ({files.length}개)
                   </h4>
-                  <label className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
-                    <Plus className="w-3.5 h-3.5" />
-                    추가
+                  <label className="relative flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
+                    <Plus className="w-3.5 h-3.5 pointer-events-none" />
+                    <span className="pointer-events-none">추가</span>
                     <input
                       type="file"
                       multiple
                       onChange={handleFileSelect}
-                      className="sr-only"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </label>
                 </div>
