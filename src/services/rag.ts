@@ -4,6 +4,7 @@
 import type { AgentId } from "../types/agent";
 import { rerankWithDiversity } from "./reranker";
 import type { SearchResult, RankedResult, SourceTable } from "./reranker";
+import { authHeaders } from "./api-auth";
 
 // ──────────────────────────────────────────────
 // Supabase 접속 정보
@@ -229,12 +230,16 @@ export async function embedQuery(text: string): Promise<number[]> {
 
   const url = isDev && voyageApiKey ? VOYAGE_DIRECT_URL : VOYAGE_PROXY_URL;
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  let headers: Record<string, string>;
 
   if (isDev && voyageApiKey) {
-    headers["Authorization"] = `Bearer ${voyageApiKey}`;
+    headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${voyageApiKey}`,
+    };
+  } else {
+    // 프로덕션: Cloudflare Functions 프록시 경유 → 미들웨어 인증 필요
+    headers = await authHeaders({ "Content-Type": "application/json" });
   }
 
   const response = await fetch(url, {
