@@ -454,7 +454,6 @@ export default function RecordPage() {
                   aria-label="폴더 선택"
                   onChange={handleFileSelect}
                   className="hidden"
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
                 />
 
@@ -501,6 +500,45 @@ export default function RecordPage() {
               </div>
             )}
 
+            {/* 첨부된 파일 목록 */}
+            {files.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-text-primary">
+                    첨부 파일 ({files.length}개)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    추가
+                  </button>
+                </div>
+                {files.map((f, i) => (
+                  <div
+                    key={`${f.name}-${i}`}
+                    className="flex items-center gap-3 bg-navy-light rounded-lg px-4 py-3"
+                  >
+                    {getFileIcon(f)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary truncate">{f.name}</p>
+                      <p className="text-xs text-text-dim">
+                        {getFileCategory(f)} · {(f.size / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="p-1.5 text-text-dim hover:text-error rounded-lg hover:bg-error/10 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* 직접 입력 텍스트 영역 */}
             <div className="mt-4">
               <textarea
@@ -518,45 +556,6 @@ export default function RecordPage() {
               )}
             </div>
           </div>
-
-          {/* 선택된 파일 목록 */}
-          {files.length > 0 && (
-            <div className="bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-text-primary">
-                  첨부 파일 ({files.length}개)
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  추가
-                </button>
-              </div>
-              {files.map((f, i) => (
-                <div
-                  key={`${f.name}-${i}`}
-                  className="flex items-center gap-3 bg-navy-light rounded-lg px-4 py-3"
-                >
-                  {getFileIcon(f)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-primary truncate">{f.name}</p>
-                    <p className="text-xs text-text-dim">
-                      {getFileCategory(f)} · {(f.size / 1024 / 1024).toFixed(1)} MB
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => removeFile(i)}
-                    className="p-1.5 text-text-dim hover:text-error rounded-lg hover:bg-error/10 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* 하단 버튼 */}
           <div className="flex flex-col gap-3">
