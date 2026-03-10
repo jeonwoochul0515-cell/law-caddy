@@ -23,7 +23,7 @@ export const isRagAvailable = Boolean(SUPABASE_URL && SUPABASE_KEY);
 // Voyage AI 설정
 // ──────────────────────────────────────────────
 const isDev = import.meta.env.DEV;
-const VOYAGE_MODEL = "voyage-3";
+const VOYAGE_MODEL = "voyage-3-lite";
 const VOYAGE_DIRECT_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_PROXY_URL = "/api/voyage";
 

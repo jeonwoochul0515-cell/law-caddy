@@ -8,8 +8,11 @@ import type { Env } from "./_shared/types";
 /** 법제처 API 계정 (공개 OC) */
 const LAW_API_OC = "jeonwoochul0515";
 
-/** 법제처 API 기본 URL (HTTP — SSL 인증서 문제 우회) */
-const LAW_API_BASE = "http://www.law.go.kr/DRF/lawService.do";
+/** 법제처 API — 검색용 URL (lawSearch.do) */
+const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
+
+/** 법제처 API — 상세 조회용 URL (lawService.do) */
+const LAW_API_DETAIL = "http://www.law.go.kr/DRF/lawService.do";
 
 /** 요청 body 타입 */
 interface PrecedentSearchRequest {
@@ -90,9 +93,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const body = (await context.request.json()) as PrecedentSearchRequest;
 
-    // 판례 상세 조회 (id 파라미터 사용)
+    // 판례 상세 조회 (id 파라미터 사용) — lawService.do
     if (body.id) {
-      const url = new URL(LAW_API_BASE);
+      const url = new URL(LAW_API_DETAIL);
       url.searchParams.set("OC", LAW_API_OC);
       url.searchParams.set("target", "prec");
       url.searchParams.set("type", "JSON");
@@ -136,7 +139,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const count = Math.min(Math.max(body.count ?? 5, 1), 20);
 
-    const url = new URL(LAW_API_BASE);
+    // 판례 검색 — lawSearch.do (lawService.do는 검색 지원 안 함)
+    const url = new URL(LAW_API_SEARCH);
     url.searchParams.set("OC", LAW_API_OC);
     url.searchParams.set("target", "prec");
     url.searchParams.set("type", "JSON");
