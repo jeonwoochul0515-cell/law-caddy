@@ -21,6 +21,8 @@ interface UseDocumentChatReturn {
   messages: DocChatMessage[];
   isLoading: boolean;
   sendMessage: (text: string) => Promise<void>;
+  /** 수정 적용 후 자동 후속 리뷰 */
+  sendFollowUpReview: () => Promise<void>;
   /** 문서 생성 완료 시 자동 검토 시작 */
   startAutoReview: () => void;
   clearHistory: () => void;
