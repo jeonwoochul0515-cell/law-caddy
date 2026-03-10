@@ -28,6 +28,7 @@ export interface AgentContext {
   checkQuestions?: CheckQuestion[];
   ragContext?: string;  // RAG 벡터 검색 결과 텍스트 (선택적)
   latestPrecedents?: string;  // 법제처 실시간 판례 검색 결과 (선택적)
+  fileContents?: string;  // PDF/문서 파일에서 추출한 텍스트 (선택적)
   lawyerName?: string;  // 변호사 이름 (프로필)
   firmName?: string;    // 법률사무소 이름 (프로필)
 }
@@ -96,6 +97,14 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(ctx.latestPrecedents);
     lines.push("");
     lines.push("※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
+  }
+
+  if (ctx.fileContents) {
+    lines.push("");
+    lines.push("[첨부 파일 내용 (PDF/문서에서 추출)]");
+    lines.push(ctx.fileContents);
+    lines.push("");
+    lines.push("※ 위 내용은 업로드된 파일에서 자동 추출한 텍스트입니다. 원본 파일과 대조하여 확인하세요.");
   }
 
   return lines.join("\n");

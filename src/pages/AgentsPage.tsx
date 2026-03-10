@@ -10,6 +10,7 @@ import { uploadRecordingFile } from "../services/firebase/storage";
 import { transcribeFile } from "../services/rtzr";
 import { callClaude } from "../services/claude";
 import { buildCaseDescriptionPrompt } from "../services/prompts";
+import { extractAllPdfTexts } from "../services/pdf";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -74,42 +75,51 @@ export default function AgentsPage() {
       ? `${state.caseDesc}\n\n[추가 자료]\n${state.typedNotes}`
       : state.caseDesc;
 
-    // 오디오 파일이 있으면 먼저 STT 요청 → transcribeId 획득 후 에이전트 실행
+    // 파일 분류: 오디오 / PDF
     const allFiles = rawState?.files ?? [];
     const audioFiles = allFiles.filter((f: File) => {
       const isAudio = f.type?.startsWith("audio/") || f.name?.match(/\.(webm|wav|mp3|m4a|ogg|flac|aac)$/i);
       return isAudio;
     });
+    const pdfFiles = allFiles.filter((f: File) =>
+      f.type === "application/pdf" || f.name?.match(/\.pdf$/i),
+    );
 
-    if (audioFiles.length > 0) {
-      transcribeFile(audioFiles[0])
-        .then((transcribeId) => {
-          runAllAgents({
-            clientName: state.clientName,
-            caseDesc: fullDesc,
-            transcript: "",
-            transcribeId,
-            previousTranscripts: state.previousTranscripts ?? "",
-          });
-        })
-        .catch((err) => {
-          console.error("[AgentsPage] STT 요청 실패:", err);
-          // STT 실패해도 나머지 에이전트는 실행
-          runAllAgents({
-            clientName: state.clientName,
-            caseDesc: fullDesc,
-            transcript: "",
-            previousTranscripts: state.previousTranscripts ?? "",
-          });
-        });
-    } else {
-      runAllAgents({
+    // PDF 텍스트 추출 + STT 요청을 병렬로 진행
+    const startAgents = async () => {
+      // PDF 텍스트 추출 (있으면)
+      let fileContents = "";
+      if (pdfFiles.length > 0) {
+        try {
+          fileContents = await extractAllPdfTexts(pdfFiles);
+        } catch (err) {
+          console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
+        }
+      }
+
+      const baseContext = {
         clientName: state.clientName,
         caseDesc: fullDesc,
         transcript: "",
         previousTranscripts: state.previousTranscripts ?? "",
-      });
-    }
+        ...(fileContents ? { fileContents } : {}),
+      };
+
+      // 오디오 파일이 있으면 STT 요청 후 에이전트 실행
+      if (audioFiles.length > 0) {
+        try {
+          const transcribeId = await transcribeFile(audioFiles[0]);
+          runAllAgents({ ...baseContext, transcribeId });
+        } catch (err) {
+          console.error("[AgentsPage] STT 요청 실패:", err);
+          runAllAgents(baseContext);
+        }
+      } else {
+        runAllAgents(baseContext);
+      }
+    };
+
+    startAgents();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, started, runAllAgents]);
 
