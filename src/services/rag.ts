@@ -86,14 +86,14 @@ export interface AihubQAResult {
 /** 판결문 검색 결과 (하이브리드) — 실제 사건번호가 포함된 판결문 */
 export interface LegalJudgmentResult {
   id: number;
-  case_number: string;
+  doc_id: string;
   court: string;
-  case_date: string;
+  case_name: string;
+  case_type: string;
   category: string;
+  doc_type: string;
+  content: string;
   summary: string;
-  full_text: string;
-  key_issues: string;
-  statutes_ref: string;
   semantic_score: number;
   keyword_score: number;
   combined_score: number;
@@ -102,11 +102,13 @@ export interface LegalJudgmentResult {
 /** 기계독해 QA 검색 결과 (하이브리드) — 법률 문서에 대한 질문-답변 */
 export interface LegalMRCResult {
   id: number;
-  document_title: string;
+  doc_title: string;
+  doc_source: string;
+  doc_class: string;
+  qa_type: string;
   question: string;
   answer: string;
-  context_passage: string;
-  category: string;
+  context: string;
   semantic_score: number;
   keyword_score: number;
   combined_score: number;
@@ -695,16 +697,16 @@ export async function searchAllWithRerank(
     })),
     ...context.legalJudgments.map((r) => ({
       id: r.id,
-      content: r.summary || r.full_text,
-      title: `${r.case_number} (${r.court})`,
+      content: r.summary || r.content,
+      title: `${r.doc_id} (${r.court || r.case_name || ""})`,
       score: r.combined_score,
       source: "legal_judgments" as const,
       metadata: {
-        case_number: r.case_number,
+        doc_id: r.doc_id,
         court: r.court,
-        case_date: r.case_date,
+        case_name: r.case_name,
+        case_type: r.case_type,
         category: r.category,
-        key_issues: r.key_issues,
       },
     })),
     ...context.legalMRC.map((r) => ({
@@ -714,9 +716,9 @@ export async function searchAllWithRerank(
       score: r.combined_score,
       source: "legal_mrc" as const,
       metadata: {
-        document_title: r.document_title,
-        category: r.category,
-        context_passage: r.context_passage,
+        doc_title: r.doc_title,
+        qa_type: r.qa_type,
+        context: r.context,
       },
     })),
     ...context.legalTerms.map((r) => ({
@@ -813,10 +815,8 @@ export function formatRAGContext(results: RAGContext): string {
   if (results.legalJudgments.length > 0) {
     const judgmentLines = results.legalJudgments.map(
       (j, i) =>
-        `${i + 1}. 사건번호: ${j.case_number} | 법원: ${j.court} | 선고일: ${j.case_date} | 분류: ${j.category}\n` +
-        `   판시사항: ${j.summary}\n` +
-        (j.key_issues ? `   핵심쟁점: ${j.key_issues}\n` : "") +
-        (j.statutes_ref ? `   참조조문: ${j.statutes_ref}\n` : "") +
+        `${i + 1}. 사건번호: ${j.doc_id} | 법원: ${j.court || "-"} | 사건명: ${j.case_name || "-"} | 분류: ${j.category}\n` +
+        `   판시사항: ${j.summary || j.content}\n` +
         `   [시맨틱: ${(j.semantic_score * 100).toFixed(1)}% | 키워드: ${(j.keyword_score * 100).toFixed(1)}% | 종합: ${(j.combined_score * 100).toFixed(1)}%]`,
     );
     sections.push(`### 관련 판결문 (실제 사건번호)\n${judgmentLines.join("\n\n")}`);
@@ -849,10 +849,10 @@ export function formatRAGContext(results: RAGContext): string {
   if (results.legalMRC.length > 0) {
     const mrcLines = results.legalMRC.map(
       (m, i) =>
-        `${i + 1}. [${m.category}] ${m.question}\n` +
+        `${i + 1}. [${m.qa_type || "-"}] ${m.question}\n` +
         `   답변: ${m.answer}\n` +
-        `   문서: ${m.document_title}\n` +
-        `   근거: ${m.context_passage}\n` +
+        `   문서: ${m.doc_title}\n` +
+        `   근거: ${m.context}\n` +
         `   [시맨틱: ${(m.semantic_score * 100).toFixed(1)}% | 키워드: ${(m.keyword_score * 100).toFixed(1)}% | 종합: ${(m.combined_score * 100).toFixed(1)}%]`,
     );
     sections.push(`### 법률 문서 해석 QA (기계독해)\n${mrcLines.join("\n\n")}`);
