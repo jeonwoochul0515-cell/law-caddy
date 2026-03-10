@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Type, Save, Loader2, FolderOpen } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Save, Loader2, FolderOpen } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -478,18 +478,6 @@ export default function RecordPage() {
                   <span className="text-xs text-text-dim">사진 직접 촬영</span>
                 </button>
 
-                {/* 직접 입력 안내 */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    document.getElementById("typed-notes-area")?.focus();
-                  }}
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
-                  <Type className="w-8 h-8 text-text-dim" />
-                  <span className="text-sm text-text-dim text-center">직접 입력</span>
-                  <span className="text-xs text-text-dim">상담 내용 타이핑</span>
-                </button>
               </div>
             )}
 
