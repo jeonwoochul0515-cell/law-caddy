@@ -53,7 +53,7 @@ const ANTHROPIC_API_URL = isDev
   ? "/api/anthropic/v1/messages"
   : "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
-const MAX_TOKENS = 8192;
+const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
 const TEMPERATURE = 0.2;
 
@@ -72,6 +72,12 @@ export function extractText(data: ClaudeApiResponse): string {
 
   if (!textContent) {
     throw new Error("Claude API 응답에 텍스트가 포함되지 않았습니다.");
+  }
+
+  // 토큰 제한으로 잘린 경우 경고 추가
+  if (data.stop_reason === "max_tokens") {
+    console.warn(`[Claude API] 응답이 max_tokens(${MAX_TOKENS})에 도달하여 잘렸습니다. output_tokens: ${data.usage?.output_tokens}`);
+    return textContent + "\n\n⚠️ [문서가 토큰 제한으로 잘렸습니다. 채팅에서 \"이어서 작성해 주세요\"라고 요청하세요.]";
   }
 
   return textContent;
