@@ -574,7 +574,7 @@ export default function CheckpointPage() {
                 onClick={handleNext}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {showSkipWarning ? "답변 없이 문서 생성" : "문서 생성"}
+                {showSkipWarning && answeredCount === 0 ? "답변 없이 문서 생성" : "문서 생성"}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

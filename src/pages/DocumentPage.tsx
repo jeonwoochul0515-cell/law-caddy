@@ -128,6 +128,11 @@ export default function DocumentPage() {
         transcript: state.agentResults.stt ?? "",
         lawyerName: state.lawyerName,
         firmName: state.firmName,
+        // 다른 에이전트 분석 결과를 필묵에게 전달
+        precedentResult: state.agentResults.precedent ?? "",
+        analysisResult: state.agentResults.analysis ?? "",
+        legalResult: state.agentResults.legal ?? "",
+        reviewResult: state.agentResults.review ?? "",
       },
       state.checkQuestions ?? [],
       state.checkpointAnswers ?? [],
