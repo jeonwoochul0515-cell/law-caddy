@@ -100,8 +100,8 @@ async function runSingleAgent(
   try {
     const ragResults = await searchForAgent(agentId, context.caseDesc, context.caseType);
     ragContext = formatRAGContext(ragResults);
-  } catch {
-    // RAG 검색 실패 시 무시
+  } catch (err) {
+    console.warn(`[${agentId}] RAG 검색 실패:`, err instanceof Error ? err.message : err);
   }
 
   // precedent 에이전트: 법제처 실시간 판례 검색 (실패 시 graceful degradation)
@@ -113,8 +113,11 @@ async function runSingleAgent(
         : context.caseDesc;
       const precedents = await searchLatestPrecedents(searchQuery, 5);
       latestPrecedents = formatPrecedentsForPrompt(precedents);
-    } catch {
-      // 법제처 API 실패 시 기존 RAG 결과만 사용
+      if (precedents.length === 0) {
+        console.warn("[precedent] 법제처 API 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
+      }
+    } catch (err) {
+      console.warn("[precedent] 법제처 API 실패:", err instanceof Error ? err.message : err);
     }
   }
 
