@@ -53,7 +53,7 @@ const ANTHROPIC_API_URL = isDev
   ? "/api/anthropic/v1/messages"
   : "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
-const MAX_TOKENS = 4096;
+const MAX_TOKENS = 8192;
 const API_VERSION = "2023-06-01";
 const TEMPERATURE = 0.2;
 
