@@ -376,25 +376,70 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DocumentItem({ doc }: { doc: LegalDocument }) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const statusClass = STATUS_COLORS[doc.status] ?? "bg-surface text-text-dim";
   const statusLabel = doc.status === "completed" ? "완료" : doc.status === "processing" ? "진행중" : doc.status;
+  const hasContent = doc.finalDocument?.trim();
+
+  const handleCopy = async () => {
+    if (!hasContent) return;
+    try {
+      await navigator.clipboard.writeText(doc.finalDocument);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* 무시 */ }
+  };
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-navy-light rounded-xl">
-      <div className="w-8 h-8 bg-gold/10 rounded-lg flex items-center justify-center shrink-0">
-        <FileText className="w-4 h-4 text-gold" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-text-primary font-medium truncate">{doc.docType}</p>
-        <p className="text-[11px] text-text-dim">
-          {doc.createdAt?.toDate?.()
-            ? doc.createdAt.toDate().toLocaleDateString("ko-KR")
-            : ""}
-        </p>
-      </div>
-      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${statusClass}`}>
-        {statusLabel}
-      </span>
+    <div className="bg-navy-light rounded-xl overflow-hidden">
+      <button
+        onClick={() => hasContent && setExpanded(!expanded)}
+        className={`w-full p-3 flex items-center gap-3 text-left transition-colors ${hasContent ? "hover:bg-surface-hover cursor-pointer" : "cursor-default"}`}
+      >
+        <div className="w-8 h-8 bg-gold/10 rounded-lg flex items-center justify-center shrink-0">
+          <FileText className="w-4 h-4 text-gold" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-text-primary font-medium truncate">{doc.docType}</p>
+          <p className="text-[11px] text-text-dim">
+            {doc.createdAt?.toDate?.()
+              ? doc.createdAt.toDate().toLocaleDateString("ko-KR")
+              : ""}
+          </p>
+        </div>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${statusClass}`}>
+          {statusLabel}
+        </span>
+        {hasContent && (
+          expanded
+            ? <ChevronUp className="w-4 h-4 text-text-dim shrink-0" />
+            : <ChevronDown className="w-4 h-4 text-text-dim shrink-0" />
+        )}
+      </button>
+
+      {expanded && hasContent && (
+        <div className="border-t border-border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gold font-medium">문서 내용</span>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 text-[11px] text-text-dim hover:text-gold transition-colors"
+            >
+              {copied ? (
+                <><Check className="w-3 h-3" /> 복사됨</>
+              ) : (
+                <><Copy className="w-3 h-3" /> 복사</>
+              )}
+            </button>
+          </div>
+          <div className="bg-surface rounded-lg p-3 max-h-60 overflow-y-auto">
+            <pre className="whitespace-pre-wrap text-xs text-text-primary leading-relaxed font-sans">
+              {doc.finalDocument}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -433,6 +478,8 @@ function RecordingItem({ rec }: { rec: Recording }) {
         <a
           href={rec.fileUrl}
           download={rec.fileName}
+          target="_blank"
+          rel="noopener noreferrer"
           className="p-1.5 text-text-dim hover:text-gold transition-colors shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
@@ -462,6 +509,8 @@ function OpponentDocItem({ doc }: { doc: OpponentDoc }) {
         <a
           href={doc.fileUrl}
           download={doc.fileName}
+          target="_blank"
+          rel="noopener noreferrer"
           className="p-1.5 text-text-dim hover:text-gold transition-colors shrink-0"
           onClick={(e) => e.stopPropagation()}
         >

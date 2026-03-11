@@ -629,6 +629,8 @@ function RecordingCard({
               <a
                 href={rec.fileUrl}
                 download={rec.fileName}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-text-dim hover:text-gold transition-colors shrink-0"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -642,6 +644,8 @@ function RecordingCard({
             <a
               href={rec.fileUrl}
               download={rec.fileName}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs text-text-dim hover:text-gold transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
@@ -714,6 +718,8 @@ function OpponentCard({
         <a
           href={doc.fileUrl}
           download={doc.fileName}
+          target="_blank"
+          rel="noopener noreferrer"
           className="p-1.5 text-text-dim hover:text-gold rounded-lg transition-colors shrink-0"
         >
           <Download className="w-4 h-4" />
