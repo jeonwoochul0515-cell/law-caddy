@@ -579,7 +579,9 @@ export default function DocumentPage() {
                   <ChatBubble
                     key={msg.id}
                     message={msg}
-                                      />
+                    onApplySuggestions={applySuggestions}
+                    disabled={chatLoading}
+                  />
                 ))}
 
                 {chatLoading && (
