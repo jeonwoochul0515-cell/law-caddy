@@ -2,12 +2,14 @@ import { useState, useCallback } from "react";
 import {
   Mic, FileText, Calendar, Clock, StickyNote, Heart,
   Plus, X, ChevronDown, ChevronUp, Copy, Check,
-  FileWarning, Upload, Loader2, Download,
+  FileWarning, Upload, Loader2, Download, File, Image, FileIcon,
+  MessageSquareText,
 } from "lucide-react";
 import useDropZone from "../../hooks/useDropZone";
 import type { TimelineEvent, OpponentDoc } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
+import { getFileTypeInfo, isAudioFile, type FileCategory } from "../../utils/fileType";
 
 // ─── 타입 ───────────────────────────────────────
 
@@ -546,6 +548,15 @@ function DocumentCard({
   );
 }
 
+/** 파일 카테고리별 아이콘 매핑 */
+const FILE_ICON_MAP: Record<FileCategory, React.ElementType> = {
+  audio: Mic,
+  pdf: File,
+  image: Image,
+  document: FileIcon,
+  general: FileIcon,
+};
+
 function RecordingCard({
   rec, time, isExpanded, onToggle, copiedId, onCopy,
 }: {
@@ -559,14 +570,21 @@ function RecordingCard({
   const sttStatus = STT_STATUS_MAP[rec.sttStatus] ?? { label: rec.sttStatus, className: "bg-surface text-text-dim" };
   const hasTranscript = rec.transcript?.trim();
 
+  // 파일 유형 감지 — 오디오가 아닌 파일도 올바르게 표시
+  const fileInfo = getFileTypeInfo(rec.fileName);
+  const isAudio = isAudioFile(rec.fileName);
+  const Icon = isAudio ? Mic : FILE_ICON_MAP[fileInfo.category];
+  const iconColor = isAudio ? "text-amber" : fileInfo.colorClass;
+  const iconBg = isAudio ? "bg-amber/10" : fileInfo.bgClass;
+
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
       <button
         onClick={() => (hasTranscript || rec.fileUrl) && onToggle()}
         className={`w-full p-3 flex items-center gap-3 text-left transition-colors ${hasTranscript || rec.fileUrl ? "hover:bg-surface-hover cursor-pointer" : "cursor-default"}`}
       >
-        <div className="w-8 h-8 bg-amber/10 rounded-full flex items-center justify-center shrink-0">
-          <Mic className="w-4 h-4 text-amber" />
+        <div className={`w-8 h-8 ${iconBg} rounded-full flex items-center justify-center shrink-0`}>
+          <Icon className={`w-4 h-4 ${iconColor}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -575,12 +593,26 @@ function RecordingCard({
           </div>
           <p className="text-xs text-text-dim">
             {rec.fileSizeMB.toFixed(1)} MB
-            {rec.durationSeconds > 0 && ` · ${formatDuration(rec.durationSeconds)}`}
+            {isAudio && rec.durationSeconds > 0 && ` · ${formatDuration(rec.durationSeconds)}`}
+            {!isAudio && ` · ${fileInfo.label}`}
           </p>
+          {/* STT 대화록 요약 (접힌 상태) */}
+          {hasTranscript && !isExpanded && (
+            <p className="text-[11px] text-info mt-0.5 truncate">
+              대화록 {rec.utterances?.length ?? 0}턴 · {formatDuration(rec.durationSeconds)}
+            </p>
+          )}
         </div>
-        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${sttStatus.className}`}>
-          STT {sttStatus.label}
-        </span>
+        {isAudio && (
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${sttStatus.className}`}>
+            STT {sttStatus.label}
+          </span>
+        )}
+        {hasTranscript && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 bg-info/15 text-info">
+            대화록
+          </span>
+        )}
         {(hasTranscript || rec.fileUrl) && (
           isExpanded
             ? <ChevronUp className="w-4 h-4 text-text-dim shrink-0" />
@@ -590,8 +622,8 @@ function RecordingCard({
 
       {isExpanded && (
         <div className="border-t border-border p-4 space-y-3">
-          {/* 오디오 재생 + 다운로드 */}
-          {rec.fileUrl && (
+          {/* 오디오 재생 + 다운로드 (오디오 파일만) */}
+          {rec.fileUrl && isAudio && (
             <div className="flex items-center gap-3">
               <audio controls src={rec.fileUrl} className="flex-1 h-8" />
               <a
@@ -605,11 +637,32 @@ function RecordingCard({
             </div>
           )}
 
+          {/* 비-오디오 파일 다운로드 */}
+          {rec.fileUrl && !isAudio && (
+            <a
+              href={rec.fileUrl}
+              download={rec.fileName}
+              className="flex items-center gap-2 text-xs text-text-dim hover:text-gold transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {rec.fileName} 다운로드
+            </a>
+          )}
+
           {/* 대화록 */}
           {hasTranscript && (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-text-dim">대화록</span>
+                <div className="flex items-center gap-2">
+                  <MessageSquareText className="w-3.5 h-3.5 text-info" />
+                  <span className="text-xs text-info font-medium">대화록</span>
+                  {rec.utterances && (
+                    <span className="text-[10px] text-text-dim">
+                      {rec.utterances.length}턴
+                      {Object.keys(rec.speakers ?? {}).length > 0 && ` · 화자 ${Object.keys(rec.speakers ?? {}).length}명`}
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => onCopy(rec.transcript!, `rec-${rec.id}`)}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-gold transition-colors"
