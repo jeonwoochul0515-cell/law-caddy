@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   FileText, Mic, Clock, Calendar, StickyNote, FileWarning, Heart,
   MessageSquareText, ChevronDown, ChevronUp, Copy, Check, Download,
-  Image, FileIcon, File,
+  Image, FileIcon, File, Paperclip,
 } from "lucide-react";
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
@@ -78,8 +78,8 @@ export default function OverviewTab({
     },
     {
       key: "recording",
-      label: "녹음/음성",
-      icon: Mic,
+      label: "첨부파일",
+      icon: Paperclip,
       count: recordings.length,
       colorClass: "text-amber",
       bgClass: "bg-amber/10",
