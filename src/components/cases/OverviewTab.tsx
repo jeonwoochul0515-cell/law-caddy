@@ -255,7 +255,7 @@ export default function OverviewTab({
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
         >
           <Mic className="w-4 h-4" />
-          추가 상담 녹음
+          추가 자료 등록
         </button>
         <button
           onClick={() => onSwitchTab("timeline")}

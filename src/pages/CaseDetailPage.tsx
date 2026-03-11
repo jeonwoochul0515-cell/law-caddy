@@ -105,7 +105,7 @@ export default function CaseDetailPage() {
           className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-xs hover:opacity-90 transition-opacity"
         >
           <Mic className="w-3.5 h-3.5" />
-          추가 상담
+          추가 자료 등록
         </button>
       </div>
 

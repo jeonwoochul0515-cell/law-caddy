@@ -166,7 +166,7 @@ export default function DocumentsTab({
             className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-text-dim rounded-lg text-xs hover:border-gold/30 hover:text-gold transition-colors"
           >
             <Mic className="w-3.5 h-3.5" />
-            추가 상담 녹음
+            추가 자료 등록
           </button>
         </div>
 
@@ -178,7 +178,7 @@ export default function DocumentsTab({
               onClick={onNavigateToRecord}
               className="px-4 py-2 bg-gold-dim text-gold rounded-lg text-sm hover:bg-gold/20 transition-colors"
             >
-              추가 상담 녹음
+              추가 자료 등록
             </button>
           </div>
         ) : (
