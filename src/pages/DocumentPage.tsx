@@ -22,7 +22,7 @@ import { exportToDocx } from "../services/docxExport";
 import { exportToHwpx } from "../services/hwpxExport";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
-import useDocumentChat, { type DocChatMessage } from "../hooks/useDocumentChat";
+import useDocumentChat, { type DocChatMessage, type Suggestion } from "../hooks/useDocumentChat";
 import { updateDocument, createDocument, addTimelineEvent } from "../services/firebase/firestore";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
@@ -83,7 +83,7 @@ export default function DocumentPage() {
     messages: chatMessages,
     isLoading: chatLoading,
     sendMessage,
-    sendFollowUpReview,
+    applySuggestions,
     startAutoReview,
   } = useDocumentChat(
     state?.docType ?? "상담 요약 리포트",
@@ -220,10 +220,6 @@ export default function DocumentPage() {
     if (!text || chatLoading) return;
     setChatInput("");
     await sendMessage(text);
-    // 수정안이 적용되었으면 자동 후속 리뷰
-    setTimeout(() => {
-      sendFollowUpReview();
-    }, 800);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -504,7 +500,9 @@ export default function DocumentPage() {
                 <ChatBubble
                   key={msg.id}
                   message={msg}
-                                  />
+                  onApplySuggestions={applySuggestions}
+                  disabled={chatLoading}
+                />
               ))}
 
               {chatLoading && (
@@ -679,12 +677,89 @@ export default function DocumentPage() {
   );
 }
 
+/** 제안 카드 컴포넌트 */
+function SuggestionCard({
+  suggestion,
+  checked,
+  onToggle,
+  disabled,
+}: {
+  suggestion: Suggestion;
+  checked: boolean;
+  onToggle: () => void;
+  disabled: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className={`border rounded-lg p-2.5 transition-colors cursor-pointer ${
+        checked
+          ? "border-gold/40 bg-gold-dim/30"
+          : "border-border hover:border-border-hover bg-navy-light/50"
+      }`}
+      onClick={() => !disabled && onToggle()}
+    >
+      <div className="flex items-start gap-2">
+        <div
+          className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+            checked ? "bg-gold border-gold" : "border-text-dim/40"
+          }`}
+        >
+          {checked && <Check className="w-3 h-3 text-navy" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-text-primary">
+            [제안{suggestion.id}] {suggestion.title}
+          </p>
+          {suggestion.description && (
+            <p className="text-[11px] text-text-dim mt-0.5 line-clamp-2">{suggestion.description}</p>
+          )}
+          {(suggestion.current || suggestion.revised) && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+                className="text-[10px] text-gold/70 hover:text-gold mt-1 flex items-center gap-0.5"
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                {expanded ? "접기" : "상세 보기"}
+              </button>
+              {expanded && (
+                <div className="mt-1.5 space-y-1.5 text-[11px]">
+                  {suggestion.current && (
+                    <div className="bg-red/5 border border-red/10 rounded px-2 py-1.5">
+                      <span className="text-red/70 font-medium">현재: </span>
+                      <span className="text-text-dim">{suggestion.current}</span>
+                    </div>
+                  )}
+                  {suggestion.revised && (
+                    <div className="bg-success/5 border border-success/10 rounded px-2 py-1.5">
+                      <span className="text-success/70 font-medium">수정안: </span>
+                      <span className="text-text-dim">{suggestion.revised}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 채팅 버블 컴포넌트 */
 function ChatBubble({
   message,
+  onApplySuggestions,
+  disabled,
 }: {
   message: DocChatMessage;
+  onApplySuggestions: (ids: number[]) => Promise<void>;
+  disabled: boolean;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
   // 자동 검토 요청은 UI에 표시하지 않음
   if (message.role === "user" && message.content === "[자동 검토 요청]") {
     return null;
@@ -703,17 +778,91 @@ function ChatBubble({
     );
   }
 
+  const suggestions = message.suggestions ?? [];
+  // 제안 블록 텍스트를 본문에서 제거하여 깔끔하게 표시
+  const displayContent = suggestions.length > 0
+    ? message.content.replace(/\[제안\d+\][\s\S]*$/m, "").trim()
+    : message.content;
+
+  const toggleSuggestion = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === suggestions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(suggestions.map((s) => s.id)));
+    }
+  };
+
+  const handleApply = () => {
+    if (selectedIds.size === 0 || disabled) return;
+    onApplySuggestions(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  };
+
   return (
     <div className="flex items-start gap-2">
       <div className="w-6 h-6 rounded-full bg-gold-dim flex items-center justify-center shrink-0">
         <Bot className="w-3.5 h-3.5 text-gold" />
       </div>
       <div className="max-w-[85%] space-y-2">
-        <div className="bg-navy-light rounded-xl rounded-tl-none px-3 py-2">
-          <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
-            {message.content}
-          </p>
-        </div>
+        {/* 본문 텍스트 */}
+        {displayContent && (
+          <div className="bg-navy-light rounded-xl rounded-tl-none px-3 py-2">
+            <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+              {displayContent}
+            </p>
+          </div>
+        )}
+
+        {/* 수정 제안 카드들 */}
+        {suggestions.length > 0 && !message.editApplied && (
+          <div className="space-y-1.5">
+            {suggestions.map((s) => (
+              <SuggestionCard
+                key={s.id}
+                suggestion={s}
+                checked={selectedIds.has(s.id)}
+                onToggle={() => toggleSuggestion(s.id)}
+                disabled={disabled}
+              />
+            ))}
+
+            {/* 전체 선택 + 적용 버튼 */}
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={selectAll}
+                disabled={disabled}
+                className="text-[11px] text-text-dim hover:text-gold transition-colors disabled:opacity-40"
+              >
+                {selectedIds.size === suggestions.length ? "전체 해제" : "전체 선택"}
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={disabled || selectedIds.size === 0}
+                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-gold to-gold-bright text-navy text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check className="w-3 h-3" />
+                선택 적용 ({selectedIds.size}/{suggestions.length})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 적용 완료 표시 */}
+        {message.editApplied && (
+          <div className="flex items-center gap-1.5 text-[11px] text-success px-1">
+            <Check className="w-3 h-3" />
+            수정안이 문서에 적용됨
+          </div>
+        )}
       </div>
     </div>
   );
