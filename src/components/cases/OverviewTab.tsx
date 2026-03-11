@@ -125,7 +125,7 @@ export default function OverviewTab({
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "문서", value: documents.length, icon: FileText, color: "text-gold" },
-          { label: "녹음", value: recordings.length, icon: Mic, color: "text-amber" },
+          { label: "첨부파일", value: recordings.length, icon: Mic, color: "text-amber" },
           { label: "상대방 서면", value: opponentDocs.length, icon: FileWarning, color: "text-error" },
           { label: "타임라인", value: timeline.length, icon: Clock, color: "text-info" },
           { label: "등록일", value: createdDate, icon: Calendar, color: "text-text-dim" },
