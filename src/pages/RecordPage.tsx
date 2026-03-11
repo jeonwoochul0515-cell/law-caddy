@@ -179,17 +179,34 @@ export default function RecordPage() {
     }
   };
 
-  // 음성 변환 후 저장 (AI 분석 없이 STT만 실행하고 DB 저장)
+  // 음성 변환 후 저장 (AI 분석 없이 파일 저장 + 오디오는 STT 실행)
   const handleSaveOnly = async () => {
     if (!user || !prefilled?.caseId) return;
-    const audioFiles = files.filter((f) => f.type.startsWith("audio/"));
-    if (audioFiles.length === 0 && !typedNotes.trim()) return;
+    if (files.length === 0 && !typedNotes.trim()) return;
 
     setSavingOnly(true);
     const caseId = prefilled.caseId;
 
     try {
-      // 1) 오디오 파일 업로드 + STT
+      const audioFiles = files.filter((f) => f.type.startsWith("audio/"));
+      const nonAudioFiles = files.filter((f) => !f.type.startsWith("audio/"));
+
+      // 1) 비-오디오 파일 업로드 (PDF, 이미지, 문서 등)
+      for (const file of nonAudioFiles) {
+        setSaveProgress(`"${file.name}" 업로드 중...`);
+        const fileUrl = await uploadRecordingFile(file, user.uid, caseId);
+        await createRecording({
+          caseId,
+          ownerId: user.uid,
+          fileName: file.name,
+          fileUrl,
+          fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+          durationSeconds: 0,
+          sttStatus: "completed",
+        });
+      }
+
+      // 2) 오디오 파일 업로드 + STT
       for (const file of audioFiles) {
         setSaveProgress(`"${file.name}" 업로드 중...`);
         const fileUrl = await uploadRecordingFile(file, user.uid, caseId);
@@ -245,15 +262,15 @@ export default function RecordPage() {
         }
       }
 
-      // 2) 타임라인 이벤트 추가
+      // 3) 타임라인 이벤트 추가
       setSaveProgress("타임라인 업데이트 중...");
       await addTimelineEvent(caseId, {
         type: "consult",
-        label: "추가 상담 녹음",
-        detail: `${audioFiles.length}개 파일 업로드${typedNotes.trim() ? " + 메모" : ""}`,
+        label: "추가 자료 등록",
+        detail: `${files.length}개 파일 업로드${typedNotes.trim() ? " + 메모" : ""}`,
       });
 
-      // 3) 사건 상세로 이동
+      // 4) 사건 상세로 이동
       navigate(`/cases/${caseId}`);
     } catch (err) {
       console.error("저장 실패:", err);
@@ -566,7 +583,7 @@ export default function RecordPage() {
                       {savingOnly ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> 변환 중...</>
                       ) : (
-                        <><Save className="w-4 h-4" /> 음성 변환 후 저장</>
+                        <><Save className="w-4 h-4" /> 저장 (분석 없이)</>
                       )}
                     </button>
                   )}
