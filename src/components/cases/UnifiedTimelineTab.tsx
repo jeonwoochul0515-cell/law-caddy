@@ -186,7 +186,7 @@ export default function UnifiedTimelineTab({
   const FILTERS: { key: FilterKind; label: string; count: number }[] = [
     { key: "all", label: "전체", count: items.length },
     { key: "document", label: "문서", count: documents.length },
-    { key: "recording", label: "녹음", count: recordings.length },
+    { key: "recording", label: "첨부파일", count: recordings.length },
     { key: "opponent", label: "상대방 서면", count: opponentDocs.length },
     { key: "event", label: "메모·활동", count: timeline.length },
   ];
