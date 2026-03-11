@@ -14,7 +14,9 @@ export interface ContractPayment {
   retainerMethod?: PaymentMethod;   // 결제 수단
   receiptIssued?: boolean;          // 계산서 발행 여부 (현금일 때)
   successFeeAgreed: boolean;        // 성공보수 약정 유무
-  successFeeAmount?: number;        // 성공보수 금액 (원)
+  successFeeType?: "percent" | "fixed"; // 성공보수 유형 (%, 정액)
+  successFeePercent?: number;       // 성공보수 비율 (%)
+  successFeeAmount?: number;        // 성공보수 금액 (원, 정액일 때)
 }
 
 /** 부가비용 항목 */

@@ -15,7 +15,11 @@ interface ContractPaymentSectionProps {
 
 export default function ContractPaymentSection({ data, onUpdate }: ContractPaymentSectionProps) {
   const [editingSuccessFee, setEditingSuccessFee] = useState(false);
-  const [successFeeInput, setSuccessFeeInput] = useState(String(data.successFeeAmount ?? ""));
+  const [successFeeInput, setSuccessFeeInput] = useState(
+    data.successFeeType === "fixed"
+      ? String(data.successFeeAmount ?? "")
+      : String(data.successFeePercent ?? ""),
+  );
   const [editingRetainer, setEditingRetainer] = useState(false);
   const [retainerInput, setRetainerInput] = useState(String(data.retainerAmount ?? ""));
 
@@ -33,12 +37,24 @@ export default function ContractPaymentSection({ data, onUpdate }: ContractPayme
     onUpdate(updated);
   };
 
+  const feeType = data.successFeeType ?? "percent"; // 기본값: %
+
   const handleSuccessFeeSubmit = () => {
-    const amount = parseInt(successFeeInput.replace(/[^0-9]/g, ""), 10);
-    if (!isNaN(amount) && amount > 0) {
-      onUpdate({ ...data, successFeeAmount: amount });
+    const val = parseFloat(successFeeInput.replace(/[^0-9.]/g, ""));
+    if (!isNaN(val) && val > 0) {
+      if (feeType === "percent") {
+        onUpdate({ ...data, successFeePercent: val, successFeeType: "percent" });
+      } else {
+        onUpdate({ ...data, successFeeAmount: val, successFeeType: "fixed" });
+      }
     }
     setEditingSuccessFee(false);
+  };
+
+  const handleFeeTypeChange = (type: "percent" | "fixed") => {
+    onUpdate({ ...data, successFeeType: type, successFeePercent: undefined, successFeeAmount: undefined });
+    setSuccessFeeInput("");
+    setEditingSuccessFee(true);
   };
 
   const handleRetainerSubmit = () => {
@@ -195,32 +211,73 @@ export default function ContractPaymentSection({ data, onUpdate }: ContractPayme
           </button>
 
           {data.successFeeAgreed && (
-            <div className="mt-2 ml-7 flex items-center gap-2">
-              {editingSuccessFee ? (
-                <>
-                  <input
-                    type="text"
-                    value={successFeeInput}
-                    onChange={(e) => setSuccessFeeInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSuccessFeeSubmit()}
-                    placeholder="금액 입력"
-                    className="w-40 px-3 py-1.5 bg-surface border border-border rounded-lg text-sm text-text-primary focus:border-gold focus:outline-none"
-                    autoFocus
-                  />
-                  <span className="text-xs text-text-dim">원</span>
-                  <button onClick={handleSuccessFeeSubmit} className="px-2 py-1 text-xs text-gold hover:text-gold-bright transition-colors">확인</button>
-                  <button onClick={() => setEditingSuccessFee(false)} className="px-2 py-1 text-xs text-text-dim hover:text-text-primary transition-colors">취소</button>
-                </>
-              ) : (
-                <button
-                  onClick={() => { setSuccessFeeInput(String(data.successFeeAmount ?? "")); setEditingSuccessFee(true); }}
-                  className="text-xs text-text-dim hover:text-gold transition-colors"
-                >
-                  {data.successFeeAmount
-                    ? `성공보수: ${data.successFeeAmount.toLocaleString()}원`
-                    : "금액 설정하기"}
-                </button>
-              )}
+            <div className="mt-2 ml-3 p-3 bg-navy-light/50 rounded-lg space-y-3 border border-border/50">
+              {/* 유형 선택: % / 정액 */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-dim">유형</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleFeeTypeChange("percent")}
+                    className={`px-2.5 py-1 rounded text-[11px] border transition-colors ${
+                      feeType === "percent"
+                        ? "border-gold/40 bg-gold-dim text-gold"
+                        : "border-border text-text-dim hover:border-border-hover"
+                    }`}
+                  >
+                    % 비율
+                  </button>
+                  <button
+                    onClick={() => handleFeeTypeChange("fixed")}
+                    className={`px-2.5 py-1 rounded text-[11px] border transition-colors ${
+                      feeType === "fixed"
+                        ? "border-gold/40 bg-gold-dim text-gold"
+                        : "border-border text-text-dim hover:border-border-hover"
+                    }`}
+                  >
+                    정액
+                  </button>
+                </div>
+              </div>
+
+              {/* 금액/비율 입력 */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-dim">
+                  {feeType === "percent" ? "비율" : "금액"}
+                </span>
+                {editingSuccessFee ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={successFeeInput}
+                      onChange={(e) => setSuccessFeeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSuccessFeeSubmit()}
+                      placeholder={feeType === "percent" ? "예: 10" : "금액"}
+                      className="w-28 px-2 py-1 bg-surface border border-border rounded text-xs text-text-primary text-right focus:border-gold focus:outline-none"
+                      autoFocus
+                    />
+                    <span className="text-xs text-text-dim">{feeType === "percent" ? "%" : "원"}</span>
+                    <button onClick={handleSuccessFeeSubmit} className="px-1.5 py-0.5 text-[11px] text-gold hover:text-gold-bright">확인</button>
+                    <button onClick={() => setEditingSuccessFee(false)} className="px-1.5 py-0.5 text-[11px] text-text-dim">취소</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSuccessFeeInput(
+                        feeType === "percent"
+                          ? String(data.successFeePercent ?? "")
+                          : String(data.successFeeAmount ?? ""),
+                      );
+                      setEditingSuccessFee(true);
+                    }}
+                    className="text-xs text-text-primary hover:text-gold transition-colors"
+                  >
+                    {feeType === "percent"
+                      ? (data.successFeePercent ? `${data.successFeePercent}%` : "비율 입력")
+                      : (data.successFeeAmount ? `${data.successFeeAmount.toLocaleString()}원` : "금액 입력")
+                    }
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
