@@ -170,11 +170,12 @@ export default function AgentsPage() {
       });
       setCreatedCaseId(caseId);
 
-      // 녹음 파일이 있으면 Storage 업로드 + recordings 컬렉션 생성
+      // 파일이 있으면 Storage 업로드 + recordings 컬렉션 생성
       const files = rawState?.files;
       if (files && files.length > 0) {
         for (const file of files) {
           try {
+            const isAudio = file.type?.startsWith("audio/") || !!file.name?.match(/\.(webm|wav|mp3|m4a|ogg|flac|aac)$/i);
             const fileUrl = await uploadRecordingFile(file, state.ownerId, caseId);
             await createRecording({
               caseId,
@@ -183,7 +184,7 @@ export default function AgentsPage() {
               fileUrl,
               fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
               durationSeconds: 0,
-              sttStatus: "pending",
+              sttStatus: isAudio ? "pending" : "completed",
             });
           } catch (uploadErr) {
             console.error("파일 업로드 실패:", uploadErr);
