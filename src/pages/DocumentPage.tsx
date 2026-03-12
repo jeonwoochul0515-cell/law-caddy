@@ -17,6 +17,7 @@ import {
   ChevronDown,
   FileDown,
   Printer,
+  Paperclip,
 } from "lucide-react";
 import { exportToDocx } from "../services/docxExport";
 import { exportToHwpx } from "../services/hwpxExport";
@@ -95,9 +96,12 @@ export default function DocumentPage() {
   const [tab, setTab] = useState<"document" | "message">("document");
   const [initialized, setInitialized] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [chatFiles, setChatFiles] = useState<File[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const mobileChatFileInputRef = useRef<HTMLInputElement>(null);
 
   const [docSaved, setDocSaved] = useState(false);
   const [msgSaved, setMsgSaved] = useState(false);
@@ -217,9 +221,11 @@ export default function DocumentPage() {
 
   const handleSendChat = async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading) return;
+    if ((!text && chatFiles.length === 0) || chatLoading) return;
+    const filesToSend = chatFiles.length > 0 ? [...chatFiles] : undefined;
     setChatInput("");
-    await sendMessage(text);
+    setChatFiles([]);
+    await sendMessage(text || "첨부된 파일을 분석하여 문서에 반영할 내용을 제안해 주세요.", filesToSend);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -227,6 +233,14 @@ export default function DocumentPage() {
       e.preventDefault();
       handleSendChat();
     }
+  };
+
+  const handleChatFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (selected && selected.length > 0) {
+      setChatFiles((prev) => [...prev, ...Array.from(selected)]);
+    }
+    e.target.value = "";
   };
 
   // 수정안은 채팅 훅에서 자동 적용 (handleApplyEdit 불필요)
@@ -521,7 +535,35 @@ export default function DocumentPage() {
 
             {/* 채팅 입력 */}
             <div className="p-3 border-t border-border shrink-0">
+              <input
+                ref={chatFileInputRef}
+                type="file"
+                multiple
+                onChange={handleChatFileSelect}
+                style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
+              />
+              {chatFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {chatFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1 px-2 py-1 bg-gold-dim/30 border border-gold/20 rounded-md text-[11px] text-gold">
+                      <Paperclip className="w-3 h-3" />
+                      <span className="max-w-[120px] truncate">{f.name}</span>
+                      <button onClick={() => setChatFiles((prev) => prev.filter((_, j) => j !== i))} className="hover:text-error">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-2">
+                <button
+                  onClick={() => chatFileInputRef.current?.click()}
+                  disabled={chatLoading}
+                  className="px-2 py-2 border border-border rounded-lg text-text-dim hover:border-gold hover:text-gold transition-colors disabled:opacity-40 shrink-0"
+                  title="파일 첨부"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
                 <textarea
                   ref={chatInputRef}
                   value={chatInput}
@@ -533,7 +575,7 @@ export default function DocumentPage() {
                 />
                 <button
                   onClick={handleSendChat}
-                  disabled={!chatInput.trim() || chatLoading}
+                  disabled={(!chatInput.trim() && chatFiles.length === 0) || chatLoading}
                   className="px-3 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                 >
                   <Send className="w-4 h-4" />
@@ -600,7 +642,35 @@ export default function DocumentPage() {
 
               {/* 모바일 채팅 입력 */}
               <div className="p-3 border-t border-border shrink-0">
+                <input
+                  ref={mobileChatFileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleChatFileSelect}
+                  style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
+                />
+                {chatFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {chatFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-1 px-2 py-1 bg-gold-dim/30 border border-gold/20 rounded-md text-[11px] text-gold">
+                        <Paperclip className="w-3 h-3" />
+                        <span className="max-w-[100px] truncate">{f.name}</span>
+                        <button onClick={() => setChatFiles((prev) => prev.filter((_, j) => j !== i))} className="hover:text-error">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => mobileChatFileInputRef.current?.click()}
+                    disabled={chatLoading}
+                    className="px-2 py-2 border border-border rounded-lg text-text-dim hover:border-gold hover:text-gold transition-colors disabled:opacity-40 shrink-0"
+                    title="파일 첨부"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                   <textarea
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -611,7 +681,7 @@ export default function DocumentPage() {
                   />
                   <button
                     onClick={handleSendChat}
-                    disabled={!chatInput.trim() || chatLoading}
+                    disabled={(!chatInput.trim() && chatFiles.length === 0) || chatLoading}
                     className="px-3 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                   >
                     <Send className="w-4 h-4" />

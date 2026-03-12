@@ -152,7 +152,13 @@ export default function RecordPage() {
               .filter((d) => d.agentResults?.analysis)
               .map((d) => `[이전 분석 - ${d.docType}]\n${d.agentResults.analysis}`)
               .join("\n\n");
-            previousTranscripts = [transcripts, prevAnalysis].filter(Boolean).join("\n\n===\n\n");
+            // 이전에 생성된 법률 서면 (최종 문서)
+            const prevDocuments = documents
+              .filter((d) => d.finalDocument && d.status === "completed")
+              .sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0))
+              .map((d) => `[이전 작성 서면 - ${d.docType}]\n${d.finalDocument}`)
+              .join("\n\n---\n\n");
+            previousTranscripts = [transcripts, prevAnalysis, prevDocuments].filter(Boolean).join("\n\n===\n\n");
           } catch (err) {
             console.error("이전 녹음 조회 실패:", err);
           }

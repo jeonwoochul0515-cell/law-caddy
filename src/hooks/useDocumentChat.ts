@@ -5,6 +5,7 @@
 import { useState, useCallback, useRef } from "react";
 import { callClaudeChat, type ChatMessage } from "../services/claude";
 import { buildDocumentChatPrompt } from "../services/prompts";
+import { extractAllPdfTexts } from "../services/pdf";
 import type { DocType } from "../types/document";
 
 /** 개별 수정 제안 */
@@ -31,7 +32,7 @@ export interface DocChatMessage {
 interface UseDocumentChatReturn {
   messages: DocChatMessage[];
   isLoading: boolean;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, files?: File[]) => Promise<void>;
   /** 선택된 제안들을 적용 요청 */
   applySuggestions: (suggestionIds: number[]) => Promise<void>;
   /** 문서 생성 완료 시 자동 검토 시작 */
@@ -114,11 +115,37 @@ export default function useDocumentChat(
   );
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, files?: File[]) => {
+      // 첨부 파일이 있으면 텍스트 추출하여 메시지에 포함
+      let messageContent = text;
+      if (files && files.length > 0) {
+        const pdfFiles = files.filter((f) =>
+          f.type === "application/pdf" || !!f.name?.match(/\.pdf$/i),
+        );
+        const nonPdfFiles = files.filter((f) =>
+          f.type !== "application/pdf" && !f.name?.match(/\.pdf$/i),
+        );
+
+        const parts: string[] = [text];
+        if (pdfFiles.length > 0) {
+          try {
+            const pdfText = await extractAllPdfTexts(pdfFiles);
+            parts.push(`\n\n[첨부 PDF 내용]\n${pdfText}`);
+          } catch {
+            parts.push(`\n\n[첨부 PDF ${pdfFiles.length}건 — 텍스트 추출 실패]`);
+          }
+        }
+        if (nonPdfFiles.length > 0) {
+          const fileNames = nonPdfFiles.map((f) => f.name).join(", ");
+          parts.push(`\n\n[기타 첨부 파일: ${fileNames}]`);
+        }
+        messageContent = parts.join("");
+      }
+
       const userMsg: DocChatMessage = {
         id: `msg-${++messageCounter}`,
         role: "user",
-        content: text,
+        content: messageContent,
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
