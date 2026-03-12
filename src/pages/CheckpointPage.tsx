@@ -15,9 +15,13 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronLeft,
+  Loader2,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import { parseCheckQuestionsResponse } from "../hooks/useDocument";
+import { uploadRecordingFile } from "../services/firebase/storage";
+import { createRecording } from "../services/firebase/firestore";
+import { extractAllPdfTexts } from "../services/pdf";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 import type { CaseType, DocType } from "../types/agent";
 
@@ -268,9 +272,11 @@ export default function CheckpointPage() {
 
   const canProceed = checkQuestions.length > 0;
   const [showSkipWarning, setShowSkipWarning] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
 
-  /** 다음 단계로 이동 */
-  const handleNext = () => {
+  /** 다음 단계로 이동 (첨부파일 업로드 후) */
+  const handleNext = async () => {
     if (!state) return;
 
     // 답변이 하나도 없으면 경고 표시
@@ -282,6 +288,84 @@ export default function CheckpointPage() {
     const checkpointAnswers: CheckpointAnswer[] = checkQuestions.map((q) =>
       getAnswer(q.id),
     );
+
+    // 모든 답변의 첨부파일 수집
+    const allFiles = checkpointAnswers.flatMap((a) => a.files);
+    const caseId = state.caseId;
+
+    if (allFiles.length > 0 && caseId && state.ownerId) {
+      setUploading(true);
+      try {
+        // 1) Firebase Storage에 업로드 + recordings 컬렉션 저장
+        for (const file of allFiles) {
+          setUploadProgress(`"${file.name}" 업로드 중...`);
+          try {
+            const isAudio = file.type?.startsWith("audio/") || !!file.name?.match(/\.(webm|wav|mp3|m4a|ogg|flac|aac)$/i);
+            const fileUrl = await uploadRecordingFile(file, state.ownerId, caseId);
+            await createRecording({
+              caseId,
+              ownerId: state.ownerId,
+              fileName: file.name,
+              fileUrl,
+              fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+              durationSeconds: 0,
+              sttStatus: isAudio ? "pending" : "completed",
+            });
+          } catch (err) {
+            console.error(`파일 업로드 실패: ${file.name}`, err);
+          }
+        }
+
+        // 2) PDF 파일 텍스트 추출 → 프롬프트에 포함
+        const pdfFiles = allFiles.filter((f) =>
+          f.type === "application/pdf" || !!f.name?.match(/\.pdf$/i),
+        );
+        if (pdfFiles.length > 0) {
+          setUploadProgress("PDF 텍스트 추출 중...");
+          try {
+            const pdfText = await extractAllPdfTexts(pdfFiles);
+            // 기존 에이전트 결과에 체크포인트 첨부 PDF 내용 추가
+            state.agentResults = {
+              ...state.agentResults,
+              stt: (state.agentResults.stt ?? "") + `\n\n[체크포인트 첨부 PDF 내용]\n${pdfText}`,
+            };
+          } catch (err) {
+            console.error("PDF 텍스트 추출 실패:", err);
+          }
+        }
+      } finally {
+        setUploading(false);
+        setUploadProgress("");
+      }
+    }
+
+    // 오디오 녹음 업로드
+    const audioAnswers = checkpointAnswers.filter((a) => a.audioBlob);
+    if (audioAnswers.length > 0 && caseId && state.ownerId) {
+      for (const a of audioAnswers) {
+        if (!a.audioBlob) continue;
+        try {
+          const audioFile = new File(
+            [a.audioBlob],
+            `checkpoint_q${a.questionId}_${Date.now()}.webm`,
+            { type: "audio/webm" },
+          );
+          const fileUrl = await uploadRecordingFile(audioFile, state.ownerId, caseId);
+          await createRecording({
+            caseId,
+            ownerId: state.ownerId,
+            fileName: audioFile.name,
+            fileUrl,
+            fileSizeMB: parseFloat((audioFile.size / (1024 * 1024)).toFixed(2)),
+            durationSeconds: 0,
+            sttStatus: "pending",
+          });
+        } catch (err) {
+          console.error(`오디오 업로드 실패: 질문 ${a.questionId}`, err);
+        }
+      }
+    }
+
     navigate("/record/document", {
       state: {
         ...state,
@@ -568,14 +652,22 @@ export default function CheckpointPage() {
                 </div>
               </div>
             )}
+            {uploading && uploadProgress && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-info/10 border border-info/20 rounded-lg mb-3">
+                <Loader2 className="w-4 h-4 text-info animate-spin shrink-0" />
+                <span className="text-sm text-info">{uploadProgress}</span>
+              </div>
+            )}
             <div className="flex justify-end">
               <button
-                disabled={!canProceed}
+                disabled={!canProceed || uploading}
                 onClick={handleNext}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {showSkipWarning && answeredCount === 0 ? "답변 없이 문서 생성" : "문서 생성"}
-                <ChevronRight className="w-4 h-4" />
+                {uploading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중...</>
+                ) : showSkipWarning && answeredCount === 0 ? "답변 없이 문서 생성" : "문서 생성"}
+                {!uploading && <ChevronRight className="w-4 h-4" />}
               </button>
             </div>
           </div>

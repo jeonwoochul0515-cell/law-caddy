@@ -186,7 +186,8 @@ function formatCheckpointAnswers(
       parts.push(`### 질문 ${a.questionId}: ${q?.question ?? ""}`);
       parts.push(`답변: ${a.text}`);
       if (a.files.length > 0) {
-        parts.push(`첨부 파일: ${a.files.length}건`);
+        const fileNames = a.files.map((f) => f.name).join(", ");
+        parts.push(`첨부 파일 (${a.files.length}건): ${fileNames}`);
       }
       if (a.audioBlob) {
         parts.push(`음성 설명 첨부됨`);
