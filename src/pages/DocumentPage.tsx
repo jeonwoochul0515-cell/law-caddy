@@ -24,7 +24,8 @@ import { exportToHwpx } from "../services/hwpxExport";
 import AppLayout from "../components/layout/AppLayout";
 import useDocument from "../hooks/useDocument";
 import useDocumentChat, { type DocChatMessage, type Suggestion } from "../hooks/useDocumentChat";
-import { updateDocument, createDocument, addTimelineEvent } from "../services/firebase/firestore";
+import { updateDocument, createDocument, createRecording, addTimelineEvent } from "../services/firebase/firestore";
+import { uploadRecordingFile } from "../services/firebase/storage";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 
@@ -225,6 +226,26 @@ export default function DocumentPage() {
     const filesToSend = chatFiles.length > 0 ? [...chatFiles] : undefined;
     setChatInput("");
     setChatFiles([]);
+
+    // Firebase Storage에 파일 업로드 (백그라운드)
+    if (filesToSend && state?.caseId && state?.ownerId) {
+      for (const file of filesToSend) {
+        uploadRecordingFile(file, state.ownerId, state.caseId)
+          .then((fileUrl) =>
+            createRecording({
+              caseId: state.caseId!,
+              ownerId: state.ownerId,
+              fileName: file.name,
+              fileUrl,
+              fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+              durationSeconds: 0,
+              sttStatus: file.type?.startsWith("audio/") ? "pending" : "completed",
+            }),
+          )
+          .catch((err) => console.error("채팅 파일 업로드 실패:", err));
+      }
+    }
+
     await sendMessage(text || "첨부된 파일을 분석하여 문서에 반영할 내용을 제안해 주세요.", filesToSend);
   };
 
