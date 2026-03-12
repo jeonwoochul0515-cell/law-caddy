@@ -9,7 +9,7 @@ import {
   X,
   FileText,
   ImageIcon,
-  File,
+  File as LucideFile,
   Lightbulb,
   CheckCircle2,
   ChevronDown,
@@ -45,7 +45,7 @@ function FileIcon({ name }: { name: string }) {
   if (["pdf", "doc", "docx", "hwp", "txt", "rtf"].includes(ext)) {
     return <FileText className="w-3.5 h-3.5 text-gold" />;
   }
-  return <File className="w-3.5 h-3.5 text-text-dim" />;
+  return <LucideFile className="w-3.5 h-3.5 text-text-dim" />;
 }
 
 /** 녹음 시간 포맷팅 */
@@ -345,11 +345,7 @@ export default function CheckpointPage() {
       for (const a of audioAnswers) {
         if (!a.audioBlob) continue;
         try {
-          const audioFile = new File(
-            [a.audioBlob],
-            `checkpoint_q${a.questionId}_${Date.now()}.webm`,
-            { type: "audio/webm" },
-          );
+          const audioFile = new File([a.audioBlob], `checkpoint_q${a.questionId}_${Date.now()}.webm`, { type: "audio/webm" });
           const fileUrl = await uploadRecordingFile(audioFile, state.ownerId, caseId);
           await createRecording({
             caseId,
