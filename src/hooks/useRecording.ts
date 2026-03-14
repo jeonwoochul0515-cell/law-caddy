@@ -1,7 +1,7 @@
 // 녹음 + 파일 업로드 훅
 // MediaRecorder API로 브라우저 녹음, Firebase Storage에 업로드
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
 
@@ -72,6 +72,23 @@ export default function useRecording(): UseRecordingReturn {
     }
   }, []);
 
+  // 언마운트 시 타이머 + 마이크 스트림 정리
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
   /** 녹음 시작 */
   const startRecording = useCallback(async () => {
     try {
@@ -79,9 +96,12 @@ export default function useRecording(): UseRecordingReturn {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // MediaRecorder 초기화
+      // MediaRecorder 초기화 (Safari 호환: WebM 미지원 시 브라우저 기본 코덱 사용)
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : undefined;
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
+        ...(mimeType ? { mimeType } : {}),
       });
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -142,10 +162,13 @@ export default function useRecording(): UseRecordingReturn {
       setUploading(true);
 
       try {
+        if (!storage) {
+          throw new Error("Firebase Storage가 초기화되지 않았습니다.");
+        }
         const timestamp = Date.now();
         const fileName = `recording_${timestamp}.webm`;
         const storagePath = `recordings/${ownerId}/${caseId}/${fileName}`;
-        const storageRef = ref(storage!, storagePath);
+        const storageRef = ref(storage, storagePath);
 
         await uploadBytes(storageRef, file, {
           contentType: "audio/webm",

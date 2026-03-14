@@ -5,7 +5,10 @@ export type CaseType = "민사" | "형사" | "가사" | "행정" | "노동" | "�
 /** 결제 수단 */
 export type PaymentMethod = "카드" | "현금" | "계좌이체";
 
-/** 계약/수임료 상태 */
+/**
+ * 계약/수임료 상태 (간이 버전 — Case 문서 내 임베딩용)
+ * 상세 수임료 관리는 fees 컬렉션 참조 → src/types/accounting.ts
+ */
 export interface ContractPayment {
   contractSigned: boolean;          // 계약 체결 유무
   retainerPaid: boolean;            // 착수금 입금 유무
@@ -19,7 +22,10 @@ export interface ContractPayment {
   successFeeAmount?: number;        // 성공보수 금액 (원, 정액일 때)
 }
 
-/** 부가비용 항목 */
+/**
+ * 부가비용 항목 (간이 버전 — Case 문서 내 임베딩용)
+ * 상세 사건비용 관리는 case_expenses 컬렉션 참조 → src/types/accounting.ts
+ */
 export interface CostItem {
   id: string;
   description: string;           // 송달료, 인지대 등

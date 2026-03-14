@@ -79,6 +79,12 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
     setLocalError("");
     setVerifyStatus("uploading");
 
+    // 이전 프리뷰 URL 해제 (메모리 누수 방지)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
     if (file.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
@@ -95,12 +101,12 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
   };
 
   /** 드래그앤드롭 */
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) await processFile(file);
-  }, []);
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -189,6 +195,9 @@ export default function RegisterForm({ onSubmit, error }: RegisterFormProps) {
 
   /** 재업로드 */
   const handleRetry = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setBusinessFile(null);
     setPreviewUrl(null);
     setOcrResult(null);

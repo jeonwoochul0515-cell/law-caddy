@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
@@ -8,8 +8,32 @@ import CaseHeader from "../components/cases/CaseHeader";
 import OverviewTab from "../components/cases/OverviewTab";
 import UnifiedTimelineTab from "../components/cases/UnifiedTimelineTab";
 import ClientCareTab from "../components/cases/ClientCareTab";
+import FeeManagementTab from "../components/accounting/FeeManagementTab";
+import CaseExpenseTab from "../components/accounting/CaseExpenseTab";
+import DepositManagementTab from "../components/accounting/DepositManagementTab";
+import type { Fee, Installment, CaseExpense, Deposit } from "../types/accounting";
+import {
+  getFeesByCase,
+  createFee,
+  updateFee,
+  getInstallments,
+  createInstallment,
+  updateInstallment,
+  deleteInstallment,
+  getCaseExpenses,
+  createCaseExpense,
+  updateCaseExpense,
+  deleteCaseExpense,
+  getDepositsByCase,
+  createDeposit,
+  updateDeposit,
+  deleteDeposit,
+  recalculateFeeTotals,
+} from "../services/firebase/accounting";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../config/firebase";
 
-type TabKey = "overview" | "timeline" | "clientcare";
+type TabKey = "overview" | "timeline" | "clientcare" | "finance";
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +58,193 @@ export default function CaseDetailPage() {
     updateCostItem,
     removeCostItem,
   } = useCaseDetail(id ?? "");
+
+  // ── 재무 데이터 상태 ──
+  const [fee, setFee] = useState<Fee | null>(null);
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [caseExpenses, setCaseExpenses] = useState<CaseExpense[]>([]);
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
+
+  const uid = user?.uid ?? "";
+
+  // 재무 데이터 로딩
+  useEffect(() => {
+    if (!id || !uid) return;
+    const loadFinance = async () => {
+      try {
+        const [fees, exps, deps] = await Promise.all([
+          getFeesByCase(id, uid),
+          getCaseExpenses(id, uid),
+          getDepositsByCase(id, uid),
+        ]);
+        const primaryFee = fees[0] ?? null;
+        setFee(primaryFee);
+        if (primaryFee) {
+          const insts = await getInstallments(primaryFee.id);
+          setInstallments(insts);
+        }
+        setCaseExpenses(exps);
+        setDeposits(deps);
+      } catch (err) {
+        console.error("재무 데이터 로딩 실패:", err);
+      }
+    };
+    loadFinance();
+  }, [id, uid]);
+
+  // 재무 핸들러
+  const handleCreateFee = async (data: Omit<Fee, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      const feeId = await createFee(data);
+      const fees = await getFeesByCase(id!, uid);
+      setFee(fees.find((f) => f.id === feeId) ?? null);
+    } catch (err) {
+      console.error("수임료 생성 실패:", err);
+    }
+  };
+
+  /**
+   * 수임료 집계(totalAgreedAmount, totalPaidAmount, totalOutstanding, status)를
+   * 현재 Fee + Installments 기반으로 재계산하여 Firestore에 저장합니다.
+   */
+  const syncFeeTotals = async (currentFee: Fee, currentInstallments: Installment[]) => {
+    const totals = recalculateFeeTotals(currentFee, currentInstallments);
+    await updateFee(currentFee.id, totals);
+    // 로컬 상태 갱신
+    const fees = await getFeesByCase(id!, uid);
+    setFee(fees.find((f) => f.id === currentFee.id) ?? fees[0] ?? null);
+  };
+
+  const handleUpdateFee = async (data: Partial<Fee>) => {
+    if (!fee) return;
+    try {
+      await updateFee(fee.id, data);
+      // 변경 후 최신 fee를 가져와서 집계 재계산
+      const fees = await getFeesByCase(id!, uid);
+      const updatedFee = fees.find((f) => f.id === fee.id) ?? fees[0] ?? null;
+      if (updatedFee) {
+        setFee(updatedFee);
+        await syncFeeTotals(updatedFee, installments);
+      } else {
+        setFee(null);
+      }
+    } catch (err) {
+      console.error("수임료 수정 실패:", err);
+    }
+  };
+
+  const handleCreateInstallment = async (data: Omit<Installment, "id">) => {
+    if (!fee) return;
+    try {
+      await createInstallment(fee.id, data);
+      const insts = await getInstallments(fee.id);
+      setInstallments(insts);
+      // 분할납부 변경 시 집계 재계산
+      const fees = await getFeesByCase(id!, uid);
+      const currentFee = fees.find((f) => f.id === fee.id) ?? fee;
+      await syncFeeTotals(currentFee, insts);
+    } catch (err) {
+      console.error("분할납부 생성 실패:", err);
+    }
+  };
+
+  const handleUpdateInstallment = async (instId: string, data: Partial<Installment>) => {
+    if (!fee) return;
+    try {
+      await updateInstallment(fee.id, instId, data);
+      const insts = await getInstallments(fee.id);
+      setInstallments(insts);
+      // 분할납부 변경 시 집계 재계산
+      const fees = await getFeesByCase(id!, uid);
+      const currentFee = fees.find((f) => f.id === fee.id) ?? fee;
+      await syncFeeTotals(currentFee, insts);
+    } catch (err) {
+      console.error("분할납부 수정 실패:", err);
+    }
+  };
+
+  const handleDeleteInstallment = async (instId: string) => {
+    if (!fee) return;
+    try {
+      await deleteInstallment(fee.id, instId);
+      const insts = await getInstallments(fee.id);
+      setInstallments(insts);
+      // 분할납부 삭제 시 집계 재계산
+      const fees = await getFeesByCase(id!, uid);
+      const currentFee = fees.find((f) => f.id === fee.id) ?? fee;
+      await syncFeeTotals(currentFee, insts);
+    } catch (err) {
+      console.error("분할납부 삭제 실패:", err);
+    }
+  };
+
+  const handleAddExpense = async (data: Omit<CaseExpense, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      await createCaseExpense(data);
+      setCaseExpenses(await getCaseExpenses(id!, uid));
+    } catch (err) {
+      console.error("사건비용 추가 실패:", err);
+    }
+  };
+
+  const handleUpdateExpense = async (expId: string, data: Partial<CaseExpense>) => {
+    try {
+      await updateCaseExpense(expId, data);
+      setCaseExpenses(await getCaseExpenses(id!, uid));
+    } catch (err) {
+      console.error("사건비용 수정 실패:", err);
+    }
+  };
+
+  const handleDeleteExpense = async (expId: string) => {
+    try {
+      await deleteCaseExpense(expId);
+      setCaseExpenses(await getCaseExpenses(id!, uid));
+    } catch (err) {
+      console.error("사건비용 삭제 실패:", err);
+    }
+  };
+
+  const handleUploadReceipt = async (file: File): Promise<string> => {
+    if (!storage) {
+      throw new Error("Firebase Storage가 초기화되지 않았습니다. (데모 모드에서는 파일 업로드가 불가합니다)");
+    }
+    // 파일명에서 경로 구분자 및 특수문자 제거 (경로 순회 방지)
+    const sanitizedName = file.name.replace(/[/\\:*?"<>|]/g, "_");
+    // 고유 ID + 타임스탬프로 예측 불가능한 경로 생성
+    const uniqueId = crypto.randomUUID();
+    const path = `receipts/${uid}/${uniqueId}_${Date.now()}_${sanitizedName}`;
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+  };
+
+  const handleAddDeposit = async (data: Omit<Deposit, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      await createDeposit(data);
+      setDeposits(await getDepositsByCase(id!, uid));
+    } catch (err) {
+      console.error("예수금 추가 실패:", err);
+    }
+  };
+
+  const handleUpdateDeposit = async (depId: string, data: Partial<Deposit>) => {
+    try {
+      await updateDeposit(depId, data);
+      setDeposits(await getDepositsByCase(id!, uid));
+    } catch (err) {
+      console.error("예수금 수정 실패:", err);
+    }
+  };
+
+  const handleDeleteDeposit = async (depId: string) => {
+    try {
+      await deleteDeposit(depId);
+      setDeposits(await getDepositsByCase(id!, uid));
+    } catch (err) {
+      console.error("예수금 삭제 실패:", err);
+    }
+  };
 
   const handleNavigateToRecord = () => {
     if (!caseData) return;
@@ -85,6 +296,7 @@ export default function CaseDetailPage() {
 
   const tabs: { key: TabKey; label: string; count?: number; icon: React.ElementType }[] = [
     { key: "overview", label: "개요", icon: LayoutGrid },
+    { key: "finance", label: "재무", icon: Calculator },
     { key: "timeline", label: "활동 기록", count: totalCount, icon: Clock },
     { key: "clientcare", label: "의뢰인 케어", icon: Heart },
   ];
@@ -166,6 +378,41 @@ export default function CaseDetailPage() {
           onUploadOpponentDoc={uploadOpponentDoc}
           onRemoveOpponentDoc={removeOpponentDoc}
         />
+      )}
+
+      {tab === "finance" && caseData && (
+        <div className="space-y-8">
+          <FeeManagementTab
+            fee={fee}
+            installments={installments}
+            onCreateFee={handleCreateFee}
+            onUpdateFee={handleUpdateFee}
+            onCreateInstallment={handleCreateInstallment}
+            onUpdateInstallment={handleUpdateInstallment}
+            onDeleteInstallment={handleDeleteInstallment}
+            caseId={caseData.id}
+            ownerId={uid}
+            clientName={caseData.clientName}
+          />
+          <CaseExpenseTab
+            expenses={caseExpenses}
+            onAdd={handleAddExpense}
+            onUpdate={handleUpdateExpense}
+            onDelete={handleDeleteExpense}
+            onUploadReceipt={handleUploadReceipt}
+            caseId={caseData.id}
+            ownerId={uid}
+            clientName={caseData.clientName}
+          />
+          <DepositManagementTab
+            deposits={deposits}
+            onAdd={handleAddDeposit}
+            onUpdate={handleUpdateDeposit}
+            onDelete={handleDeleteDeposit}
+            caseId={caseData.id}
+            ownerId={uid}
+          />
+        </div>
       )}
 
       {tab === "clientcare" && (

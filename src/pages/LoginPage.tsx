@@ -12,12 +12,12 @@ export default function LoginPage() {
     setError("");
     try {
       const user = await login(email, password);
-      if (user.status === "pending") {
-        navigate("/pending");
-      } else if (user.status === "approved") {
+      if (user.status === "approved") {
         navigate("/dashboard");
-      } else {
+      } else if (user.status === "pending") {
         navigate("/pending");
+      } else if (user.status === "rejected") {
+        setError("가입이 거부되었습니다. 관리자에게 문의하세요.");
       }
     } catch (err) {
       if (err instanceof Error) {

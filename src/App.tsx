@@ -18,6 +18,7 @@ const CasesPage = lazy(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazy(() => import("./pages/CaseDetailPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const FinancePage = lazy(() => import("./pages/FinancePage"));
 
 function LazyFallback() {
   return (
@@ -49,6 +50,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.status === "rejected") return <Navigate to="/login" replace />;
+  if (user.status === "pending") return <Navigate to="/pending" replace />;
 
   return <>{children}</>;
 }
@@ -56,9 +58,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 // 관리자 전용 라우트 가드
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const user = useAuth((s) => s.user);
+  const loading = useAuth((s) => s.loading);
   const initialized = useAuth((s) => s.initialized);
 
-  if (!initialized) {
+  if (!initialized || loading) {
     return (
       <div className="min-h-screen bg-navy flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
@@ -67,7 +70,28 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  if (user.status !== "approved") return <Navigate to="/login" replace />;
   if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
+
+  return <>{children}</>;
+}
+
+// 승인 대기 사용자 전용 라우트 가드
+function RequirePending({ children }: { children: React.ReactNode }) {
+  const user = useAuth((s) => s.user);
+  const initialized = useAuth((s) => s.initialized);
+  const loading = useAuth((s) => s.loading);
+
+  if (!initialized || loading) {
+    return (
+      <div className="min-h-screen bg-navy flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.status === "approved") return <Navigate to="/dashboard" replace />;
 
   return <>{children}</>;
 }
@@ -94,7 +118,8 @@ export default function App() {
   const initialize = useAuth((s) => s.initialize);
 
   useEffect(() => {
-    initialize();
+    const unsubscribe = initialize();
+    return () => unsubscribe();
   }, [initialize]);
 
   return (
@@ -105,7 +130,7 @@ export default function App() {
           {/* 공개 라우트 */}
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
-          <Route path="/pending" element={<PendingPage />} />
+          <Route path="/pending" element={<RequirePending><PendingPage /></RequirePending>} />
 
           {/* 인증 필요 라우트 */}
           <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
@@ -115,6 +140,7 @@ export default function App() {
           <Route path="/record/document" element={<RequireAuth><DocumentPage /></RequireAuth>} />
           <Route path="/cases" element={<RequireAuth><CasesPage /></RequireAuth>} />
           <Route path="/cases/:id" element={<RequireAuth><CaseDetailPage /></RequireAuth>} />
+          <Route path="/finance" element={<RequireAuth><FinancePage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
 

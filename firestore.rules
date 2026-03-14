@@ -32,10 +32,16 @@ service cloud.firestore {
       // 본인 문서 읽기
       allow read: if isAuthenticated() && request.auth.uid == uid;
 
-      // 본인 문서 쓰기 (역할/상태 값 검증 포함)
-      allow write: if isAuthenticated() && request.auth.uid == uid
-        && request.resource.data.role in ["lawyer", "admin"]
-        && request.resource.data.status in ["pending", "approved", "rejected"];
+      // 본인 문서 생성 (가입 시: role은 lawyer 고정, status는 pending/approved만)
+      allow create: if isAuthenticated() && request.auth.uid == uid
+        && request.resource.data.role == "lawyer"
+        && request.resource.data.status in ["pending", "approved"];
+
+      // 본인 문서 수정 (role, status, verified 변경 금지)
+      allow update: if isAuthenticated() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status
+        && (!("verified" in request.resource.data) || request.resource.data.verified == resource.data.verified);
 
       // 관리자: 모든 사용자 문서 읽기/쓰기 (역할/상태 값 검증 포함)
       allow read: if isAdmin();

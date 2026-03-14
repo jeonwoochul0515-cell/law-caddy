@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Save, Loader2, FolderOpen } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Save, Loader2, FolderOpen, AlertCircle } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -57,6 +57,8 @@ export default function RecordPage() {
   const [uploading, setUploading] = useState(false);
   const [savingOnly, setSavingOnly] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const recordingInProgress = useRef(false);
 
   // 드래그 앤 드롭
   const { isDragging, dropZoneProps } = useDropZone(
@@ -108,6 +110,8 @@ export default function RecordPage() {
   const [recordError, setRecordError] = useState<string | null>(null);
 
   const handleRecord = useCallback(async () => {
+    if (recordingInProgress.current) return;
+    recordingInProgress.current = true;
     setRecordError(null);
     try {
       if (isRecording) {
@@ -122,6 +126,8 @@ export default function RecordPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "녹음을 시작할 수 없습니다.";
       setRecordError(msg);
+    } finally {
+      recordingInProgress.current = false;
     }
   }, [isRecording, startRecording, stopRecording]);
 
@@ -191,6 +197,7 @@ export default function RecordPage() {
     if (files.length === 0 && !typedNotes.trim()) return;
 
     setSavingOnly(true);
+    setSaveError(null);
     const caseId = prefilled.caseId;
 
     try {
@@ -280,7 +287,7 @@ export default function RecordPage() {
       navigate(`/cases/${caseId}`);
     } catch (err) {
       console.error("저장 실패:", err);
-      setSaveProgress("저장 중 오류가 발생했습니다.");
+      setSaveError("저장 중 오류가 발생했습니다.");
     } finally {
       setSavingOnly(false);
     }
@@ -567,6 +574,12 @@ export default function RecordPage() {
               <div className="flex items-center gap-2 px-4 py-3 bg-info/10 border border-info/20 rounded-lg">
                 <Loader2 className="w-4 h-4 text-info animate-spin shrink-0" />
                 <span className="text-sm text-info">{saveProgress}</span>
+              </div>
+            )}
+            {saveError && !savingOnly && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-error/10 border border-error/20 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-error shrink-0" />
+                <span className="text-sm text-error">{saveError}</span>
               </div>
             )}
             <div className="flex gap-3">

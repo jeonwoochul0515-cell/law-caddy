@@ -230,6 +230,7 @@ export default function useDocumentChat(
 
         // 적용 후 자동 재검토
         if (editApplied) {
+          // editApplied인 경우 isLoading은 setTimeout 내부에서 관리
           setTimeout(async () => {
             const reviewMsg: DocChatMessage = {
               id: `msg-${++messageCounter}`,
@@ -258,6 +259,10 @@ export default function useDocumentChat(
               setIsLoading(false);
             }
           }, 800);
+          // setTimeout이 isLoading을 관리하므로 여기서 해제
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
         }
       } catch {
         const errorMsg: DocChatMessage = {

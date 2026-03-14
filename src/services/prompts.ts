@@ -1001,8 +1001,8 @@ export function buildPrompt(agentId: PromptAgentId, context: AgentContext): stri
       return buildReviewPrompt(context);
     case "client_message":
       return buildClientMessagePrompt({
-        firmName: "",
-        lawyerName: "",
+        firmName: context.firmName ?? "",
+        lawyerName: context.lawyerName ?? "",
         docType: context.docType ?? "상담 요약 리포트",
         caseDesc: context.caseDesc,
       });

@@ -6,6 +6,7 @@ import useAuth from "../hooks/useAuth";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db, isDemoMode } from "../config/firebase";
 import type { Case } from "../types/case";
+import FinanceSummaryWidget from "../components/accounting/FinanceSummaryWidget";
 
 interface Stats {
   totalCases: number;
@@ -20,6 +21,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
   const [recentCases, setRecentCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [financeStats, setFinanceStats] = useState({ revenue: 0, outstanding: 0, expenses: 0, deposits: 0 });
+  const [financeLoading, setFinanceLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -29,6 +32,7 @@ export default function DashboardPage() {
       setStats({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
       setRecentCases([]);
       setLoading(false);
+      setFinanceLoading(false);
       return;
     }
 
@@ -74,6 +78,71 @@ export default function DashboardPage() {
       }
     };
     fetchData();
+
+    // 재무 데이터 로딩
+    const fetchFinance = async () => {
+      try {
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+        const [feesSnap, txSnap, officeSnap, depositsSnap] = await Promise.all([
+          getDocs(query(collection(db!, "fees"), where("ownerId", "==", user.uid))),
+          getDocs(query(collection(db!, "transactions"), where("ownerId", "==", user.uid))),
+          getDocs(query(collection(db!, "office_expenses"), where("ownerId", "==", user.uid))),
+          getDocs(query(collection(db!, "deposits"), where("ownerId", "==", user.uid))),
+        ]);
+
+        // 이번 달 매출: transactions 컬렉션에서 해당 월의 매출 거래만 합산
+        // (FinancePage와 동일한 데이터 소스 사용)
+        let revenue = 0;
+        txSnap.docs.forEach((d) => {
+          const data = d.data();
+          const date = data.date as string;
+          if (date?.startsWith(ym) && data.type === "매출") {
+            const vat = data.vat as { totalAmount?: number } | undefined;
+            revenue += (vat?.totalAmount as number) ?? 0;
+          }
+        });
+
+        // 미수금: 전체 미완납 수임료 합산 (현재 상태 기준, 월 무관)
+        let outstanding = 0;
+        feesSnap.docs.forEach((d) => {
+          const data = d.data();
+          outstanding += (data.totalOutstanding as number) ?? 0;
+        });
+
+        // 이번 달 경비: office_expenses에서 해당 월만 + transactions 매입 거래
+        let expenses = 0;
+        officeSnap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.yearMonth === ym) expenses += (data.amount as number) ?? 0;
+        });
+        txSnap.docs.forEach((d) => {
+          const data = d.data();
+          const date = data.date as string;
+          if (date?.startsWith(ym) && data.type === "매입") {
+            const vat = data.vat as { totalAmount?: number } | undefined;
+            expenses += (vat?.totalAmount as number) ?? 0;
+          }
+        });
+
+        let depositTotal = 0;
+        depositsSnap.docs.forEach((d) => {
+          const data = d.data();
+          const status = data.status as string;
+          if (status === "보관중" || status === "일부사용" || status === "공탁중") {
+            depositTotal += (data.remainingAmount as number) ?? 0;
+          }
+        });
+
+        setFinanceStats({ revenue, outstanding, expenses, deposits: depositTotal });
+      } catch (err) {
+        console.error("재무 데이터 로딩 실패:", err);
+      } finally {
+        setFinanceLoading(false);
+      }
+    };
+    fetchFinance();
   }, [user]);
 
   const statCards = [
@@ -142,6 +211,17 @@ export default function DashboardPage() {
             <p className="text-sm text-text-dim mt-0.5">진행중인 사건 확인 및 관리</p>
           </div>
         </button>
+      </div>
+
+      {/* 재무 요약 */}
+      <div className="mb-8">
+        <FinanceSummaryWidget
+          revenue={financeStats.revenue}
+          outstanding={financeStats.outstanding}
+          expenses={financeStats.expenses}
+          deposits={financeStats.deposits}
+          loading={financeLoading}
+        />
       </div>
 
       {/* 최근 사건 */}

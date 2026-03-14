@@ -77,16 +77,27 @@ async function runSingleAgent(
 
     const POLL_INTERVAL = 3000; // 3초
     const MAX_POLLS = 120; // 최대 6분
+    const MAX_TRANSIENT_ERRORS = 5; // 일시적 오류 허용 횟수
+    let transientErrors = 0;
 
     for (let i = 0; i < MAX_POLLS; i++) {
-      const result = await pollTranscription(context.transcribeId);
+      try {
+        const result = await pollTranscription(context.transcribeId);
+        transientErrors = 0; // 성공 시 카운터 리셋
 
-      if (result.status === "completed" && result.utterances) {
-        return formatTranscript(result.utterances);
-      }
+        if (result.status === "completed" && result.utterances) {
+          return formatTranscript(result.utterances);
+        }
 
-      if (result.status === "failed") {
-        return "음성 변환에 실패했습니다. 녹음 파일을 확인해 주세요.";
+        if (result.status === "failed") {
+          return "음성 변환에 실패했습니다. 녹음 파일을 확인해 주세요.";
+        }
+      } catch (err) {
+        transientErrors++;
+        console.warn(`[STT] 폴링 오류 (${transientErrors}/${MAX_TRANSIENT_ERRORS}):`, err instanceof Error ? err.message : err);
+        if (transientErrors >= MAX_TRANSIENT_ERRORS) {
+          return "음성 변환 중 네트워크 오류가 반복되었습니다. 잠시 후 다시 시도해 주세요.";
+        }
       }
 
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));

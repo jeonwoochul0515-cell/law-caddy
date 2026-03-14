@@ -14,7 +14,8 @@ export type SourceTable =
   | "legal_judgments"
   | "legal_mrc"
   | "legal_terms"
-  | "legal_knowledge";
+  | "legal_knowledge"
+  | "legal_commentary";
 
 /** 하이브리드 검색에서 반환된 개별 결과 */
 export interface SearchResult {

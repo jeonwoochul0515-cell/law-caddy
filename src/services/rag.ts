@@ -139,6 +139,21 @@ export interface LegalKnowledgeResult {
   combined_score: number;
 }
 
+/** 법학 해설 자료 검색 결과 (하이브리드) — 연구보고서, 판례해설, 입법취지 등 */
+export interface LegalCommentaryResult {
+  id: number;
+  source: string;
+  category: string;
+  title: string;
+  content: string;
+  summary: string;
+  author: string;
+  doc_type: string;
+  semantic_score: number;
+  keyword_score: number;
+  combined_score: number;
+}
+
 /** 통합 RAG 검색 결과 */
 export interface RAGContext {
   legalForms: LegalFormResult[];
@@ -149,6 +164,7 @@ export interface RAGContext {
   legalMRC: LegalMRCResult[];
   legalTerms: LegalTermResult[];
   legalKnowledge: LegalKnowledgeResult[];
+  legalCommentary: LegalCommentaryResult[];
 }
 
 /** 검색 대상 테이블 타입 */
@@ -193,27 +209,27 @@ export const AGENT_SEARCH_CONFIG: Record<
   // 판례 검색: legal_judgments(핵심!) + aihub_legal_qa + statutes
   // 실제 사건번호가 있는 판결문 검색 가능 = 할루시네이션 해결
   precedent: {
-    tables: ["legal_judgments", "aihub_legal_qa", "statutes"],
+    tables: ["legal_judgments", "aihub_legal_qa", "statutes", "legal_commentary"],
     limit: 5,
   },
-  // 적법성 검증: statutes + easy_law + legal_knowledge
+  // 적법성 검증: statutes + easy_law + legal_knowledge + legal_commentary
   legal: {
-    tables: ["statutes", "easy_law", "legal_knowledge"],
+    tables: ["statutes", "easy_law", "legal_knowledge", "legal_commentary"],
     limit: 5,
   },
-  // 쟁점 분석: legal_judgments + aihub_legal_qa + statutes + legal_mrc
+  // 쟁점 분석: legal_judgments + aihub_legal_qa + statutes + legal_mrc + legal_commentary
   analysis: {
-    tables: ["legal_judgments", "aihub_legal_qa", "statutes", "legal_mrc"],
+    tables: ["legal_judgments", "aihub_legal_qa", "statutes", "legal_mrc", "legal_commentary"],
     limit: 5,
   },
-  // 문서 작성: legal_forms + statutes + legal_judgments + legal_terms
+  // 문서 작성: legal_forms + statutes + legal_judgments + legal_terms + legal_commentary
   docgen: {
-    tables: ["legal_forms", "statutes", "legal_judgments", "legal_terms"],
+    tables: ["legal_forms", "statutes", "legal_judgments", "legal_terms", "legal_commentary"],
     limit: 5,
   },
-  // 검토: statutes + aihub_legal_qa + legal_judgments
+  // 검토: statutes + aihub_legal_qa + legal_judgments + legal_commentary
   review: {
-    tables: ["statutes", "aihub_legal_qa", "legal_judgments"],
+    tables: ["statutes", "aihub_legal_qa", "legal_judgments", "legal_commentary"],
     limit: 3,
   },
 };
@@ -509,6 +525,32 @@ export async function searchLegalKnowledge(
   }
 }
 
+/**
+ * 법학 해설 자료 테이블에서 하이브리드 검색합니다.
+ * 연구보고서, 판례해설, 입법취지 등 교과서급 법학 자료를 검색합니다.
+ */
+export async function searchLegalCommentary(
+  query: string,
+  limit: number = 5,
+  keywordWeight: number = 0.3,
+  semanticWeight: number = 0.7,
+): Promise<LegalCommentaryResult[]> {
+  try {
+    const embedding = await embedQuery(query);
+    const results = await callSupabaseRpc<LegalCommentaryResult>("hybrid_search_legal_commentary", {
+      query_text: query,
+      query_embedding: embedding,
+      match_count: limit,
+      keyword_weight: keywordWeight,
+      semantic_weight: semanticWeight,
+    });
+    return results;
+  } catch (error: unknown) {
+    console.warn("[RAG] 법학 해설 하이브리드 검색 실패:", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
 // ──────────────────────────────────────────────
 // 통합 검색 함수
 // ──────────────────────────────────────────────
@@ -524,6 +566,7 @@ function emptyRAGContext(): RAGContext {
     legalMRC: [],
     legalTerms: [],
     legalKnowledge: [],
+    legalCommentary: [],
   };
 }
 
@@ -537,6 +580,7 @@ const TABLE_RPC_MAP: Record<SearchTable, string> = {
   legal_mrc: "hybrid_search_legal_mrc",
   legal_terms: "hybrid_search_legal_terms",
   legal_knowledge: "hybrid_search_legal_knowledge",
+  legal_commentary: "hybrid_search_legal_commentary",
 };
 
 /** 테이블 이름과 RAGContext 필드명 매핑 */
@@ -549,6 +593,7 @@ const TABLE_CONTEXT_KEY_MAP: Record<SearchTable, keyof RAGContext> = {
   legal_mrc: "legalMRC",
   legal_terms: "legalTerms",
   legal_knowledge: "legalKnowledge",
+  legal_commentary: "legalCommentary",
 };
 
 /** 테이블별 한국어 로그 라벨 */
@@ -561,6 +606,7 @@ const TABLE_LABEL_MAP: Record<SearchTable, string> = {
   legal_mrc: "기계독해 QA",
   legal_terms: "법령용어",
   legal_knowledge: "법령지식",
+  legal_commentary: "법학 해설",
 };
 
 /**
@@ -744,6 +790,19 @@ export async function searchAllWithRerank(
         related_statutes: r.related_statutes,
       },
     })),
+    ...context.legalCommentary.map((r) => ({
+      id: r.id,
+      content: r.content || r.summary,
+      title: r.title,
+      score: r.combined_score,
+      source: "legal_commentary" as const,
+      metadata: {
+        source: r.source,
+        category: r.category,
+        author: r.author,
+        doc_type: r.doc_type,
+      },
+    })),
   ];
 
   if (!enableRerank) {
@@ -904,6 +963,18 @@ export function formatRAGContext(results: RAGContext): string {
         `   [시맨틱: ${(f.semantic_score * 100).toFixed(1)}% | 키워드: ${(f.keyword_score * 100).toFixed(1)}% | 종합: ${(f.combined_score * 100).toFixed(1)}%]`,
     );
     sections.push(`### 관련 법률 서식\n${formLines.join("\n\n")}`);
+  }
+
+  // 법학 해설 자료 (연구보고서, 판례해설, 입법취지)
+  if (results.legalCommentary.length > 0) {
+    const commentaryLines = results.legalCommentary.map(
+      (c, i) =>
+        `${i + 1}. [${c.category}/${c.doc_type || "-"}] ${c.title}\n` +
+        (c.author ? `   저자: ${c.author}\n` : "") +
+        `   ${c.summary || c.content}\n` +
+        `   [시맨틱: ${(c.semantic_score * 100).toFixed(1)}% | 키워드: ${(c.keyword_score * 100).toFixed(1)}% | 종합: ${(c.combined_score * 100).toFixed(1)}%]`,
+    );
+    sections.push(`### 관련 법학 해설 자료\n${commentaryLines.join("\n\n")}`);
   }
 
   if (sections.length === 0) {

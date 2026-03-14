@@ -113,9 +113,11 @@ async function callClaudeDirect(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json()) as ClaudeApiError;
-    const errorMessage =
-      errorBody?.error?.message ?? `HTTP ${response.status} ${response.statusText}`;
+    let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+    try {
+      const errorBody = (await response.json()) as ClaudeApiError;
+      errorMessage = errorBody?.error?.message ?? errorMessage;
+    } catch { /* non-JSON error body */ }
     throw new Error(`Claude API 호출 실패: ${errorMessage}`);
   }
 
@@ -139,10 +141,12 @@ async function callClaudeProxy(
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json()) as ProxyErrorResponse;
-      throw new Error(
-        `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
-      );
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorBody = (await response.json()) as ProxyErrorResponse;
+        errorMessage = errorBody?.detail ?? errorBody?.error ?? errorMessage;
+      } catch { /* non-JSON error body */ }
+      throw new Error(`Claude API 호출 실패: ${errorMessage}`);
     }
 
     const data = (await response.json()) as ClaudeApiResponse;
@@ -240,9 +244,11 @@ async function callClaudeChatDirect(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json()) as ClaudeApiError;
-    const errorMessage =
-      errorBody?.error?.message ?? `HTTP ${response.status} ${response.statusText}`;
+    let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+    try {
+      const errorBody = (await response.json()) as ClaudeApiError;
+      errorMessage = errorBody?.error?.message ?? errorMessage;
+    } catch { /* non-JSON error body */ }
     throw new Error(`Claude API 호출 실패: ${errorMessage}`);
   }
 
@@ -263,10 +269,12 @@ async function callClaudeChatProxy(
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json()) as ProxyErrorResponse;
-      throw new Error(
-        `Claude API 호출 실패: ${errorBody?.detail ?? errorBody?.error ?? `HTTP ${response.status}`}`,
-      );
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorBody = (await response.json()) as ProxyErrorResponse;
+        errorMessage = errorBody?.detail ?? errorBody?.error ?? errorMessage;
+      } catch { /* non-JSON error body */ }
+      throw new Error(`Claude API 호출 실패: ${errorMessage}`);
     }
 
     const data = (await response.json()) as ClaudeApiResponse;

@@ -200,8 +200,11 @@ export default function CheckpointPage() {
     async (questionId: number) => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : undefined;
         const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: "audio/webm;codecs=opus",
+          ...(mimeType ? { mimeType } : {}),
         });
         const chunks: Blob[] = [];
 
@@ -433,8 +436,16 @@ export default function CheckpointPage() {
             체크포인트 질문을 불러오는 데 실패했습니다.
           </div>
         ) : checkQuestions.length === 0 && state ? (
-          <div className="text-center py-16 text-text-dim">
-            체크포인트 질문이 없습니다. 문서 생성을 진행하세요.
+          <div className="text-center py-16 text-text-dim space-y-4">
+            <p>체크포인트 질문이 없습니다. 바로 문서 생성을 진행할 수 있습니다.</p>
+            <button
+              disabled={uploading}
+              onClick={handleNext}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
+            >
+              문서 생성
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         ) : (
           <div className="space-y-3">

@@ -96,14 +96,21 @@ const useAuth = create<AuthStore>((set) => ({
 
     // 비동기 리스너 설정 시작
     let unsubscribeFn: (() => void) | null = null;
+    let disposed = false;
     setupListener().then((unsub) => {
-      unsubscribeFn = unsub;
+      if (disposed) {
+        // 컴포넌트가 이미 언마운트된 경우 즉시 해제
+        unsub();
+      } else {
+        unsubscribeFn = unsub;
+      }
     }).catch(() => {
       set({ user: null, loading: false, initialized: true });
     });
 
     // 외부에 반환하는 unsubscribe: 비동기 설정 완료 후 해제
     return () => {
+      disposed = true;
       if (unsubscribeFn) {
         unsubscribeFn();
       }

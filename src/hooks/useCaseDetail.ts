@@ -48,7 +48,19 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         setOpponentDocs([]);
       } else {
         const c = await getCase(caseId);
+        // 소유권 검증: 본인 사건만 접근 가능
+        if (c && c.ownerId !== user.uid) {
+          setError("이 사건에 접근할 권한이 없습니다.");
+          setCaseData(null);
+          setLoading(false);
+          return;
+        }
         setCaseData(c);
+
+        if (!c) {
+          setLoading(false);
+          return;
+        }
 
         const [docsResult, recsResult, oppDocsResult] = await Promise.allSettled([
           getDocuments(caseId, user.uid),

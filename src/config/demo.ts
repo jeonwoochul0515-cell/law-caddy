@@ -4,9 +4,11 @@
 import type { User } from "../types/user";
 
 /**
- * 데모 모드 여부 (VITE_FIREBASE_API_KEY가 설정되지 않으면 true)
+ * 데모 모드 여부 (개발 환경에서 VITE_FIREBASE_API_KEY가 없을 때만 true)
+ * production 빌드에서는 Firebase API key가 반드시 필요합니다.
  */
-export const isDemoMode: boolean = !import.meta.env.VITE_FIREBASE_API_KEY;
+export const isDemoMode: boolean =
+  import.meta.env.MODE !== "production" && !import.meta.env.VITE_FIREBASE_API_KEY;
 
 /**
  * Firestore Timestamp과 호환되는 목 타임스탬프를 생성합니다.

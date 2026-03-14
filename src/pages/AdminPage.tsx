@@ -90,11 +90,12 @@ export default function AdminPage() {
     }
   };
 
+  const searchLower = search.toLowerCase();
   const filtered = users.filter((u) =>
-    u.name.includes(search) ||
-    u.firmName.includes(search) ||
-    u.barLicenseNumber.includes(search) ||
-    u.email.includes(search)
+    (u.name ?? "").toLowerCase().includes(searchLower) ||
+    (u.firmName ?? "").toLowerCase().includes(searchLower) ||
+    (u.barLicenseNumber ?? "").includes(search) ||
+    (u.email ?? "").toLowerCase().includes(searchLower)
   );
 
   if (currentUser?.role !== "admin") {

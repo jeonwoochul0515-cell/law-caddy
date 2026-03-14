@@ -89,7 +89,7 @@ export default function CasesPage() {
   const filtered = cases
     .filter((c) => {
       const matchSearch =
-        c.clientName.includes(search) || c.description.includes(search);
+        (c.clientName ?? "").includes(search) || (c.description ?? "").includes(search);
       const matchType = filterType === "전체" || c.caseType === filterType;
       const matchStatus = filterStatus === "전체" || c.status === filterStatus;
       // 날짜 범위 필터

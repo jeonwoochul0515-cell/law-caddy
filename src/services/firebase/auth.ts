@@ -64,7 +64,7 @@ export async function signUp(
     let businessLicenseUrl: string | undefined;
     if (userData.businessLicenseFile && storage) {
       const ext = userData.businessLicenseFile.name.split(".").pop() || "jpg";
-      const storageRef = ref(storage, `business-licenses/${uid}.${ext}`);
+      const storageRef = ref(storage, `business-registrations/${uid}/${uid}.${ext}`);
       await uploadBytes(storageRef, userData.businessLicenseFile);
       businessLicenseUrl = await getDownloadURL(storageRef);
     }
