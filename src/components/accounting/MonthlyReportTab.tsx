@@ -22,13 +22,15 @@ import {
   ChevronDown,
   Briefcase,
 } from "lucide-react";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../config/firebase";
 import {
   generateMonthlySummary,
   getMonthlySummary,
   updateMonthlySummaryStatus,
 } from "../../services/reportGenerator";
 import { exportMonthlySummaryToExcel } from "../../services/excelExport";
-import type { MonthlySummary } from "../../types/accounting";
+import type { MonthlySummary, Transaction } from "../../types/accounting";
 
 interface MonthlyReportTabProps {
   ownerId: string;
@@ -115,11 +117,28 @@ export default function MonthlyReportTab({ ownerId }: MonthlyReportTabProps) {
     }
   };
 
-  // Excel 내보내기
+  // Excel 내보내기 (거래 상세 시트 포함)
   const handleExcelExport = async () => {
     if (!summary) return;
     try {
-      await exportMonthlySummaryToExcel(summary);
+      // 해당 월 거래 내역 조회
+      let monthTransactions: Transaction[] = [];
+      if (db) {
+        const txSnap = await getDocs(
+          query(
+            collection(db, "transactions"),
+            where("ownerId", "==", ownerId)
+          )
+        );
+        const allTx = txSnap.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as Transaction
+        );
+        // 해당 월 필터링
+        monthTransactions = allTx.filter((tx) =>
+          tx.date.startsWith(selectedMonth)
+        );
+      }
+      await exportMonthlySummaryToExcel(summary, monthTransactions);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Excel 내보내기 실패";
       setError(msg);

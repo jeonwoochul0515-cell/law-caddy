@@ -1082,6 +1082,49 @@ ${context.caseDesc || "(정보 없음)"}
 9. ${context.firmName} ${context.lawyerName} 변호사 서명`;
 }
 
+// ──────────────────────────────────────────────
+// 연체 납부 알림 메시지 프롬프트
+// ──────────────────────────────────────────────
+
+/** 연체 알림 메시지 컨텍스트 */
+export interface OverdueReminderContext {
+  clientName: string;
+  overdueAmount: number;
+  dueDate: string;
+  totalRemaining: number;
+  firmName: string;
+  lawyerName: string;
+  installmentSeq: number;
+}
+
+/**
+ * 연체 납부 알림 카카오톡 메시지 프롬프트를 생성합니다.
+ * 정중하고 따뜻한 톤으로 납부를 독려하는 메시지를 작성합니다.
+ */
+export function buildOverdueReminderPrompt(context: OverdueReminderContext): string {
+  const formattedAmount = context.overdueAmount.toLocaleString("ko-KR");
+  const formattedRemaining = context.totalRemaining.toLocaleString("ko-KR");
+
+  return `당신은 친절한 법률사무소 비서입니다. 변호사가 의뢰인에게 보낼 수임료 납부 안내 카카오톡 메시지를 작성하세요.
+
+[상황]
+의뢰인 "${context.clientName}"님의 수임료 분할납부 ${context.installmentSeq}회차가 납부 기한(${context.dueDate})을 초과하였습니다.
+미납 금액: ${formattedAmount}원
+잔여 수임료 총액: ${formattedRemaining}원
+
+[메시지 작성 규칙]
+1. 절대 "연체", "체납", "독촉" 등 부정적 단어를 사용하지 마세요
+2. "납부 안내", "확인 요청" 등 부드러운 표현을 사용하세요
+3. 혹시 입금하셨는데 확인이 안 된 것일 수도 있다는 배려 문구 포함
+4. 납부 금액과 기한을 명확하게 안내
+5. 사정이 있으시면 편하게 말씀해 달라는 문구 포함
+6. 존댓말 + 따뜻하고 정중한 톤
+7. 200~300자 이내
+8. 이모지 1~2개만 (과하지 않게)
+9. "궁금하신 점 있으시면 편하게 연락 주세요 😊" 포함
+10. ${context.firmName} ${context.lawyerName} 변호사 서명`;
+}
+
 /**
  * 사건 유형 자동 분류 프롬프트를 생성합니다.
  */

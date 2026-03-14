@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, orderBy, limit } from "firebase/fire
 import { db, isDemoMode } from "../config/firebase";
 import type { Case } from "../types/case";
 import FinanceSummaryWidget from "../components/accounting/FinanceSummaryWidget";
+import OverdueAlertPanel from "../components/accounting/OverdueAlertPanel";
 
 interface Stats {
   totalCases: number;
@@ -223,6 +224,13 @@ export default function DashboardPage() {
           loading={financeLoading}
         />
       </div>
+
+      {/* 연체 알림 */}
+      {user && !isDemoMode && (
+        <div className="mb-8">
+          <OverdueAlertPanel ownerId={user.uid} />
+        </div>
+      )}
 
       {/* 최근 사건 */}
       <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">

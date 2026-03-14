@@ -15,7 +15,9 @@ import {
   Calendar,
   FileText,
   Image as ImageIcon,
+  Calculator,
 } from "lucide-react";
+import CourtFeeCalculator from "./CourtFeeCalculator";
 import type {
   CaseExpense,
   CaseExpenseCategory,
@@ -23,6 +25,7 @@ import type {
   PaymentMethodType,
   EvidenceType,
   Attachment,
+  Deposit,
 } from "../../types/accounting";
 
 // ─── 상수 ────────────────────────────────────────
@@ -96,6 +99,7 @@ const ACCEPT_TYPES = ".jpg,.jpeg,.png,.pdf";
 
 interface CaseExpenseTabProps {
   expenses: CaseExpense[];
+  deposits?: Deposit[];
   onAdd: (data: Omit<CaseExpense, "id" | "createdAt" | "updatedAt">) => Promise<void>;
   onUpdate: (id: string, data: Partial<CaseExpense>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -137,6 +141,7 @@ function createInitialFormState(): ExpenseFormState {
 
 export default function CaseExpenseTab({
   expenses,
+  deposits,
   onAdd,
   onUpdate,
   onDelete,
@@ -146,6 +151,7 @@ export default function CaseExpenseTab({
   clientName,
 }: CaseExpenseTabProps) {
   const [showForm, setShowForm] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [form, setForm] = useState<ExpenseFormState>(createInitialFormState());
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -189,6 +195,21 @@ export default function CaseExpenseTab({
         return expenses;
     }
   }, [expenses, filter]);
+
+  // ─── 예수금 차감 여부 확인 ────────────────────
+  /** 예수금 사용 내역에서 해당 비용 ID가 참조되었는지 확인 */
+  const deductedExpenseIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!deposits) return ids;
+    for (const deposit of deposits) {
+      for (const usage of deposit.usageHistory) {
+        if (usage.caseExpenseId) {
+          ids.add(usage.caseExpenseId);
+        }
+      }
+    }
+    return ids;
+  }, [deposits]);
 
   // ─── 금액 포맷 ──────────────────────────────
 
@@ -390,6 +411,32 @@ export default function CaseExpenseTab({
           color={summary.unreimbursed > 0 ? "text-error" : "text-success"}
         />
       </div>
+
+      {/* ── 실비 자동 계산기 토글 ── */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowCalculator(!showCalculator)}
+          className={`flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg border transition-colors ${
+            showCalculator
+              ? "border-gold/40 bg-gold-dim text-gold"
+              : "border-border text-text-dim hover:border-gold/30 hover:text-gold"
+          }`}
+        >
+          <Calculator className="w-3.5 h-3.5" />
+          실비 계산기
+        </button>
+      </div>
+
+      {/* ── 실비 자동 계산기 패널 ── */}
+      {showCalculator && (
+        <CourtFeeCalculator
+          onAddExpense={onAdd}
+          caseId={caseId}
+          ownerId={ownerId}
+          clientName={clientName}
+          onClose={() => setShowCalculator(false)}
+        />
+      )}
 
       {/* ── 비용 등록 폼 ── */}
       <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
@@ -726,6 +773,13 @@ export default function CaseExpenseTab({
                     >
                       {expense.category}
                     </span>
+
+                    {/* 예수금 차감 뱃지 */}
+                    {deductedExpenseIds.has(expense.id) && (
+                      <span className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-full border border-info/30 bg-info/10 text-info">
+                        예수금 차감
+                      </span>
+                    )}
 
                     {/* 설명 */}
                     <div className="flex-1 min-w-0">

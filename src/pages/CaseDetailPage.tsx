@@ -30,6 +30,9 @@ import {
   deleteDeposit,
   recalculateFeeTotals,
 } from "../services/firebase/accounting";
+import { autoDeductFromDeposit } from "../services/depositAutoDeduct";
+import { createRevenueFromFeePayment } from "../services/autoRevenue";
+import type { FeePaymentType } from "../services/autoRevenue";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
 
@@ -64,6 +67,7 @@ export default function CaseDetailPage() {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [caseExpenses, setCaseExpenses] = useState<CaseExpense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
 
   const uid = user?.uid ?? "";
 
@@ -115,11 +119,40 @@ export default function CaseDetailPage() {
     setFee(fees.find((f) => f.id === currentFee.id) ?? fees[0] ?? null);
   };
 
+  // 매출 자동 등록 헬퍼
+  const tryAutoRevenue = async (paymentType: FeePaymentType, amount: number, feeId: string) => {
+    if (!caseData || !fee || amount <= 0) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await createRevenueFromFeePayment({
+        ownerId: uid,
+        caseId: id!,
+        feeId,
+        clientName: caseData.clientName,
+        paymentType,
+        amount,
+        date: today,
+        paymentMethod: "계좌이체",
+      });
+      setToast("매출이 자동으로 등록되었습니다");
+      setTimeout(() => setToast(null), 3000);
+    } catch (err) {
+      console.error("매출 자동 등록 실패:", err);
+    }
+  };
+
   const handleUpdateFee = async (data: Partial<Fee>) => {
     if (!fee) return;
     try {
+      // 착수금 납부 감지: paid가 false→true
+      const retainerPaidBefore = fee.retainer?.paid === true;
+      const retainerPaidAfter = data.retainer?.paid === true;
+
+      // 성공보수 입금 감지
+      const successBefore = fee.successFee?.status;
+      const successAfter = data.successFee?.status;
+
       await updateFee(fee.id, data);
-      // 변경 후 최신 fee를 가져와서 집계 재계산
       const fees = await getFeesByCase(id!, uid);
       const updatedFee = fees.find((f) => f.id === fee.id) ?? fees[0] ?? null;
       if (updatedFee) {
@@ -127,6 +160,16 @@ export default function CaseDetailPage() {
         await syncFeeTotals(updatedFee, installments);
       } else {
         setFee(null);
+      }
+
+      // 착수금 납부 완료 시 매출 자동 등록
+      if (!retainerPaidBefore && retainerPaidAfter && data.retainer?.amount) {
+        await tryAutoRevenue("착수금", data.retainer.amount, fee.id);
+      }
+
+      // 성공보수 입금완료 시 매출 자동 등록
+      if (successBefore !== "입금완료" && successAfter === "입금완료" && data.successFee?.agreedAmount) {
+        await tryAutoRevenue("성공보수", data.successFee.agreedAmount, fee.id);
       }
     } catch (err) {
       console.error("수임료 수정 실패:", err);
@@ -151,13 +194,25 @@ export default function CaseDetailPage() {
   const handleUpdateInstallment = async (instId: string, data: Partial<Installment>) => {
     if (!fee) return;
     try {
+      // 분할납부 납부 감지: paid가 false→true
+      const prevInst = installments.find((i) => i.id === instId);
+      const wasPaid = prevInst?.paid === true;
+      const nowPaid = data.paid === true;
+
       await updateInstallment(fee.id, instId, data);
       const insts = await getInstallments(fee.id);
       setInstallments(insts);
-      // 분할납부 변경 시 집계 재계산
       const fees = await getFeesByCase(id!, uid);
       const currentFee = fees.find((f) => f.id === fee.id) ?? fee;
       await syncFeeTotals(currentFee, insts);
+
+      // 분할납부 완료 시 매출 자동 등록
+      if (!wasPaid && nowPaid) {
+        const paidAmount = data.paidAmount ?? data.amount ?? prevInst?.amount ?? 0;
+        if (paidAmount > 0) {
+          await tryAutoRevenue("분할납부", paidAmount, fee.id);
+        }
+      }
     } catch (err) {
       console.error("분할납부 수정 실패:", err);
     }
@@ -180,7 +235,52 @@ export default function CaseDetailPage() {
 
   const handleAddExpense = async (data: Omit<CaseExpense, "id" | "createdAt" | "updatedAt">) => {
     try {
-      await createCaseExpense(data);
+      const expenseId = await createCaseExpense(data);
+
+      // 의뢰인 부담 또는 선납후정산인 경우 예수금 자동 차감 시도
+      if (data.bearer === "의뢰인" || data.bearer === "선납후정산") {
+        try {
+          const result = await autoDeductFromDeposit({
+            caseId: data.caseId,
+            ownerId: data.ownerId,
+            expenseId,
+            amount: data.amount,
+            purpose: data.description,
+            date: data.date,
+          });
+
+          if (result.deducted) {
+            // 예수금 목록 갱신
+            setDeposits(await getDepositsByCase(id!, uid));
+
+            const deducted = result.deductedAmount ?? 0;
+
+            if (result.remainingExpense === 0) {
+              // 전액 충당 → 정산 완료
+              await updateCaseExpense(expenseId, {
+                reimbursed: true,
+                reimbursedDate: data.date,
+                reimbursedAmount: data.amount,
+              });
+            } else if (deducted > 0) {
+              // 부분 충당 → 부분 정산 금액 기록
+              await updateCaseExpense(expenseId, {
+                reimbursedAmount: deducted,
+              });
+            }
+
+            const deductedFormatted = deducted.toLocaleString();
+            const msg = result.remainingExpense === 0
+              ? `예수금에서 ${deductedFormatted}원이 자동 차감되었습니다`
+              : `예수금에서 ${deductedFormatted}원 부분 차감 (미충당 ${(result.remainingExpense ?? 0).toLocaleString()}원)`;
+            setToast(msg);
+            setTimeout(() => setToast(null), 4000);
+          }
+        } catch (deductErr) {
+          console.error("예수금 자동 차감 실패 (비용 등록은 완료):", deductErr);
+        }
+      }
+
       setCaseExpenses(await getCaseExpenses(id!, uid));
     } catch (err) {
       console.error("사건비용 추가 실패:", err);
@@ -396,6 +496,7 @@ export default function CaseDetailPage() {
           />
           <CaseExpenseTab
             expenses={caseExpenses}
+            deposits={deposits}
             onAdd={handleAddExpense}
             onUpdate={handleUpdateExpense}
             onDelete={handleDeleteExpense}
@@ -424,6 +525,12 @@ export default function CaseDetailPage() {
           firmName={user?.firmName ?? ""}
           lawyerName={user?.name ?? ""}
         />
+      )}
+      {/* 토스트 알림 */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-info/90 text-white text-sm font-medium rounded-xl shadow-lg backdrop-blur-sm animate-fade-in">
+          {toast}
+        </div>
       )}
     </AppLayout>
   );

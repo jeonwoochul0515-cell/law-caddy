@@ -9,6 +9,7 @@
 
 // xlsx는 번들 크기가 크므로 (200KB+) 사용 시점에 동적 import
 import type { MonthlySummary, Transaction, Fee } from "../types/accounting";
+import type { VatReport, IncomeTaxPrep } from "./taxCalculator";
 
 /** xlsx 모듈을 동적으로 로드 (코드 스플리팅) */
 async function loadXLSX() {
@@ -43,7 +44,10 @@ function createSheet(
 
 // ── 월별 정산 보고서 Excel ──
 
-export async function exportMonthlySummaryToExcel(summary: MonthlySummary): Promise<void> {
+export async function exportMonthlySummaryToExcel(
+  summary: MonthlySummary,
+  transactions?: Transaction[]
+): Promise<void> {
   const XLSX = await loadXLSX();
   const wb = XLSX.utils.book_new();
   const ym = summary.yearMonth;
@@ -174,6 +178,48 @@ export async function exportMonthlySummaryToExcel(summary: MonthlySummary): Prom
   const depositWs = createSheet(XLSX, depositData, [22, 18]);
   XLSX.utils.book_append_sheet(wb, depositWs, "예수금");
 
+  // Sheet 8: 거래 상세 (transactions가 제공된 경우)
+  if (transactions && transactions.length > 0) {
+    const txHeader = [
+      "날짜",
+      "유형",
+      "세부유형",
+      "적요",
+      "거래처/의뢰인",
+      "공급가액",
+      "부가세",
+      "합계",
+      "결제수단",
+      "증빙유형",
+    ];
+    const txRows: (string | number)[][] = [
+      [`${ym} 거래 상세`],
+      [],
+      txHeader,
+      ...transactions.map((tx) => [
+        tx.date,
+        tx.type,
+        tx.subType,
+        tx.description ?? "",
+        tx.clientName ?? "",
+        won(tx.vat?.supplyAmount),
+        won(tx.vat?.vatAmount),
+        won(tx.vat?.totalAmount),
+        tx.paymentMethod ?? "",
+        tx.evidenceType ?? "",
+      ]),
+    ];
+    // 합계 행
+    const totalSupply = transactions.reduce((s, tx) => s + won(tx.vat?.supplyAmount), 0);
+    const totalVat = transactions.reduce((s, tx) => s + won(tx.vat?.vatAmount), 0);
+    const totalAmount = transactions.reduce((s, tx) => s + won(tx.vat?.totalAmount), 0);
+    txRows.push([]);
+    txRows.push(["", "", "", "합계", "", totalSupply, totalVat, totalAmount, "", ""]);
+
+    const txWs = createSheet(XLSX, txRows, [12, 6, 16, 30, 14, 14, 14, 14, 10, 14]);
+    XLSX.utils.book_append_sheet(wb, txWs, "거래상세");
+  }
+
   XLSX.writeFile(wb, `월별정산_${ym}.xlsx`);
 }
 
@@ -261,4 +307,241 @@ export async function exportFeeStatusToExcel(fees: Fee[]): Promise<void> {
   XLSX.utils.book_append_sheet(wb, ws, "수임료현황");
 
   XLSX.writeFile(wb, "수임료현황.xlsx");
+}
+
+// ── 부가세 신고 기초자료 Excel ──
+
+export async function exportVatReportToExcel(report: VatReport): Promise<void> {
+  const XLSX = await loadXLSX();
+  const wb = XLSX.utils.book_new();
+  const title = `${report.year}년_${report.period}`;
+
+  // Sheet 1: 부가세 요약
+  const summaryData: (string | number)[][] = [
+    [`${title} 부가세 신고 기초자료`],
+    [],
+    ["과세기간", `${report.startMonth} ~ ${report.endMonth}`],
+    ["생성일시", report.generatedAt.slice(0, 10)],
+    [],
+    ["구분", "공급가액", "부가세액", "합계금액", "건수"],
+    [
+      "매출",
+      won(report.totalRevenueSupply),
+      won(report.totalOutputVat),
+      won(report.totalRevenueAmount),
+      report.revenueCount,
+    ],
+    [
+      "매입",
+      won(report.totalExpenseSupply),
+      won(report.totalInputVat),
+      won(report.totalExpenseAmount),
+      report.expenseCount,
+    ],
+    [],
+    [
+      report.isRefund ? "환급 예상세액" : "납부 예상세액",
+      "",
+      won(Math.abs(report.netVat)),
+      "",
+      "",
+    ],
+    [],
+    ["증빙 미비 건수", report.noEvidenceCount, "", "", ""],
+  ];
+  const summaryWs = createSheet(XLSX, summaryData, [20, 16, 16, 16, 10]);
+  XLSX.utils.book_append_sheet(wb, summaryWs, "부가세요약");
+
+  // Sheet 2: 매출 증빙유형별
+  const revEvidenceData: (string | number)[][] = [
+    [`${title} 매출 증빙유형별 내역`],
+    [],
+    ["증빙유형", "건수", "공급가액", "부가세액", "합계금액"],
+    ...report.revenueByEvidence.map((item) => [
+      item.evidenceType,
+      item.count,
+      won(item.supplyAmount),
+      won(item.vatAmount),
+      won(item.totalAmount),
+    ]),
+    [],
+    [
+      "합계",
+      report.revenueCount,
+      won(report.totalRevenueSupply),
+      won(report.totalOutputVat),
+      won(report.totalRevenueAmount),
+    ],
+  ];
+  const revEvidenceWs = createSheet(XLSX, revEvidenceData, [16, 10, 16, 16, 16]);
+  XLSX.utils.book_append_sheet(wb, revEvidenceWs, "매출증빙별");
+
+  // Sheet 3: 매입 증빙유형별
+  const expEvidenceData: (string | number)[][] = [
+    [`${title} 매입 증빙유형별 내역`],
+    [],
+    ["증빙유형", "건수", "공급가액", "부가세액", "합계금액"],
+    ...report.expenseByEvidence.map((item) => [
+      item.evidenceType,
+      item.count,
+      won(item.supplyAmount),
+      won(item.vatAmount),
+      won(item.totalAmount),
+    ]),
+    [],
+    [
+      "합계",
+      report.expenseCount,
+      won(report.totalExpenseSupply),
+      won(report.totalInputVat),
+      won(report.totalExpenseAmount),
+    ],
+  ];
+  const expEvidenceWs = createSheet(XLSX, expEvidenceData, [16, 10, 16, 16, 16]);
+  XLSX.utils.book_append_sheet(wb, expEvidenceWs, "매입증빙별");
+
+  // Sheet 4: 월별 부가세 상세
+  const monthlyData: (string | number)[][] = [
+    [`${title} 월별 부가세 내역`],
+    [],
+    ["월", "매출 공급가액", "매출세액", "매입 공급가액", "매입세액", "납부(환급)"],
+    ...report.monthlyDetails.map((m) => [
+      m.yearMonth,
+      won(m.revenueSupply),
+      won(m.outputVat),
+      won(m.expenseSupply),
+      won(m.inputVat),
+      won(m.netVat),
+    ]),
+    [],
+    [
+      "합계",
+      won(report.totalRevenueSupply),
+      won(report.totalOutputVat),
+      won(report.totalExpenseSupply),
+      won(report.totalInputVat),
+      won(report.netVat),
+    ],
+  ];
+  const monthlyWs = createSheet(XLSX, monthlyData, [12, 16, 16, 16, 16, 16]);
+  XLSX.utils.book_append_sheet(wb, monthlyWs, "월별상세");
+
+  XLSX.writeFile(wb, `부가세_기초자료_${title}.xlsx`);
+}
+
+// ── 종합소득세 기초자료 Excel ──
+
+export async function exportIncomeTaxPrepToExcel(data: IncomeTaxPrep): Promise<void> {
+  const XLSX = await loadXLSX();
+  const wb = XLSX.utils.book_new();
+  const title = `${data.year}년_귀속`;
+
+  // Sheet 1: 소득금액 요약
+  const summaryData: (string | number)[][] = [
+    [`${title} 종합소득세 신고 기초자료`],
+    [],
+    ["귀속연도", `${data.year}년`],
+    ["생성일시", data.generatedAt.slice(0, 10)],
+    ["데이터 존재 월수", `${data.monthsWithData}개월`],
+    [],
+    ["구분", "금액(원)"],
+    ["총수입금액", won(data.totalRevenue)],
+    ["(-) 필요경비", won(data.totalExpenses)],
+    [],
+    ["소득금액", won(data.netIncome)],
+    [],
+    ["※ 본 자료는 회계사무소 제출용 기초자료이며, 실제 세액 계산은 포함되지 않습니다.", ""],
+  ];
+  const summaryWs = createSheet(XLSX, summaryData, [50, 20]);
+  XLSX.utils.book_append_sheet(wb, summaryWs, "소득요약");
+
+  // Sheet 2: 수입 유형별 내역
+  const revenueData: (string | number)[][] = [
+    [`${title} 수입 유형별 내역`],
+    [],
+    ["유형", "건수", "금액(원)", "비중(%)"],
+    ...data.revenueBreakdown.map((item) => [
+      item.subType.replace(/_/g, " "),
+      item.count,
+      won(item.amount),
+      data.totalRevenue > 0
+        ? Number(((item.amount / data.totalRevenue) * 100).toFixed(1))
+        : 0,
+    ]),
+    [],
+    ["합계", data.revenueCount, won(data.totalRevenue), 100],
+  ];
+  const revenueWs = createSheet(XLSX, revenueData, [20, 10, 18, 10]);
+  XLSX.utils.book_append_sheet(wb, revenueWs, "수입내역");
+
+  // Sheet 3: 필요경비 카테고리별 내역
+  const expenseData: (string | number)[][] = [
+    [`${title} 필요경비 카테고리별 내역`],
+    [],
+    ["카테고리", "건수", "금액(원)", "비중(%)"],
+    ...data.expenseBreakdown.map((item) => [
+      item.category,
+      item.count > 0 ? item.count : "-",
+      won(item.amount),
+      data.totalExpenses > 0
+        ? Number(((item.amount / data.totalExpenses) * 100).toFixed(1))
+        : 0,
+    ]),
+    [],
+    ["합계", data.expenseCount, won(data.totalExpenses), 100],
+  ];
+  const expenseWs = createSheet(XLSX, expenseData, [18, 10, 18, 10]);
+  XLSX.utils.book_append_sheet(wb, expenseWs, "경비내역");
+
+  // Sheet 4: 사무소 경비 상세
+  const officeData: (string | number)[][] = [
+    [`${title} 사무소 경비 상세`],
+    [],
+    ["항목", "연간 합계(원)"],
+    ["임대료", won(data.officeExpensesSummary.임대료)],
+    ["공과금", won(data.officeExpensesSummary.공과금)],
+    ["통신비", won(data.officeExpensesSummary.통신비)],
+    ["사무용품", won(data.officeExpensesSummary.사무용품)],
+    ["인건비", won(data.officeExpensesSummary.인건비)],
+    ["보험료", won(data.officeExpensesSummary.보험료)],
+    ["변호사회비", won(data.officeExpensesSummary.변호사회비)],
+    ["광고/마케팅", won(data.officeExpensesSummary.광고마케팅)],
+    ["접대비", won(data.officeExpensesSummary.접대비)],
+    ["교통비", won(data.officeExpensesSummary.교통비)],
+    ["교육/연수비", won(data.officeExpensesSummary.교육연수비)],
+    ["기타 경비", won(data.officeExpensesSummary.기타경비)],
+    [],
+    [
+      "합계",
+      won(
+        Object.values(data.officeExpensesSummary).reduce((s, v) => s + v, 0)
+      ),
+    ],
+  ];
+  const officeWs = createSheet(XLSX, officeData, [18, 18]);
+  XLSX.utils.book_append_sheet(wb, officeWs, "사무소경비");
+
+  // Sheet 5: 월별 수입/경비 추이
+  const monthlyData: (string | number)[][] = [
+    [`${title} 월별 수입/경비 추이`],
+    [],
+    ["월", "수입(원)", "경비(원)", "소득(원)"],
+    ...data.monthlyDetails.map((m) => [
+      m.yearMonth,
+      won(m.revenue),
+      won(m.expenses),
+      won(m.income),
+    ]),
+    [],
+    [
+      "합계",
+      won(data.totalRevenue),
+      won(data.totalExpenses),
+      won(data.netIncome),
+    ],
+  ];
+  const monthlyWs = createSheet(XLSX, monthlyData, [12, 18, 18, 18]);
+  XLSX.utils.book_append_sheet(wb, monthlyWs, "월별추이");
+
+  XLSX.writeFile(wb, `종합소득세_기초자료_${title}.xlsx`);
 }

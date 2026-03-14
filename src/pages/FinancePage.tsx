@@ -10,15 +10,22 @@ import {
   ChevronRight,
   Calendar,
   Receipt,
+  LayoutDashboard,
+  FileSpreadsheet,
+  Calculator,
 } from "lucide-react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import AppLayout from "../components/layout/AppLayout";
+import MonthlyReportTab from "../components/accounting/MonthlyReportTab";
+import TaxReportTab from "../components/accounting/TaxReportTab";
 import useAuth from "../hooks/useAuth";
 import { db, isDemoMode } from "../config/firebase";
 import type { Fee } from "../types/accounting";
 import type { Transaction } from "../types/accounting";
 import type { OfficeExpense } from "../types/accounting";
 import type { Deposit } from "../types/accounting";
+
+type FinanceTab = "dashboard" | "monthly-report" | "tax-report";
 
 // ─────────────────────────────────────────────
 // 유틸리티
@@ -90,6 +97,9 @@ export default function FinancePage() {
   const [officeExpenses, setOfficeExpenses] = useState<OfficeExpense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 탭 상태
+  const [activeTab, setActiveTab] = useState<FinanceTab>("dashboard");
 
   // 섹션 접기/펼치기
   const [expandedRevenue, setExpandedRevenue] = useState(true);
@@ -309,8 +319,51 @@ export default function FinancePage() {
     );
   }
 
+  const TABS: { key: FinanceTab; label: string; icon: typeof LayoutDashboard }[] = [
+    { key: "dashboard", label: "현황 대시보드", icon: LayoutDashboard },
+    { key: "monthly-report", label: "월별 정산", icon: FileSpreadsheet },
+    { key: "tax-report", label: "세무 자료", icon: Calculator },
+  ];
+
   return (
     <AppLayout title="재무 관리" subtitle="매출, 경비, 미수금 현황">
+      {/* ── 탭 네비게이션 ── */}
+      <div className="flex items-center gap-1 mb-6 border-b border-border">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
+                isActive
+                  ? "text-gold"
+                  : "text-text-dim hover:text-text-primary"
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold rounded-full" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── 월별 정산 탭 ── */}
+      {activeTab === "monthly-report" && user && (
+        <MonthlyReportTab ownerId={user.uid} />
+      )}
+
+      {/* ── 세무 자료 탭 ── */}
+      {activeTab === "tax-report" && user && (
+        <TaxReportTab ownerId={user.uid} />
+      )}
+
+      {/* ── 현황 대시보드 탭 ── */}
+      {activeTab === "dashboard" && (
+        <>
       {/* ── 기간 선택 ── */}
       <div className="flex items-center gap-3 mb-6">
         <Calendar className="w-5 h-5 text-text-dim" />
@@ -741,6 +794,8 @@ export default function FinancePage() {
           </div>
         )}
       </section>
+        </>
+      )}
     </AppLayout>
   );
 }
