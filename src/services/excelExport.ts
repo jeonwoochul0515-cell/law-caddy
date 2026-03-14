@@ -24,10 +24,10 @@ function won(amount: number | undefined | null): number {
 
 /** 시트에 열 너비 설정 */
 function setColWidths(
-  ws: { "!cols"?: Array<{ wch: number }> },
+  ws: Record<string, unknown>,
   widths: number[]
 ): void {
-  ws["!cols"] = widths.map((w) => ({ wch: w }));
+  (ws as { "!cols"?: Array<{ wch: number }> })["!cols"] = widths.map((w) => ({ wch: w }));
 }
 
 /** 2차원 배열로 시트 생성 + 열 너비 적용 */
