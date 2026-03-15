@@ -5,7 +5,8 @@ import { useState, useCallback } from "react";
 import { callClaude } from "../services/claude";
 import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
 import { pollTranscription, formatTranscript } from "../services/rtzr";
-import { searchForAgent, formatRAGContext } from "../services/rag";
+import { formatRAGContext } from "../services/rag";
+import { SearchPool } from "../services/search-pool";
 import { searchLatestPrecedents, formatPrecedentsForPrompt } from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
@@ -68,6 +69,7 @@ function createInitialStates(): Record<AgentId, AgentState> {
 async function runSingleAgent(
   agentId: AgentId,
   context: RunAgentsContext,
+  searchPool: SearchPool,
 ): Promise<string> {
   // STT 에이전트: transcribeId가 있으면 RTZR 폴링, 없으면 안내 메시지
   if (agentId === "stt") {
@@ -106,10 +108,10 @@ async function runSingleAgent(
     return "음성 변환 시간이 초과되었습니다. 녹음 파일을 확인해 주세요.";
   }
 
-  // RAG 벡터 검색 결과 가져오기 (실패해도 기존 동작 유지)
+  // RAG 벡터 검색 결과 가져오기 (SearchPool로 중복 제거, 실패해도 기존 동작 유지)
   let ragContext = "";
   try {
-    const ragResults = await searchForAgent(agentId, context.caseDesc, context.caseType);
+    const ragResults = await searchPool.getForAgent(agentId);
     ragContext = formatRAGContext(ragResults);
   } catch (err) {
     console.warn(`[${agentId}] RAG 검색 실패:`, err instanceof Error ? err.message : err);
@@ -201,10 +203,13 @@ export default function useAgents(): UseAgentsReturn {
       }
       setAgents(runningStates);
 
+      // SearchPool 생성: 1회 검색 → 에이전트 간 공유 (쿼리 중복 제거)
+      const searchPool = new SearchPool(context.caseDesc, context.caseType as string | undefined);
+
       // 병렬 실행
       const promises = AGENT_IDS.map(async (agentId) => {
         try {
-          const result = await runSingleAgent(agentId, context);
+          const result = await runSingleAgent(agentId, context, searchPool);
           const successState: AgentState = {
             id: agentId,
             status: "completed",

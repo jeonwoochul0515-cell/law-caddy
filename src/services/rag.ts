@@ -5,6 +5,7 @@ import type { AgentId } from "../types/agent";
 import { rerankWithDiversity } from "./reranker";
 import type { SearchResult, RankedResult, SourceTable } from "./reranker";
 import { authHeaders } from "./api-auth";
+import { preprocessKoreanQuery, preprocessForSemantic } from "./korean-preprocessor";
 
 // ──────────────────────────────────────────────
 // Supabase 접속 정보
@@ -23,9 +24,48 @@ export const isRagAvailable = Boolean(SUPABASE_URL && SUPABASE_KEY);
 // Voyage AI 설정
 // ──────────────────────────────────────────────
 const isDev = import.meta.env.DEV;
-const VOYAGE_MODEL = "voyage-3-lite";
+const VOYAGE_MODEL = "voyage-3";
 const VOYAGE_DIRECT_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_PROXY_URL = "/api/voyage";
+
+// ──────────────────────────────────────────────
+// 캐시 시스템 (세션 레벨)
+// ──────────────────────────────────────────────
+
+/** 임베딩 캐시 — 동일 쿼리의 Voyage API 중복 호출 방지 */
+const embeddingCache = new Map<string, number[]>();
+const EMBEDDING_CACHE_MAX = 100;
+
+/** 검색 결과 캐시 — 동일 쿼리+테이블 조합의 DB 중복 호출 방지 */
+interface SearchCacheEntry {
+  result: RAGContext;
+  timestamp: number;
+}
+const searchCache = new Map<string, SearchCacheEntry>();
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5분
+const SEARCH_CACHE_MAX = 50;
+
+function getSearchCacheKey(query: string, tables: string[]): string {
+  return `${[...tables].sort().join(",")}::${query.trim().toLowerCase()}`;
+}
+
+function getCachedSearch(key: string): RAGContext | null {
+  const entry = searchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > SEARCH_CACHE_TTL_MS) {
+    searchCache.delete(key);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedSearch(key: string, result: RAGContext): void {
+  if (searchCache.size >= SEARCH_CACHE_MAX) {
+    const oldestKey = searchCache.keys().next().value;
+    if (oldestKey !== undefined) searchCache.delete(oldestKey);
+  }
+  searchCache.set(key, { result, timestamp: Date.now() });
+}
 
 // ──────────────────────────────────────────────
 // 결과 타입 정의
@@ -244,6 +284,11 @@ export const AGENT_SEARCH_CONFIG: Record<
  * - 프로덕션: Cloudflare Functions 프록시(/api/voyage) 경유
  */
 export async function embedQuery(text: string): Promise<number[]> {
+  // 캐시 확인
+  const cacheKey = text.trim().toLowerCase();
+  const cached = embeddingCache.get(cacheKey);
+  if (cached) return cached;
+
   const voyageApiKey = import.meta.env.VITE_VOYAGE_API_KEY as string | undefined;
 
   const url = isDev && voyageApiKey ? VOYAGE_DIRECT_URL : VOYAGE_PROXY_URL;
@@ -280,6 +325,13 @@ export async function embedQuery(text: string): Promise<number[]> {
   if (!data.data?.[0]?.embedding) {
     throw new Error("Voyage API 응답에 임베딩 벡터가 포함되지 않았습니다.");
   }
+
+  // 캐시 저장
+  if (embeddingCache.size >= EMBEDDING_CACHE_MAX) {
+    const oldestKey = embeddingCache.keys().next().value;
+    if (oldestKey !== undefined) embeddingCache.delete(oldestKey);
+  }
+  embeddingCache.set(cacheKey, data.data[0].embedding);
 
   return data.data[0].embedding;
 }
@@ -556,7 +608,7 @@ export async function searchLegalCommentary(
 // ──────────────────────────────────────────────
 
 /** 빈 RAGContext를 생성합니다 */
-function emptyRAGContext(): RAGContext {
+export function emptyRAGContext(): RAGContext {
   return {
     legalForms: [],
     easyLaw: [],
@@ -584,7 +636,7 @@ const TABLE_RPC_MAP: Record<SearchTable, string> = {
 };
 
 /** 테이블 이름과 RAGContext 필드명 매핑 */
-const TABLE_CONTEXT_KEY_MAP: Record<SearchTable, keyof RAGContext> = {
+export const TABLE_CONTEXT_KEY_MAP: Record<SearchTable, keyof RAGContext> = {
   legal_forms: "legalForms",
   easy_law: "easyLaw",
   statutes: "statutes",
@@ -627,18 +679,27 @@ export async function searchAll(
   const keywordWeight = options?.keywordWeight ?? 0.3;
   const semanticWeight = options?.semanticWeight ?? 0.7;
 
-  // 임베딩을 한 번만 생성하여 재사용
+  // 캐시 확인
+  const cacheKey = getSearchCacheKey(query, tables);
+  const cachedResult = getCachedSearch(cacheKey);
+  if (cachedResult) return cachedResult;
+
+  // 한국어 쿼리 전처리 (조사 제거, 복합명사 분해, 동의어 확장)
+  const semanticQuery = preprocessForSemantic(query);
+  const ftsQuery = preprocessKoreanQuery(query);
+
+  // 임베딩을 한 번만 생성하여 재사용 (시맨틱용 전처리 쿼리 사용)
   let embedding: number[];
   try {
-    embedding = await embedQuery(query);
+    embedding = await embedQuery(semanticQuery);
   } catch (error: unknown) {
     console.warn("[RAG] 임베딩 생성 실패, 빈 결과 반환:", error instanceof Error ? error.message : error);
     return emptyRAGContext();
   }
 
-  // 하이브리드 검색 공통 파라미터
+  // 하이브리드 검색 공통 파라미터 (FTS에는 전처리된 쿼리 사용)
   const hybridParams = {
-    query_text: query,
+    query_text: ftsQuery,
     query_embedding: embedding,
     match_count: limit,
     keyword_weight: keywordWeight,
@@ -673,14 +734,20 @@ export async function searchAll(
   });
 
   const context = emptyRAGContext();
+  const threshold = options?.threshold ?? 0.15;
+
   for (const table of tables) {
     const contextKey = TABLE_CONTEXT_KEY_MAP[table];
     if (contextKey && resultMap[table]) {
-      // 각 필드에 타입 캐스팅하여 할당
-      (context as unknown as Record<string, unknown>)[contextKey] = resultMap[table];
+      // combined_score 임계값 이하 결과 필터링
+      const filtered = (resultMap[table] as Array<{ combined_score?: number }>)
+        .filter((r) => (r.combined_score ?? 0) >= threshold);
+      (context as unknown as Record<string, unknown>)[contextKey] = filtered;
     }
   }
 
+  // 캐시 저장
+  setCachedSearch(cacheKey, context);
   return context;
 }
 
@@ -852,11 +919,36 @@ export async function searchForAgent(
     return emptyRAGContext();
   }
 
-  return searchAll(query, {
+  // 리랭킹 후 잘라내기 위해 여유분(+3) 검색
+  const context = await searchAll(query, {
     tables: config.tables,
-    limit: config.limit,
+    limit: config.limit + 3,
     caseType,
   });
+
+  // 각 결과 배열을 combined_score 기준 내림차순 정렬 + limit 적용
+  return sortAndLimitContext(context, config.limit);
+}
+
+/** RAGContext 내 각 결과 배열을 점수 기준으로 정렬하고 limit만큼 자릅니다. */
+function sortAndLimitContext(context: RAGContext, limit: number): RAGContext {
+  const sorted = { ...context };
+
+  for (const key of Object.keys(sorted) as Array<keyof RAGContext>) {
+    const arr = sorted[key];
+    if (Array.isArray(arr) && arr.length > 0) {
+      // combined_score 기준 내림차순 정렬
+      const sortedArr = [...arr].sort((a, b) => {
+        const scoreA = (a as { combined_score?: number }).combined_score ?? 0;
+        const scoreB = (b as { combined_score?: number }).combined_score ?? 0;
+        return scoreB - scoreA;
+      });
+      // limit만큼만 유지
+      (sorted as unknown as Record<string, unknown[]>)[key] = sortedArr.slice(0, limit);
+    }
+  }
+
+  return sorted;
 }
 
 // ──────────────────────────────────────────────
