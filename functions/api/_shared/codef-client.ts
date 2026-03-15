@@ -145,7 +145,7 @@ class CodefClient {
         "Content-Type": "application/x-www-form-urlencoded",
         Authorization: `Basic ${credentials}`,
       },
-      body: "grant_type=client_credentials",
+      body: "grant_type=client_credentials&scope=read",
     });
 
     if (!response.ok) {
@@ -171,55 +171,30 @@ class CodefClient {
 
   /**
    * RSA 공개키로 평문을 암호화합니다.
-   * Cloudflare Workers의 Web Crypto API (crypto.subtle)를 사용합니다.
+   * CODEF는 RSA PKCS1 v1.5 패딩을 사용합니다.
+   * node-forge 라이브러리로 구현 (Web Crypto API는 PKCS1 encrypt 미지원).
    *
    * @param plainText - 암호화할 평문
    * @returns Base64 인코딩된 암호문
    */
   async encryptRSA(plainText: string): Promise<string> {
+    const forge = await import("node-forge");
+
     // PEM 형식에서 Base64 키 데이터만 추출
     const pemContents = this.publicKey
       .replace(/-----BEGIN PUBLIC KEY-----/g, "")
       .replace(/-----END PUBLIC KEY-----/g, "")
       .replace(/\s/g, "");
 
-    // Base64 → ArrayBuffer 변환
-    const binaryString = atob(pemContents);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+    // PEM 형식으로 변환하여 forge에 전달
+    const pem = `-----BEGIN PUBLIC KEY-----\n${pemContents}\n-----END PUBLIC KEY-----`;
+    const publicKey = forge.pki.publicKeyFromPem(pem);
 
-    // RSA 공개키 임포트
-    const cryptoKey = await crypto.subtle.importKey(
-      "spki",
-      bytes.buffer,
-      {
-        name: "RSA-OAEP",
-        hash: "SHA-256",
-      },
-      false,
-      ["encrypt"],
-    );
+    // RSA PKCS1 v1.5 암호화 (CODEF 요구사항)
+    const encrypted = publicKey.encrypt(plainText, "RSAES-PKCS1-V1_5");
 
-    // 평문 → ArrayBuffer
-    const encoder = new TextEncoder();
-    const plainBuffer = encoder.encode(plainText);
-
-    // RSA-OAEP 암호화
-    const encryptedBuffer = await crypto.subtle.encrypt(
-      { name: "RSA-OAEP" },
-      cryptoKey,
-      plainBuffer,
-    );
-
-    // ArrayBuffer → Base64
-    const encryptedBytes = new Uint8Array(encryptedBuffer);
-    let binaryStr = "";
-    for (let i = 0; i < encryptedBytes.length; i++) {
-      binaryStr += String.fromCharCode(encryptedBytes[i]);
-    }
-    return btoa(binaryStr);
+    // Binary string → Base64
+    return forge.util.encode64(encrypted);
   }
 
   // ──────────────────────────────────────────────
@@ -381,13 +356,14 @@ class CodefClient {
   ): Promise<unknown> {
     const token = await this.getAccessToken();
 
+    // CODEF는 URL-encoded JSON body를 요구 (SDK 동일 방식)
     const response = await fetch(`${CODEF_BASE_URL}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify(body),
+      body: encodeURIComponent(JSON.stringify(body)),
     });
 
     if (!response.ok) {

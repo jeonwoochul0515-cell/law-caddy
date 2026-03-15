@@ -54,49 +54,24 @@ async function getCodefAccessToken(env: Env): Promise<string> {
 
 /**
  * CODEF RSA 공개키로 비밀번호를 암호화합니다.
- * Cloudflare Workers의 Web Crypto API를 사용합니다.
+ * CODEF는 RSA PKCS1 v1.5 패딩을 요구합니다.
+ * node-forge 라이브러리 사용 (Web Crypto API는 PKCS1 encrypt 미지원).
  */
 async function encryptWithRSA(
   plainText: string,
-  publicKeyPem: string,
+  publicKeyBase64: string,
 ): Promise<string> {
-  // PEM 헤더/푸터 제거 및 base64 디코딩
-  const pemBody = publicKeyPem
+  const forge = await import("node-forge");
+
+  const pemBody = publicKeyBase64
     .replace(/-----BEGIN PUBLIC KEY-----/g, "")
     .replace(/-----END PUBLIC KEY-----/g, "")
     .replace(/\s/g, "");
 
-  const binaryDer = Uint8Array.from(atob(pemBody), (c) =>
-    c.charCodeAt(0),
-  );
-
-  // Web Crypto API로 공개키 임포트
-  const cryptoKey = await crypto.subtle.importKey(
-    "spki",
-    binaryDer.buffer,
-    {
-      name: "RSA-OAEP",
-      hash: "SHA-1",
-    },
-    false,
-    ["encrypt"],
-  );
-
-  // 암호화
-  const encoded = new TextEncoder().encode(plainText);
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    cryptoKey,
-    encoded,
-  );
-
-  // base64 인코딩
-  const encryptedBytes = new Uint8Array(encrypted);
-  let binary = "";
-  for (let i = 0; i < encryptedBytes.length; i++) {
-    binary += String.fromCharCode(encryptedBytes[i]);
-  }
-  return btoa(binary);
+  const pem = `-----BEGIN PUBLIC KEY-----\n${pemBody}\n-----END PUBLIC KEY-----`;
+  const publicKey = forge.pki.publicKeyFromPem(pem);
+  const encrypted = publicKey.encrypt(plainText, "RSAES-PKCS1-V1_5");
+  return forge.util.encode64(encrypted);
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -181,10 +156,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const codefResp = await fetch(`${CODEF_API_URL}${apiPath}`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(requestBody),
+      body: encodeURIComponent(JSON.stringify(requestBody)),
     });
 
     if (!codefResp.ok) {

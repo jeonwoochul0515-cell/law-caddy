@@ -152,10 +152,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const codefResp = await fetch(`${CODEF_API_URL}${endpoint}`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(requestBody),
+      body: encodeURIComponent(JSON.stringify(requestBody)),
     });
 
     if (!codefResp.ok) {
