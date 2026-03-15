@@ -35,17 +35,20 @@ export interface RankedResult extends SearchResult {
   keywordOverlapScore: number;
   lengthScore: number;
   categoryScore: number;
+  temporalScore: number;
   finalScore: number;
 }
 
 /** Re-ranking 가중치 설정 */
 export interface RerankWeights {
-  /** 원본 검색 점수 가중치 (기본 0.6) */
+  /** 원본 검색 점수 가중치 (기본 0.50) */
   original: number;
   /** 키워드 오버랩 가중치 (기본 0.25) */
   keywordOverlap: number;
   /** 카테고리 매칭 가중치 (기본 0.15) */
   category: number;
+  /** 시간적 관련성 가중치 (기본 0.10, 0이면 계산 생략) */
+  temporal?: number;
 }
 
 /** 사건 유형별 관련 키워드 매핑 */
@@ -160,6 +163,46 @@ function computeCategoryScore(
   return Math.min(ratio, 1.0);
 }
 
+/**
+ * 시간적 관련성 점수 계산
+ * - 최신 판례일수록 높은 점수
+ * - 대법원 전원합의체, 헌법재판소 결정은 감쇠 면제
+ * - decay_rate: 0.02 (완만한 감쇠)
+ */
+function computeTemporalScore(metadata?: Record<string, string | null>): number {
+  if (!metadata) return 0.5; // 날짜 없으면 중립
+
+  // 감쇠 면제 대상 확인
+  const court = metadata["court"] || "";
+  const caseName = metadata["case_name"] || "";
+  const docId = metadata["doc_id"] || "";
+
+  // 전원합의체 판결 or 헌법재판소 결정 → 면제
+  if (
+    court.includes("전원합의체") ||
+    caseName.includes("전원합의체") ||
+    docId.includes("전원합의체") ||
+    court.includes("헌법재판소") ||
+    court.includes("헌재")
+  ) {
+    return 1.0; // 감쇠 없음
+  }
+
+  // 날짜 추출
+  const dateStr = metadata["case_date"] || metadata["announce_date"] || "";
+  if (!dateStr) return 0.5;
+
+  const year = parseInt(dateStr.slice(0, 4), 10);
+  if (isNaN(year) || year < 1948) return 0.5;
+
+  const yearsOld = new Date().getFullYear() - year;
+  const decayRate = 0.02; // 완만한 감쇠
+  const recencyFactor = 1.0 / (1.0 + decayRate * yearsOld);
+
+  // 최소값 0.4 (50년 된 판례도 40% 이상 유지)
+  return Math.max(recencyFactor, 0.4);
+}
+
 // ──────────────────────────────────────────────
 // 메인 Re-ranking 함수
 // ──────────────────────────────────────────────
@@ -171,7 +214,8 @@ function computeCategoryScore(
  * 1. 쿼리 키워드 오버랩 점수 (결과에 쿼리 키워드가 몇 개 포함되는지)
  * 2. 텍스트 길이 보너스 (너무 짧은 결과 페널티, 적당한 길이 우선)
  * 3. 카테고리 매칭 보너스 (사건 유형과 관련된 결과 우선)
- * 4. 최종 점수 = original_score * 0.6 + keyword_overlap * 0.25 + category_bonus * 0.15
+ * 4. 시간적 관련성 점수 (최신 판례 우선, 전원합의체·헌법재판소 감쇠 면제)
+ * 5. 최종 점수 = original_score * 0.50 + keyword_overlap * 0.25 + category_bonus * 0.15 + temporal * 0.10
  *
  * @param results - 하이브리드 검색 결과 배열
  * @param query - 원본 검색 쿼리 텍스트
@@ -190,9 +234,10 @@ export function rerank(
   if (results.length === 0) return [];
 
   const w: RerankWeights = {
-    original: weights?.original ?? 0.6,
+    original: weights?.original ?? 0.50,
     keywordOverlap: weights?.keywordOverlap ?? 0.25,
     category: weights?.category ?? 0.15,
+    temporal: weights?.temporal ?? 0.10,
   };
 
   // 쿼리 토큰화
@@ -210,6 +255,7 @@ export function rerank(
     const keywordOverlapScore = computeKeywordOverlap(queryTokens, contentTokens);
     const lengthScore = computeLengthScore(result.content);
     const categoryScore = computeCategoryScore(result, caseType);
+    const temporalScore = w.temporal ? computeTemporalScore(result.metadata) : 0;
 
     // 길이 점수는 키워드 오버랩에 곱하여 반영 (독립 가중치 없음)
     const adjustedKeywordScore = keywordOverlapScore * lengthScore;
@@ -218,7 +264,8 @@ export function rerank(
     const finalScore =
       normalizedOriginal * w.original +
       adjustedKeywordScore * w.keywordOverlap +
-      categoryScore * w.category;
+      categoryScore * w.category +
+      temporalScore * (w.temporal ?? 0);
 
     return {
       ...result,
@@ -226,6 +273,7 @@ export function rerank(
       keywordOverlapScore: adjustedKeywordScore,
       lengthScore,
       categoryScore,
+      temporalScore,
       finalScore,
     };
   });
@@ -389,6 +437,7 @@ export async function voyageRerank(
         keywordOverlapScore: 0,
         lengthScore: 1,
         categoryScore: 0,
+        temporalScore: 0,
         finalScore: item.relevance_score,
       };
     });

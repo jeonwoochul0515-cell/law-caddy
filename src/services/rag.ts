@@ -225,6 +225,8 @@ export interface SearchOptions {
   enableRerank?: boolean;
   /** Voyage Rerank API 사용 여부 (기본 true, 실패 시 커스텀 리랭커 폴백) */
   enableVoyageRerank?: boolean;
+  /** 교차 참조 강화 활성화 여부 (기본 true, 결과 부족 시 판례↔법령 보충 검색) */
+  enableCrossReference?: boolean;
 }
 
 // Re-ranking 타입 re-export
@@ -664,6 +666,79 @@ const TABLE_LABEL_MAP: Record<SearchTable, string> = {
 };
 
 /**
+ * 교차 참조 강화: 검색 결과가 부족할 때 관련 자료를 보충합니다.
+ * - 판례 부족 + 법령 있음 → 해당 법령을 인용한 판례 검색
+ * - 법령 부족 + 판례 있음 → 해당 판례가 인용한 법령 검색
+ *
+ * @param context - 원본 RAG 컨텍스트
+ * @param embedding - 이미 생성된 쿼리 임베딩 (재사용)
+ * @returns 보충된 RAG 컨텍스트
+ */
+async function enrichWithCrossReferences(
+  context: RAGContext,
+  embedding: number[],
+): Promise<RAGContext> {
+  const enriched = { ...context };
+  const MAX_SUPPLEMENT = 2; // 보충 결과 최대 2건
+
+  // Case 1: 판례 < 2건 + 법령 >= 1건 → 법령 키워드로 판례 재검색
+  if (enriched.legalJudgments.length < 2 && enriched.statutes.length >= 1) {
+    const statuteKeywords = enriched.statutes
+      .map(s => `${s.statute_name} ${s.article_number}`)
+      .join(" ");
+
+    try {
+      const supplementJudgments = await callSupabaseRpc<LegalJudgmentResult>(
+        TABLE_RPC_MAP["legal_judgments"],
+        {
+          query_text: statuteKeywords,
+          query_embedding: embedding,
+          match_count: MAX_SUPPLEMENT,
+          keyword_weight: 0.5, // 키워드 가중치 높임 (법조문명 매칭)
+          semantic_weight: 0.5,
+        },
+      );
+
+      // 기존 결과와 중복 제거 후 추가
+      const existingIds = new Set(enriched.legalJudgments.map(j => j.id));
+      const newJudgments = supplementJudgments.filter(j => !existingIds.has(j.id));
+      enriched.legalJudgments = [...enriched.legalJudgments, ...newJudgments].slice(0, 5);
+    } catch {
+      // 교차 참조 실패해도 원본 결과 유지
+    }
+  }
+
+  // Case 2: 법령 < 2건 + 판례 >= 1건 → 판례 키워드로 법령 재검색
+  if (enriched.statutes.length < 2 && enriched.legalJudgments.length >= 1) {
+    const judgmentKeywords = enriched.legalJudgments
+      .map(j => j.case_name || j.doc_id || "")
+      .filter(Boolean)
+      .join(" ");
+
+    try {
+      const supplementStatutes = await callSupabaseRpc<StatuteResult>(
+        TABLE_RPC_MAP["statutes"],
+        {
+          query_text: judgmentKeywords,
+          query_embedding: embedding,
+          match_count: MAX_SUPPLEMENT,
+          keyword_weight: 0.5,
+          semantic_weight: 0.5,
+        },
+      );
+
+      const existingIds = new Set(enriched.statutes.map(s => s.id));
+      const newStatutes = supplementStatutes.filter(s => !existingIds.has(s.id));
+      enriched.statutes = [...enriched.statutes, ...newStatutes].slice(0, 5);
+    } catch {
+      // 교차 참조 실패해도 원본 결과 유지
+    }
+  }
+
+  return enriched;
+}
+
+/**
  * 지정된 테이블들에서 동시에 하이브리드 검색 (시맨틱 + 키워드)을 수행합니다.
  * 검색 실패 시 해당 테이블 결과만 빈 배열로 반환 (graceful degradation).
  */
@@ -686,9 +761,10 @@ export async function searchAll(
   const cachedResult = getCachedSearch(cacheKey);
   if (cachedResult) return cachedResult;
 
-  // 한국어 쿼리 전처리 (조사 제거, 복합명사 분해, 동의어 확장)
-  const semanticQuery = preprocessForSemantic(query);
-  const ftsQuery = preprocessKoreanQuery(query);
+  // 한국어 쿼리 전처리 (조사 제거, 복합명사 분해, 도메인별 동의어 확장)
+  const caseType = options?.caseType;
+  const semanticQuery = preprocessForSemantic(query, caseType);
+  const ftsQuery = preprocessKoreanQuery(query, caseType);
 
   // 임베딩을 한 번만 생성하여 재사용 (시맨틱용 전처리 쿼리 사용)
   let embedding: number[];
@@ -735,7 +811,7 @@ export async function searchAll(
     resultMap[key] = values[i];
   });
 
-  const context = emptyRAGContext();
+  let context = emptyRAGContext();
   const threshold = options?.threshold ?? 0.15;
 
   for (const table of tables) {
@@ -746,6 +822,11 @@ export async function searchAll(
         .filter((r) => (r.combined_score ?? 0) >= threshold);
       (context as unknown as Record<string, unknown>)[contextKey] = filtered;
     }
+  }
+
+  // 교차 참조 강화 (결과 부족 시에만 발동)
+  if (options?.enableCrossReference !== false) {
+    context = await enrichWithCrossReferences(context, embedding);
   }
 
   // 캐시 저장
@@ -885,6 +966,7 @@ export async function searchAllWithRerank(
         keywordOverlapScore: 0,
         lengthScore: 1,
         categoryScore: 0.5,
+        temporalScore: 0,
         finalScore: r.score,
       }));
   }

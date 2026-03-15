@@ -3,7 +3,7 @@
  *
  * 1. 조사(particles) 제거: "손해배상을" → "손해배상"
  * 2. 복합명사 분해: "손해배상청구소송" → "손해배상 청구 소송"
- * 3. 법률 동의어 확장: "원고" → "원고 청구인 신청인"
+ * 3. 법률 동의어 확장: "원고" → "원고 청구인 신청인" (도메인별 분리)
  * 4. N-gram 보조: 4글자 이상 → 2글자 서브토큰 추가
  */
 
@@ -45,19 +45,178 @@ const COMPOUND_SPLITS: Readonly<Record<string, readonly string[]>> = {
   "개인정보침해": ["개인정보", "침해"],
 };
 
-// 법률 동의어 사전
-const LEGAL_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
-  "원고": ["청구인", "신청인"],
-  "피고": ["피청구인", "피신청인"],
-  "판결": ["선고", "결정"],
-  "소송": ["재판", "심판"],
-  "변호사": ["대리인", "소송대리인"],
-  "증거": ["증빙", "소명자료"],
-  "해고": ["면직", "파면"],
-  "계약": ["약정", "합의"],
-  "채권": ["청구권", "권리"],
-  "채무": ["의무", "부담"],
+// ──────────────────────────────────────────────
+// 도메인별 법률 동의어 사전
+// ──────────────────────────────────────────────
+
+/** 도메인별 동의어 구조 타입 */
+export interface DomainSynonyms {
+  universal: Record<string, string[]>;
+  민사: Record<string, string[]>;
+  형사: Record<string, string[]>;
+  가사: Record<string, string[]>;
+  행정: Record<string, string[]>;
+  노동: Record<string, string[]>;
+  부동산: Record<string, string[]>;
+}
+
+/** 도메인별 법률 동의어 사전 (테스트용으로 export) */
+export const DOMAIN_SYNONYMS: DomainSynonyms = {
+  // 모든 분야 공통 (~25 그룹)
+  universal: {
+    "임대인": ["집주인", "건물주"],
+    "임차인": ["세입자"],
+    "매도인": ["판매자", "양도인"],
+    "매수인": ["구매자", "양수인"],
+    "차임": ["월세", "임대료"],
+    "보증금": ["전세금", "임대보증금"],
+    "변제": ["상환", "갚다"],
+    "대여금": ["차용금", "빌린돈"],
+    "소멸시효": ["시효"],
+    "불법행위": ["위법행위"],
+    "계약해제": ["계약취소", "계약해지"],
+    "손해배상": ["배상"],
+    "가처분": ["임시처분"],
+    "가압류": ["임시압류"],
+    "강제집행": ["집행"],
+    "내용증명": ["통고서"],
+    "합의": ["화해", "조정"],
+    "증거": ["증빙", "입증자료"],
+    "소송비용": ["재판비용"],
+    "법률구조": ["법률지원"],
+    "위임": ["대리", "수임"],
+    "항소": ["불복", "상소"],
+    "기각": ["각하"],
+    "인용": ["승소"],
+    "패소": ["기각"],
+  },
+
+  // 민사 전용 (~8 그룹)
+  민사: {
+    "원고": ["청구인", "소송당사자"],
+    "피고": ["상대방"],
+    "소장": ["소송서류"],
+    "답변서": ["항변서"],
+    "준비서면": ["변론서면"],
+    "채권": ["청구권"],
+    "채무": ["의무"],
+    "부당이득": ["부당이득반환"],
+  },
+
+  // 형사 전용 (~6 그룹)
+  형사: {
+    "피의자": ["용의자", "혐의자"],
+    "피해자": ["고소인"],
+    "기소": ["공소제기"],
+    "벌금": ["과태료", "범칙금"],
+    "구속": ["체포", "구금"],
+    "보석": ["석방"],
+  },
+
+  // 가사 전용 (~5 그룹)
+  가사: {
+    "이혼": ["혼인해소", "파경"],
+    "위자료": ["정신적손해배상"],
+    "양육권": ["친권", "양육자지정"],
+    "재산분할": ["재산청산"],
+    "면접교섭권": ["면접권"],
+  },
+
+  // 행정 전용 (~4 그룹)
+  행정: {
+    "청구인": ["심판청구인"],
+    "처분": ["행정처분", "행정행위"],
+    "취소소송": ["항고소송"],
+    "인허가": ["허가", "면허", "승인"],
+  },
+
+  // 노동 전용 (~5 그룹)
+  노동: {
+    "해고": ["면직", "파면", "해직"],
+    "퇴직금": ["퇴직급여"],
+    "근로자": ["노동자", "직원", "종업원"],
+    "사용자": ["사업주", "고용주"],
+    "부당해고": ["부당면직"],
+  },
+
+  // 부동산 전용 (~4 그룹)
+  부동산: {
+    "등기": ["부동산등기"],
+    "소유권이전": ["명의이전"],
+    "근저당": ["저당권"],
+    "전세권": ["전세"],
+  },
 };
+
+/**
+ * CaseType 문자열을 DomainSynonyms 키로 매핑합니다.
+ * "채권·채무", "손해배상" 등 DOMAIN_SYNONYMS에 없는 CaseType은 가장 관련 높은 도메인으로 매핑합니다.
+ */
+function resolveDomainKey(caseType: string): keyof DomainSynonyms | null {
+  const domainKeys: Array<keyof DomainSynonyms> = [
+    "민사", "형사", "가사", "행정", "노동", "부동산",
+  ];
+
+  // 직접 매칭
+  if (domainKeys.includes(caseType as keyof DomainSynonyms)) {
+    return caseType as keyof DomainSynonyms;
+  }
+
+  // 관련 도메인 매핑 (CLAUDE.md의 CaseType 참고)
+  const fallbackMap: Record<string, keyof DomainSynonyms> = {
+    "채권·채무": "민사",
+    "손해배상": "민사",
+    "기타": "민사",
+  };
+
+  return fallbackMap[caseType] ?? null;
+}
+
+/**
+ * 지정된 caseType에 해당하는 양방향 동의어 맵을 빌드합니다.
+ * universal + 해당 도메인의 동의어만 포함합니다.
+ * 양방향: "원고" → ["청구인"] 이면 "청구인" → ["원고"]도 자동 생성.
+ */
+function buildBidirectionalMap(caseType?: string): ReadonlyMap<string, readonly string[]> {
+  const groups: Array<Record<string, string[]>> = [DOMAIN_SYNONYMS.universal];
+
+  if (caseType) {
+    const domainKey = resolveDomainKey(caseType);
+    if (domainKey && domainKey !== "universal") {
+      groups.push(DOMAIN_SYNONYMS[domainKey]);
+    }
+  }
+
+  // 역방향 매핑을 포함한 완전한 동의어 맵 구축
+  const result = new Map<string, Set<string>>();
+
+  for (const dict of groups) {
+    for (const [canonical, synonyms] of Object.entries(dict)) {
+      // canonical과 synonyms를 하나의 그룹으로 묶음
+      const allTerms = [canonical, ...synonyms];
+
+      for (const term of allTerms) {
+        if (!result.has(term)) {
+          result.set(term, new Set<string>());
+        }
+        const termSet = result.get(term)!;
+        for (const other of allTerms) {
+          if (other !== term) {
+            termSet.add(other);
+          }
+        }
+      }
+    }
+  }
+
+  // Set → readonly string[] 변환
+  const finalMap = new Map<string, readonly string[]>();
+  for (const [key, valueSet] of result) {
+    finalMap.set(key, [...valueSet]);
+  }
+
+  return finalMap;
+}
 
 /**
  * 한국어 조사를 제거합니다.
@@ -105,11 +264,15 @@ function extractBigrams(token: string): string[] {
  * FTS 키워드 매칭 정확도를 향상시킵니다.
  *
  * @param query - 원본 쿼리
- * @returns 전처리된 쿼리 (조사 제거 + 복합어 분해 + 동의어 확장)
+ * @param caseType - 사건 유형 (도메인별 동의어 필터링에 사용)
+ * @returns 전처리된 쿼리 (조사 제거 + 복합어 분해 + 도메인별 양방향 동의어 확장)
  */
-export function preprocessKoreanQuery(query: string): string {
+export function preprocessKoreanQuery(query: string, caseType?: string): string {
   const tokens = query.split(/\s+/).filter(Boolean);
   const result: string[] = [];
+
+  // 해당 도메인에 맞는 양방향 동의어 맵 빌드
+  const synonymMap = buildBidirectionalMap(caseType);
 
   for (const rawToken of tokens) {
     // 1. 조사 제거
@@ -124,9 +287,9 @@ export function preprocessKoreanQuery(query: string): string {
       result.push(...extractBigrams(part));
     }
 
-    // 4. 동의어 확장
+    // 4. 양방향 동의어 확장 (universal + 해당 도메인만)
     for (const part of decomposed) {
-      const synonyms = LEGAL_SYNONYMS[part];
+      const synonyms = synonymMap.get(part);
       if (synonyms) result.push(...synonyms);
     }
   }
@@ -138,13 +301,28 @@ export function preprocessKoreanQuery(query: string): string {
 }
 
 /**
- * 시맨틱 검색용 쿼리 전처리 (조사 제거만, 확장 없음)
- * 임베딩 모델에 불필요한 노이즈를 줄입니다.
+ * 시맨틱 검색용 쿼리 전처리 (조사 제거 + 도메인별 동의어 확장)
+ * 임베딩 모델에 핵심 용어와 동의어를 제공하여 검색 재현율을 높입니다.
+ *
+ * @param query - 원본 쿼리
+ * @param caseType - 사건 유형 (도메인별 동의어 필터링에 사용)
  */
-export function preprocessForSemantic(query: string): string {
+export function preprocessForSemantic(query: string, caseType?: string): string {
   const tokens = query.split(/\s+/).filter(Boolean);
-  return tokens
-    .map(removeParticles)
-    .filter((t) => t.length >= 2)
-    .join(" ");
+  const result: string[] = [];
+
+  const synonymMap = buildBidirectionalMap(caseType);
+
+  for (const rawToken of tokens) {
+    const cleaned = removeParticles(rawToken);
+    if (cleaned.length >= 2) {
+      result.push(cleaned);
+
+      // 동의어 확장 (시맨틱 검색에도 도메인별 동의어 추가)
+      const synonyms = synonymMap.get(cleaned);
+      if (synonyms) result.push(...synonyms);
+    }
+  }
+
+  return [...new Set(result)].join(" ");
 }
