@@ -13,11 +13,13 @@ import {
   LayoutDashboard,
   FileSpreadsheet,
   Calculator,
+  RefreshCw,
 } from "lucide-react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import AppLayout from "../components/layout/AppLayout";
 import MonthlyReportTab from "../components/accounting/MonthlyReportTab";
 import TaxReportTab from "../components/accounting/TaxReportTab";
+import CodefSyncTab from "../components/accounting/CodefSyncTab";
 import useAuth from "../hooks/useAuth";
 import { db, isDemoMode } from "../config/firebase";
 import type { Fee } from "../types/accounting";
@@ -25,7 +27,7 @@ import type { Transaction } from "../types/accounting";
 import type { OfficeExpense } from "../types/accounting";
 import type { Deposit } from "../types/accounting";
 
-type FinanceTab = "dashboard" | "monthly-report" | "tax-report";
+type FinanceTab = "dashboard" | "monthly-report" | "tax-report" | "auto-sync";
 
 // ─────────────────────────────────────────────
 // 유틸리티
@@ -323,6 +325,7 @@ export default function FinancePage() {
     { key: "dashboard", label: "현황 대시보드", icon: LayoutDashboard },
     { key: "monthly-report", label: "월별 정산", icon: FileSpreadsheet },
     { key: "tax-report", label: "세무 자료", icon: Calculator },
+    { key: "auto-sync", label: "자동 수집", icon: RefreshCw },
   ];
 
   return (
@@ -359,6 +362,11 @@ export default function FinancePage() {
       {/* ── 세무 자료 탭 ── */}
       {activeTab === "tax-report" && user && (
         <TaxReportTab ownerId={user.uid} />
+      )}
+
+      {/* ── 자동 수집 탭 ── */}
+      {activeTab === "auto-sync" && user && (
+        <CodefSyncTab ownerId={user.uid} />
       )}
 
       {/* ── 현황 대시보드 탭 ── */}
