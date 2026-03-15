@@ -127,13 +127,14 @@ export async function syncBankTransactions(
   params: SyncBankParams,
 ): Promise<RawBankTransaction[]> {
   try {
-    return await codefPost<RawBankTransaction[]>("/api/codef/bank-sync", {
+    const resp = await codefPost<{ success: boolean; transactions: RawBankTransaction[] }>("/api/codef/bank-sync", {
       connectedId: params.connectedId,
       organization: params.organization,
       account: params.account,
       startDate: params.startDate,
       endDate: params.endDate,
     });
+    return resp.transactions ?? [];
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`은행 거래내역 동기화 실패: ${error.message}`);
@@ -235,13 +236,14 @@ export async function syncCardTransactions(
   params: SyncCardParams,
 ): Promise<RawCardTransaction[]> {
   try {
-    return await codefPost<RawCardTransaction[]>("/api/codef/card-sync", {
+    const resp = await codefPost<{ success: boolean; transactions: RawCardTransaction[] }>("/api/codef/card-sync", {
       connectedId: params.connectedId,
       organization: params.organization,
       cardNumber: params.cardNumber,
       startDate: params.startDate,
       endDate: params.endDate,
     });
+    return resp.transactions ?? [];
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`카드 거래내역 동기화 실패: ${error.message}`);
@@ -289,7 +291,7 @@ export async function classifyCardExpenses(
 ): Promise<AIClassifyResult[]> {
   try {
     return await codefPost<AIClassifyResult[]>("/api/codef/classify-expenses", {
-      transactions: params.transactions,
+      cardTransactions: params.transactions,
       cases: params.cases,
     });
   } catch (error: unknown) {
