@@ -2,7 +2,7 @@
 // 에이전트별 법률 데이터 검색 (판례, 법령, 서식, 법률 QA, 판결문, 기계독해, 법령용어, 법령지식)
 
 import type { AgentId } from "../types/agent";
-import { rerankWithDiversity } from "./reranker";
+import { rerankWithDiversity, voyageRerank } from "./reranker";
 import type { SearchResult, RankedResult, SourceTable } from "./reranker";
 import { authHeaders } from "./api-auth";
 import { preprocessKoreanQuery, preprocessForSemantic } from "./korean-preprocessor";
@@ -223,6 +223,8 @@ export interface SearchOptions {
   caseType?: string;
   /** re-ranking 활성화 여부 (기본 true) */
   enableRerank?: boolean;
+  /** Voyage Rerank API 사용 여부 (기본 true, 실패 시 커스텀 리랭커 폴백) */
+  enableVoyageRerank?: boolean;
 }
 
 // Re-ranking 타입 re-export
@@ -887,6 +889,16 @@ export async function searchAllWithRerank(
       }));
   }
 
+  const useVoyage = options?.enableVoyageRerank ?? true;
+  if (useVoyage) {
+    return voyageRerank(
+      query,
+      allResults,
+      options?.limit ?? 10,
+      options?.caseType,
+    );
+  }
+
   return rerankWithDiversity(
     allResults,
     query,
@@ -911,6 +923,7 @@ export async function searchForAgent(
   agentId: AgentId,
   query: string,
   caseType?: string,
+  enableVoyageRerank: boolean = true,
 ): Promise<RAGContext> {
   if (!isRagAvailable) return emptyRAGContext();
 
@@ -926,8 +939,23 @@ export async function searchForAgent(
     caseType,
   });
 
-  // 각 결과 배열을 combined_score 기준 내림차순 정렬 + limit 적용
-  return sortAndLimitContext(context, config.limit);
+  if (!enableVoyageRerank) {
+    // Voyage Rerank 비활성화 시 기존 정렬 방식 사용
+    return sortAndLimitContext(context, config.limit);
+  }
+
+  // RAGContext를 플랫 SearchResult 배열로 변환
+  const flatResults = flattenRAGContext(context);
+
+  if (flatResults.length === 0) {
+    return context;
+  }
+
+  // Voyage Rerank API로 re-ranking (실패 시 커스텀 리랭커 폴백)
+  const reranked = await voyageRerank(query, flatResults, config.limit, caseType);
+
+  // re-ranking된 결과를 다시 RAGContext 구조로 변환
+  return rebuildRAGContext(reranked);
 }
 
 /** RAGContext 내 각 결과 배열을 점수 기준으로 정렬하고 limit만큼 자릅니다. */
@@ -949,6 +977,147 @@ function sortAndLimitContext(context: RAGContext, limit: number): RAGContext {
   }
 
   return sorted;
+}
+
+/**
+ * RAGContext를 플랫 SearchResult 배열로 변환합니다.
+ * searchAllWithRerank에서 사용하는 변환 로직과 동일합니다.
+ */
+function flattenRAGContext(context: RAGContext): SearchResult[] {
+  return [
+    ...context.legalForms.map((r) => ({
+      id: r.id,
+      content: r.content,
+      title: r.title,
+      score: r.combined_score,
+      source: "legal_forms" as const,
+      metadata: {
+        form_type: r.form_type,
+        case_category: r.case_category,
+        source: r.source,
+      },
+    })),
+    ...context.easyLaw.map((r) => ({
+      id: r.id,
+      content: r.content,
+      title: r.title ?? r.topic,
+      score: r.combined_score,
+      source: "easy_law" as const,
+      metadata: { topic: r.topic, related_statutes: r.related_statutes },
+    })),
+    ...context.statutes.map((r) => ({
+      id: r.id,
+      content: r.article_content,
+      title: `${r.statute_name} ${r.article_number}`,
+      score: r.combined_score,
+      source: "statutes" as const,
+      metadata: {
+        statute_name: r.statute_name,
+        article_number: r.article_number,
+        article_title: r.article_title,
+      },
+    })),
+    ...context.aihubQA.map((r) => ({
+      id: r.id,
+      content: r.answer,
+      title: r.question,
+      score: r.combined_score,
+      source: "aihub_legal_qa" as const,
+      metadata: {
+        category: r.category,
+        doc_type: r.doc_type,
+        source_info: r.source_info,
+      },
+    })),
+    ...context.legalJudgments.map((r) => ({
+      id: r.id,
+      content: r.summary || r.content,
+      title: `${r.doc_id} (${r.court || r.case_name || ""})`,
+      score: r.combined_score,
+      source: "legal_judgments" as const,
+      metadata: {
+        doc_id: r.doc_id,
+        court: r.court,
+        case_name: r.case_name,
+        case_type: r.case_type,
+        category: r.category,
+      },
+    })),
+    ...context.legalMRC.map((r) => ({
+      id: r.id,
+      content: r.answer,
+      title: r.question,
+      score: r.combined_score,
+      source: "legal_mrc" as const,
+      metadata: {
+        doc_title: r.doc_title,
+        qa_type: r.qa_type,
+        context: r.context,
+      },
+    })),
+    ...context.legalTerms.map((r) => ({
+      id: r.id,
+      content: r.definition,
+      title: r.term,
+      score: r.combined_score,
+      source: "legal_terms" as const,
+      metadata: {
+        related_terms: r.related_terms,
+        source_statute: r.source_statute,
+      },
+    })),
+    ...context.legalKnowledge.map((r) => ({
+      id: r.id,
+      content: r.content,
+      title: r.title ?? r.topic,
+      score: r.combined_score,
+      source: "legal_knowledge" as const,
+      metadata: {
+        topic: r.topic,
+        category: r.category,
+        related_statutes: r.related_statutes,
+      },
+    })),
+    ...context.legalCommentary.map((r) => ({
+      id: r.id,
+      content: r.content || r.summary,
+      title: r.title,
+      score: r.combined_score,
+      source: "legal_commentary" as const,
+      metadata: {
+        source: r.source,
+        category: r.category,
+        author: r.author,
+        doc_type: r.doc_type,
+      },
+    })),
+  ];
+}
+
+/**
+ * RankedResult 배열을 RAGContext 구조로 재구성합니다.
+ * re-ranking 후 결과를 에이전트에 전달하기 위해 사용합니다.
+ */
+function rebuildRAGContext(ranked: RankedResult[]): RAGContext {
+  const context = emptyRAGContext();
+
+  for (const result of ranked) {
+    const contextKey = TABLE_CONTEXT_KEY_MAP[result.source];
+    if (!contextKey) continue;
+
+    // combined_score를 finalScore로 대체하여 re-ranking 순서 반영
+    const entry = {
+      id: result.id,
+      content: result.content,
+      title: result.title,
+      combined_score: result.finalScore,
+      ...result.metadata,
+    };
+
+    (context[contextKey] as unknown[]).push(entry);
+  }
+
+  return context;
 }
 
 // ──────────────────────────────────────────────

@@ -1,5 +1,7 @@
 // Re-ranking 서비스: 하이브리드 검색 결과를 추가 정제하여 최종 순위 결정
-// Voyage Rerank API 없이 키워드 오버랩, 길이 보너스, 카테고리 매칭으로 구현
+// Voyage Rerank API (rerank-2) + 커스텀 fallback (키워드 오버랩, 길이 보너스, 카테고리 매칭)
+
+import { authHeaders } from "./api-auth";
 
 // ──────────────────────────────────────────────
 // 타입 정의
@@ -290,4 +292,116 @@ export function rerankWithDiversity(
   }
 
   return selected;
+}
+
+// ──────────────────────────────────────────────
+// Voyage Rerank API
+// ──────────────────────────────────────────────
+
+const isDev = import.meta.env.DEV;
+const VOYAGE_RERANK_DIRECT_URL = "https://api.voyageai.com/v1/rerank";
+const VOYAGE_RERANK_PROXY_URL = "/api/rerank";
+const VOYAGE_RERANK_MODEL = "rerank-2";
+
+/** Voyage Rerank API 응답 타입 */
+interface VoyageRerankResponse {
+  data: Array<{
+    index: number;
+    relevance_score: number;
+  }>;
+  model: string;
+  usage: { total_tokens: number };
+}
+
+/**
+ * Voyage Rerank API를 사용하여 검색 결과를 re-ranking합니다.
+ * 실패 시 커스텀 rerankWithDiversity로 폴백합니다.
+ *
+ * - 개발환경: VITE_VOYAGE_API_KEY로 직접 호출
+ * - 프로덕션: Cloudflare Functions 프록시(/api/rerank) 경유
+ *
+ * @param query - 검색 쿼리
+ * @param results - 하이브리드 검색 결과 배열
+ * @param topK - 반환할 최대 결과 수 (기본 10)
+ * @param caseType - 사건 유형 (폴백 시 카테고리 매칭에 사용)
+ * @returns Re-ranking된 결과 배열
+ */
+export async function voyageRerank(
+  query: string,
+  results: SearchResult[],
+  topK: number = 10,
+  caseType?: string,
+): Promise<RankedResult[]> {
+  if (results.length === 0) return [];
+
+  try {
+    // 각 결과를 문서 문자열로 변환 (최대 4000자)
+    const documents = results.map(
+      (r) => `${r.title}\n${r.content}`.slice(0, 4000),
+    );
+
+    // dev/prod에 따라 URL과 헤더 결정
+    const voyageApiKey = import.meta.env.VITE_VOYAGE_API_KEY as string | undefined;
+    const url = isDev && voyageApiKey ? VOYAGE_RERANK_DIRECT_URL : VOYAGE_RERANK_PROXY_URL;
+
+    let headers: Record<string, string>;
+    if (isDev && voyageApiKey) {
+      headers = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${voyageApiKey}`,
+      };
+    } else {
+      headers = await authHeaders({ "Content-Type": "application/json" });
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: VOYAGE_RERANK_MODEL,
+        query,
+        documents,
+        top_k: topK,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(
+        `[Rerank] Voyage Rerank API 실패 (HTTP ${response.status}): ${errorText}`,
+      );
+      return rerankWithDiversity(results, query, topK, caseType);
+    }
+
+    const data = (await response.json()) as VoyageRerankResponse;
+
+    if (!data.data || !Array.isArray(data.data)) {
+      console.warn("[Rerank] Voyage Rerank API 응답 형식이 잘못됨");
+      return rerankWithDiversity(results, query, topK, caseType);
+    }
+
+    // Voyage 결과를 RankedResult로 매핑
+    const ranked: RankedResult[] = data.data.map((item) => {
+      const original = results[item.index];
+      return {
+        ...original,
+        originalScore: original.score,
+        keywordOverlapScore: 0,
+        lengthScore: 1,
+        categoryScore: 0,
+        finalScore: item.relevance_score,
+      };
+    });
+
+    // relevance_score 기준 내림차순 정렬 (Voyage가 이미 정렬하지만 보장)
+    ranked.sort((a, b) => b.finalScore - a.finalScore);
+
+    return ranked;
+  } catch (error: unknown) {
+    console.warn(
+      "[Rerank] Voyage Rerank API 호출 중 오류, 커스텀 리랭커로 폴백:",
+      error instanceof Error ? error.message : error,
+    );
+    return rerankWithDiversity(results, query, topK, caseType);
+  }
 }
