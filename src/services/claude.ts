@@ -143,8 +143,11 @@ async function callClaudeProxy(
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
       try {
-        const errorBody = (await response.json()) as ProxyErrorResponse;
+        const errorBody = (await response.json()) as ProxyErrorResponse & { status?: number; apiKeyPrefix?: string };
         errorMessage = errorBody?.detail ?? errorBody?.error ?? errorMessage;
+        if (errorBody?.apiKeyPrefix) {
+          errorMessage += ` [key: ${errorBody.apiKeyPrefix}]`;
+        }
       } catch { /* non-JSON error body */ }
       throw new Error(`Claude API 호출 실패: ${errorMessage}`);
     }

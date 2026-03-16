@@ -270,7 +270,7 @@ async function handleAutoClassification(
       reimbursed: false,
       paymentMethod: "카드",
       paidBy: ownerId,
-      evidenceType: "카드영수증",
+      evidenceType: "카드매출전표",
       attachments: [],
     });
   } else if (result.recordType === "office_expense") {
@@ -285,7 +285,7 @@ async function handleAutoClassification(
       yearMonth: extractYearMonth(cardTx.approvalDate),
       recurring: false,
       paymentMethod: "카드",
-      evidenceType: "카드영수증",
+      evidenceType: "카드매출전표",
       attachments: [],
       confirmed: false,
     });
@@ -364,7 +364,7 @@ export async function confirmClassification(
         reimbursed: false,
         paymentMethod: "카드",
         paidBy: cardTx.ownerId,
-        evidenceType: "카드영수증",
+        evidenceType: "카드매출전표",
         attachments: [],
       });
     } else if (classification.recordType === "office_expense") {
@@ -379,7 +379,7 @@ export async function confirmClassification(
         yearMonth: extractYearMonth(cardTx.approvalDate),
         recurring: false,
         paymentMethod: "카드",
-        evidenceType: "카드영수증",
+        evidenceType: "카드매출전표",
         attachments: [],
         confirmed: true, // 변호사 수동 확인이므로 confirmed
       });

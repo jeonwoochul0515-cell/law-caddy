@@ -24,7 +24,6 @@ interface MessageState {
 export default function OverdueAlertPanel({ ownerId }: OverdueAlertPanelProps) {
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
-  const profile = useAuth((s) => s.profile);
   const [items, setItems] = useState<OverdueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -74,8 +73,8 @@ export default function OverdueAlertPanel({ ownerId }: OverdueAlertPanelProps) {
         overdueAmount: item.overdueAmount,
         dueDate: item.installment.dueDate,
         totalRemaining: item.totalRemaining,
-        firmName: profile?.firmName ?? "",
-        lawyerName: profile?.name ?? user?.displayName ?? "",
+        firmName: user?.firmName ?? "",
+        lawyerName: user?.name ?? "",
         installmentSeq: item.installment.seq,
       };
 
@@ -96,7 +95,7 @@ export default function OverdueAlertPanel({ ownerId }: OverdueAlertPanelProps) {
         [key]: { loading: false, message: "", copied: false, error: msg },
       }));
     }
-  }, [profile, user]);
+  }, [user]);
 
   /** 클립보드 복사 */
   const copyMessage = useCallback(async (key: string) => {

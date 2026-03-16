@@ -33,9 +33,6 @@ export class SearchPool {
   private query: string;
   private caseType: string | undefined;
 
-  /** 전체 테이블 검색 결과 (1회만 실행) */
-  private allResults: RAGContext | null = null;
-
   /** 검색 Promise 중복 방지 — 동일 Promise를 여러 에이전트가 공유 */
   private searchPromise: Promise<RAGContext> | null = null;
 
@@ -70,10 +67,7 @@ export class SearchPool {
       caseType: this.caseType,
     };
 
-    this.searchPromise = searchAll(this.query, options).then((result) => {
-      this.allResults = result;
-      return result;
-    });
+    this.searchPromise = searchAll(this.query, options);
 
     return this.searchPromise;
   }

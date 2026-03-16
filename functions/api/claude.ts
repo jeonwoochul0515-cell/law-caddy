@@ -59,14 +59,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json()) as {
-        error?: { message?: string };
-      };
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorBody = JSON.parse(errorText) as {
+          error?: { type?: string; message?: string };
+        };
+        errorMessage = errorBody?.error?.message ?? errorMessage;
+      } catch { /* non-JSON */ }
       return Response.json(
         {
           error: "Claude API 호출 실패",
-          detail:
-            errorBody?.error?.message ?? `HTTP ${response.status}`,
+          detail: errorMessage,
+          status: response.status,
+          apiKeyPrefix: apiKey.slice(0, 12) + "...",
         },
         { status: response.status },
       );

@@ -168,8 +168,8 @@ export default function CaseDetailPage() {
       }
 
       // 성공보수 입금완료 시 매출 자동 등록
-      if (successBefore !== "입금완료" && successAfter === "입금완료" && data.successFee?.agreedAmount) {
-        await tryAutoRevenue("성공보수", data.successFee.agreedAmount, fee.id);
+      if (successBefore !== "입금완료" && successAfter === "입금완료" && data.successFee?.claimedAmount) {
+        await tryAutoRevenue("성공보수", data.successFee.claimedAmount, fee.id);
       }
     } catch (err) {
       console.error("수임료 수정 실패:", err);
