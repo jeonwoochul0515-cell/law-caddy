@@ -47,11 +47,11 @@ interface ProxyErrorResponse {
   detail?: string;
 }
 
-/** dev 환경에서는 Vite 프록시 사용 (CORS 우회) */
+/** 직접 호출 가능 여부 (빌드 시 VITE_ANTHROPIC_API_KEY가 있으면 직접 호출) */
 const isDev = import.meta.env.DEV;
-const ANTHROPIC_API_URL = isDev
-  ? "/api/anthropic/v1/messages"
-  : "https://api.anthropic.com/v1/messages";
+const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const DEV_PROXY_URL = "/api/anthropic/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
@@ -84,23 +84,26 @@ export function extractText(data: ClaudeApiResponse): string {
 }
 
 /**
- * 직접 Anthropic API를 호출합니다 (로컬 개발 폴백).
+ * 브라우저에서 직접 Anthropic API를 호출합니다.
+ * - 로컬 개발: Vite 프록시 (/api/anthropic/...) 경유
+ * - 프로덕션: anthropic-dangerous-direct-browser-access 헤더로 직접 호출
  */
 async function callClaudeDirect(
   systemPrompt: string,
   userMessage: string,
   apiKey: string,
 ): Promise<string> {
+  const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
     "anthropic-version": API_VERSION,
   };
-  // 직접 호출 시에만 CORS 헤더 추가 (프록시 경유 시 불필요)
+  // 프로덕션에서 브라우저 직접 호출 시 CORS 허용 헤더 필요
   if (!isDev) {
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
-  const response = await fetch(ANTHROPIC_API_URL, {
+  const response = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -159,22 +162,20 @@ async function callClaudeProxy(
 
 /**
  * Anthropic Claude API를 호출하여 응답을 받습니다.
- * - VITE_ANTHROPIC_API_KEY가 있으면: 직접 호출 (로컬 개발)
- * - 없으면: /api/claude 프록시 사용 (Cloudflare Pages 프로덕션)
+ * - VITE_ANTHROPIC_API_KEY가 있으면: 브라우저에서 직접 호출 (CORS 허용)
+ * - 없으면: /api/claude Cloudflare 프록시 사용 (폴백)
  */
 export async function callClaude(
   systemPrompt: string,
   userMessage: string,
 ): Promise<string> {
   try {
-    // 로컬 개발 환경에서만 직접 호출, 프로덕션은 항상 프록시 사용
-    if (isDev) {
-      const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      if (directApiKey && typeof directApiKey === "string") {
-        return await callClaudeDirect(systemPrompt, userMessage, directApiKey);
-      }
+    // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
+    if (DIRECT_API_KEY) {
+      return await callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY);
     }
 
+    // 폴백: Cloudflare Functions 프록시
     return await callClaudeProxy(systemPrompt, userMessage);
   } catch (error: unknown) {
     Sentry.captureException(error);
@@ -198,14 +199,12 @@ export async function callClaudeChat(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    // 로컬 개발 환경에서만 직접 호출, 프로덕션은 항상 프록시 사용
-    if (isDev) {
-      const directApiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      if (directApiKey && typeof directApiKey === "string") {
-        return await callClaudeChatDirect(systemPrompt, messages, directApiKey);
-      }
+    // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
+    if (DIRECT_API_KEY) {
+      return await callClaudeChatDirect(systemPrompt, messages, DIRECT_API_KEY);
     }
 
+    // 폴백: Cloudflare Functions 프록시
     return await callClaudeChatProxy(systemPrompt, messages);
   } catch (error: unknown) {
     Sentry.captureException(error);
@@ -226,6 +225,7 @@ async function callClaudeChatDirect(
   messages: ChatMessage[],
   apiKey: string,
 ): Promise<string> {
+  const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
@@ -234,7 +234,7 @@ async function callClaudeChatDirect(
   if (!isDev) {
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
-  const response = await fetch(ANTHROPIC_API_URL, {
+  const response = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
