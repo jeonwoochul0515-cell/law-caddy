@@ -2,6 +2,7 @@ import type { Env } from "./_shared/types";
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const apiKey = context.env.ANTHROPIC_API_KEY;
+  const dataGoKrKey = context.env.DATA_GO_KR_API_KEY;
 
   const results: Record<string, unknown> = {
     status: "ok",
@@ -11,12 +12,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       context.env.RTZR_CLIENT_ID && context.env.RTZR_CLIENT_SECRET,
     ),
     claudeConfigured: Boolean(apiKey),
+    dataGoKrConfigured: Boolean(dataGoKrKey),
     keyPrefix: apiKey ? apiKey.slice(0, 15) + "..." : "NOT SET",
   };
 
-  // Anthropic API 직접 테스트 (?test=claude 파라미터)
   const url = new URL(context.request.url);
-  if (url.searchParams.get("test") === "claude" && apiKey) {
+  const test = url.searchParams.get("test");
+
+  // Anthropic API 테스트 (?test=claude)
+  if (test === "claude" && apiKey) {
     try {
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -42,6 +46,34 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     } catch (err) {
       results.anthropicTest = "CONNECTION_ERROR";
       results.anthropicError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  // data.go.kr 헌재 API 테스트 (?test=datagokr)
+  if (test === "datagokr" && dataGoKrKey) {
+    try {
+      const apiUrl = new URL("https://apis.data.go.kr/9710000/BmsPrecService/getList");
+      apiUrl.searchParams.set("serviceKey", dataGoKrKey);
+      apiUrl.searchParams.set("searchText", "위헌");
+      apiUrl.searchParams.set("numOfRows", "2");
+      apiUrl.searchParams.set("resultType", "json");
+
+      const resp = await fetch(apiUrl.toString(), {
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (resp.ok) {
+        const body = await resp.text();
+        results.dataGoKrTest = `OK ${resp.status}`;
+        results.dataGoKrResponse = body.slice(0, 500);
+      } else {
+        const body = await resp.text();
+        results.dataGoKrTest = `ERROR ${resp.status}`;
+        results.dataGoKrError = body.slice(0, 500);
+      }
+    } catch (err) {
+      results.dataGoKrTest = "CONNECTION_ERROR";
+      results.dataGoKrError = err instanceof Error ? err.message : String(err);
     }
   }
 
