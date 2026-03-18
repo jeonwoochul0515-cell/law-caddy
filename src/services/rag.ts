@@ -313,9 +313,19 @@ function expandLegalSynonyms(query: string): string {
 }
 
 /**
+ * 특정 법률 명칭 목록 — 쿼리에 포함되면 키워드 가중치를 높입니다.
+ */
+const SPECIFIC_LAW_NAMES: readonly string[] = [
+  "민법", "형법", "헌법", "민사소송법", "행정소송법",
+  "형사소송법", "상법", "행정법", "노동법", "근로기준법",
+  "부동산등기법", "가사소송법", "헌법재판소법", "국가배상법",
+];
+
+/**
  * 쿼리 특성에 따라 키워드/시맨틱 가중치를 동적으로 조정합니다.
- * - 사건번호 포함 시: 키워드 0.6 / 시맨틱 0.4 (정확 번호 매칭 우선)
- * - 매우 짧은 쿼리 (10자 미만): 키워드 0.5 / 시맨틱 0.5
+ * - 사건번호 포함 시 (예: 2023다12345, 2022가합56789): 키워드 0.7 / 시맨틱 0.3
+ * - 특정 법률 명칭 포함 시 (민사소송법, 형법 등): 키워드 0.5 / 시맨틱 0.5
+ * - 짧은 쿼리 (20자 미만, 특정 법률 용어일 가능성 높음): 키워드 0.5 / 시맨틱 0.5
  * - 기본값: 키워드 0.3 / 시맨틱 0.7
  */
 function resolveWeights(
@@ -323,14 +333,21 @@ function resolveWeights(
   keywordWeight: number,
   semanticWeight: number,
 ): { keywordWeight: number; semanticWeight: number } {
-  // 사건번호 패턴: 예) 2023가합12345, 2022나56789
-  const CASE_NUMBER_RE = /\d{4}[가-힣]+\d+/;
+  // 사건번호 패턴: 예) 2023다12345, 2022가합56789, 2021나56789
+  const CASE_NUMBER_RE = /20\d{2}[가-힣]+\d+/;
 
   if (CASE_NUMBER_RE.test(query)) {
-    return { keywordWeight: 0.6, semanticWeight: 0.4 };
+    return { keywordWeight: 0.7, semanticWeight: 0.3 };
   }
 
-  if (query.trim().length < 10) {
+  // 특정 법률 명칭 포함 여부 확인 (예: "민사소송법 제148조")
+  const hasSpecificLawName = SPECIFIC_LAW_NAMES.some((law) => query.includes(law));
+  if (hasSpecificLawName) {
+    return { keywordWeight: 0.5, semanticWeight: 0.5 };
+  }
+
+  // 짧은 쿼리 = 특정 법률 용어 검색일 가능성 높음 (예: "기판력", "처분성")
+  if (query.trim().length < 20) {
     return { keywordWeight: 0.5, semanticWeight: 0.5 };
   }
 
@@ -853,6 +870,8 @@ export async function searchAll(
     "aihub_legal_qa",
   ];
   const limit = options?.limit ?? 5;
+  // searchAll에서는 리랭커가 최선의 결과를 고를 수 있도록 limit * 2 로 더 많이 가져옵니다.
+  const fetchLimit = limit * 2;
   const keywordWeight = options?.keywordWeight ?? 0.3;
   const semanticWeight = options?.semanticWeight ?? 0.7;
 
@@ -896,11 +915,22 @@ export async function searchAll(
     const label = TABLE_LABEL_MAP[table];
     if (!rpcName) continue;
 
+    // statutes 테이블 전용: 법률 명칭이 포함된 경우 FTS 쿼리에 법률 명칭을 추가로 부스트합니다.
+    let tableQueryText = expandedFtsQuery;
+    if (table === "statutes") {
+      const matchedLaws = SPECIFIC_LAW_NAMES.filter((law) => query.includes(law));
+      if (matchedLaws.length > 0) {
+        // 법률 명칭을 앞에 붙여 FTS 가중치 향상 (PGroonga/tsvector는 앞쪽 출현에 높은 가중치 부여)
+        tableQueryText = `${matchedLaws.join(" ")} ${expandedFtsQuery}`;
+      }
+    }
+
     // 기본 파라미터 (FTS에는 동의어 확장 + 전처리된 쿼리 사용)
+    // fetchLimit = limit * 2 로 더 많이 가져온 후 리랭커가 최선의 결과를 선택합니다.
     const params: Record<string, unknown> = {
-      query_text: expandedFtsQuery,
+      query_text: tableQueryText,
       query_embedding: embedding,
-      match_count: limit,
+      match_count: fetchLimit,
       keyword_weight: resolvedWeights.keywordWeight,
       semantic_weight: resolvedWeights.semanticWeight,
     };

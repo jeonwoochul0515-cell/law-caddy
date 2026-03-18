@@ -7,6 +7,41 @@
  * 4. N-gram 보조: 4글자 이상 → 2글자 서브토큰 추가
  */
 
+// ──────────────────────────────────────────────
+// 사법시험/변호사시험 문제 노이즈 패턴
+// ──────────────────────────────────────────────
+/**
+ * 법학 시험 문제에서 자주 등장하는 노이즈 패턴 목록.
+ * 이 패턴들은 실제 검색 쿼리에 불필요한 단어를 추가하므로
+ * preprocessKoreanQuery 에서 제거합니다.
+ */
+const NOISE_PATTERNS: readonly RegExp[] = [
+  /다음 중 옳[은지].*$/,
+  /다툼이 있는 경우 판례에 의함/g,
+  /틀린 것[은을].*$/,
+  /옳지 않은 것[은을].*$/,
+  /모두 고른 것은\?/,
+  /\(다툼이 있[으면는].*?\)/g,
+  /[ㄱ-ㅎ]\./g,              // ㄱ. ㄴ. ㄷ. 등 선택지 번호
+];
+
+/**
+ * 쿼리에서 시험 문제 노이즈 패턴을 제거합니다.
+ * 실제 검색 키워드만 남겨 FTS/시맨틱 정확도를 높입니다.
+ */
+function removeNoisePatterns(query: string): string {
+  let cleaned = query;
+  for (const pattern of NOISE_PATTERNS) {
+    // RegExp 플래그에 'g'가 있으면 그대로, 없으면 전역 교체
+    if (pattern.global) {
+      cleaned = cleaned.replace(pattern, "");
+    } else {
+      cleaned = cleaned.replace(pattern, "");
+    }
+  }
+  return cleaned.trim();
+}
+
 // 한국어 조사 패턴 (긴 것부터 매칭하여 오분리 방지)
 const PARTICLES: readonly string[] = [
   "에서는", "에서의", "으로서", "으로써", "에게서",
@@ -307,7 +342,9 @@ function extractBigrams(token: string): string[] {
  * @returns 전처리된 쿼리 (조사 제거 + 복합어 분해 + 도메인별 양방향 동의어 확장)
  */
 export function preprocessKoreanQuery(query: string, caseType?: string): string {
-  const tokens = query.split(/\s+/).filter(Boolean);
+  // 시험 문제 노이즈 패턴 제거 (예: "다음 중 옳은 것은", "ㄱ. ㄴ. ㄷ.")
+  const denoised = removeNoisePatterns(query);
+  const tokens = denoised.split(/\s+/).filter(Boolean);
   const result: string[] = [];
 
   // 해당 도메인에 맞는 양방향 동의어 맵 빌드
@@ -347,7 +384,9 @@ export function preprocessKoreanQuery(query: string, caseType?: string): string 
  * @param caseType - 사건 유형 (도메인별 동의어 필터링에 사용)
  */
 export function preprocessForSemantic(query: string, caseType?: string): string {
-  const tokens = query.split(/\s+/).filter(Boolean);
+  // 시험 문제 노이즈 패턴 제거 (시맨틱 임베딩 품질 향상)
+  const denoised = removeNoisePatterns(query);
+  const tokens = denoised.split(/\s+/).filter(Boolean);
   const result: string[] = [];
 
   const synonymMap = buildBidirectionalMap(caseType);
