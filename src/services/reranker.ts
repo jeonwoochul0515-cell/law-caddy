@@ -17,11 +17,12 @@ export type SourceTable =
   | "legal_mrc"
   | "legal_terms"
   | "legal_knowledge"
-  | "legal_commentary";
+  | "legal_commentary"
+  | "cases";
 
 /** 하이브리드 검색에서 반환된 개별 결과 */
 export interface SearchResult {
-  id: number;
+  id: number | string;
   content: string;
   title: string;
   score: number;
@@ -63,9 +64,76 @@ const CASE_TYPE_KEYWORDS: Record<string, string[]> = {
   손해배상: ["손해배상", "불법행위", "과실", "위자료", "일실수입", "치료비", "배상"],
 };
 
+/** 한국 법원 계층 점수 — 상급심일수록 높은 선례 가치 */
+const COURT_HIERARCHY_SCORE: Record<string, number> = {
+  "대법원": 1.0,
+  "헌법재판소": 1.0,
+  "고등법원": 0.8,
+  "특허법원": 0.8,
+  "지방법원": 0.6,
+  "가정법원": 0.6,
+  "행정법원": 0.7,
+  "회생법원": 0.6,
+};
+
 // ──────────────────────────────────────────────
 // 유틸리티 함수
 // ──────────────────────────────────────────────
+
+/**
+ * 포맷팅된 결과 텍스트에서 법원명, 날짜, 사건번호를 추출합니다.
+ * "[대법원]", "2024.03.15", "2024다12345" 등의 패턴을 파싱합니다.
+ */
+export function extractMetadata(text: string): { court?: string; date?: string; caseNumber?: string } {
+  const result: { court?: string; date?: string; caseNumber?: string } = {};
+
+  // 법원명 추출: "[대법원]" 또는 "법원: 대법원" 패턴
+  const courtBracketMatch = text.match(/\[([가-힣]+법원|헌법재판소|대법원|고등법원|특허법원|지방법원|가정법원|행정법원|회생법원)\]/);
+  const courtLabelMatch = text.match(/법원[:：]\s*([가-힣]+법원|헌법재판소)/);
+  if (courtBracketMatch) {
+    result.court = courtBracketMatch[1];
+  } else if (courtLabelMatch) {
+    result.court = courtLabelMatch[1];
+  }
+
+  // 날짜 추출: "2024.03.15", "2024-03-15", "2024년 3월 15일" 패턴
+  const dotDateMatch = text.match(/\b((?:19|20)\d{2})[.\u002D](0?[1-9]|1[0-2])[.\u002D](0?[1-9]|[12]\d|3[01])\b/);
+  const korDateMatch = text.match(/\b((?:19|20)\d{2})년\s*(0?[1-9]|1[0-2])월\s*(0?[1-9]|[12]\d|3[01])일\b/);
+  if (dotDateMatch) {
+    // 정규화: YYYY-MM-DD 형식으로 통일
+    result.date = `${dotDateMatch[1]}-${dotDateMatch[2].padStart(2, "0")}-${dotDateMatch[3].padStart(2, "0")}`;
+  } else if (korDateMatch) {
+    result.date = `${korDateMatch[1]}-${korDateMatch[2].padStart(2, "0")}-${korDateMatch[3].padStart(2, "0")}`;
+  }
+
+  // 사건번호 추출: "2024다12345", "2023가합56789", "2022헌바123" 등 한국 사건번호 패턴
+  const caseNumberMatch = text.match(/\b((?:19|20)\d{2})[가-힣]{1,4}\d+\b/);
+  if (caseNumberMatch) {
+    result.caseNumber = caseNumberMatch[0];
+  }
+
+  return result;
+}
+
+/**
+ * 법원명에서 계층 점수를 조회합니다.
+ * 매핑에 없는 법원(예: 특수법원)은 기본값 0.6을 반환합니다.
+ */
+function getCourtHierarchyScore(court: string): number {
+  // 정확 일치 우선
+  if (court in COURT_HIERARCHY_SCORE) {
+    return COURT_HIERARCHY_SCORE[court];
+  }
+
+  // 부분 일치 (예: "서울고등법원" → "고등법원")
+  for (const [key, score] of Object.entries(COURT_HIERARCHY_SCORE)) {
+    if (court.includes(key)) {
+      return score;
+    }
+  }
+
+  return 0.6; // 알 수 없는 법원은 지방법원 수준으로 처리
+}
 
 /**
  * 한국어 텍스트를 공백 및 조사 기준으로 토큰화합니다.
@@ -164,20 +232,21 @@ function computeCategoryScore(
 }
 
 /**
- * 시간적 관련성 점수 계산
- * - 최신 판례일수록 높은 점수
- * - 대법원 전원합의체, 헌법재판소 결정은 감쇠 면제
- * - decay_rate: 0.02 (완만한 감쇠)
+ * 시간적 관련성 보너스 점수 계산 (cases 및 법원 결과용 이산 구간 방식)
+ * - 최근 3년 이내: +0.15
+ * - 3~5년: +0.10
+ * - 5~10년: +0.05
+ * - 10년 초과: 보너스 없음 (0)
+ * - 대법원 전원합의체, 헌법재판소 결정: 연도 무관 항상 +0.15
  */
 function computeTemporalScore(metadata?: Record<string, string | null>): number {
-  if (!metadata) return 0.5; // 날짜 없으면 중립
+  if (!metadata) return 0; // 날짜 없으면 보너스 없음
 
-  // 감쇠 면제 대상 확인
+  // 전원합의체 판결 or 헌법재판소 결정 → 최고 보너스 고정
   const court = metadata["court"] || "";
   const caseName = metadata["case_name"] || "";
   const docId = metadata["doc_id"] || "";
 
-  // 전원합의체 판결 or 헌법재판소 결정 → 면제
   if (
     court.includes("전원합의체") ||
     caseName.includes("전원합의체") ||
@@ -185,22 +254,22 @@ function computeTemporalScore(metadata?: Record<string, string | null>): number 
     court.includes("헌법재판소") ||
     court.includes("헌재")
   ) {
-    return 1.0; // 감쇠 없음
+    return 0.15;
   }
 
-  // 날짜 추출
+  // 날짜 추출 — case_date 우선, 없으면 announce_date
   const dateStr = metadata["case_date"] || metadata["announce_date"] || "";
-  if (!dateStr) return 0.5;
+  if (!dateStr) return 0;
 
   const year = parseInt(dateStr.slice(0, 4), 10);
-  if (isNaN(year) || year < 1948) return 0.5;
+  if (isNaN(year) || year < 1948) return 0;
 
   const yearsOld = new Date().getFullYear() - year;
-  const decayRate = 0.02; // 완만한 감쇠
-  const recencyFactor = 1.0 / (1.0 + decayRate * yearsOld);
 
-  // 최소값 0.4 (50년 된 판례도 40% 이상 유지)
-  return Math.max(recencyFactor, 0.4);
+  if (yearsOld <= 3) return 0.15;
+  if (yearsOld <= 5) return 0.10;
+  if (yearsOld <= 10) return 0.05;
+  return 0;
 }
 
 // ──────────────────────────────────────────────
@@ -260,9 +329,23 @@ export function rerank(
     // 길이 점수는 키워드 오버랩에 곱하여 반영 (독립 가중치 없음)
     const adjustedKeywordScore = keywordOverlapScore * lengthScore;
 
-    // 최종 점수 계산
+    // 법원 계층 점수: cases 및 legal_judgments 소스에만 적용
+    // 원본 정규화 점수에 승수로 반영 (최대 ±20% 범위 내 조정)
+    let courtMultiplier = 1.0;
+    if (result.source === "cases" || result.source === "legal_judgments") {
+      // metadata에서 법원명 추출; 없으면 텍스트에서 파싱
+      const courtFromMeta = result.metadata?.["court"] ?? "";
+      const courtName = courtFromMeta || extractMetadata(result.title + " " + result.content).court || "";
+      if (courtName) {
+        const hierarchyScore = getCourtHierarchyScore(courtName);
+        // 0.6(기준)~1.0 범위를 0.9~1.1 승수로 선형 변환하여 과도한 억제/증폭 방지
+        courtMultiplier = 0.9 + (hierarchyScore - 0.6) * 0.5;
+      }
+    }
+
+    // 최종 점수 계산 (법원 계층 승수는 원본 점수 항에만 적용)
     const finalScore =
-      normalizedOriginal * w.original +
+      normalizedOriginal * courtMultiplier * w.original +
       adjustedKeywordScore * w.keywordOverlap +
       categoryScore * w.category +
       temporalScore * (w.temporal ?? 0);
@@ -297,6 +380,11 @@ export function rerank(
  * 다양한 소스에서 결과를 골고루 포함하도록 re-ranking합니다.
  * 동일 소스 결과가 과도하게 집중되는 것을 방지합니다.
  *
+ * 다양성 보장 규칙:
+ * - 소스별 최대 3건 (maxPerSource 인자로 조정 가능)
+ * - cases 소스와 legal_judgments 소스에서 각 1건 이상 포함 (해당 결과가 있는 경우)
+ *   → 실제 판결문(cases)과 분석된 판결문(legal_judgments)을 균형 있게 혼합
+ *
  * @param results - 하이브리드 검색 결과 배열
  * @param query - 원본 검색 쿼리
  * @param topK - 반환할 최대 결과 수
@@ -314,32 +402,63 @@ export function rerankWithDiversity(
   // 먼저 일반 re-ranking 수행
   const ranked = rerank(results, query, undefined, caseType);
 
-  const selected: RankedResult[] = [];
-  const sourceCount: Record<string, number> = {};
+  // 필수 소스별 최고 점수 결과를 먼저 확보 (cases, legal_judgments 각 1건)
+  const MUST_INCLUDE_SOURCES: ReadonlyArray<SourceTable> = ["cases", "legal_judgments"];
+  const mustInclude: RankedResult[] = [];
+  const mustIncludeSourcesSeen = new Set<string>();
 
   for (const result of ranked) {
-    const count = sourceCount[result.source] ?? 0;
-    if (count < maxPerSource) {
-      selected.push(result);
-      sourceCount[result.source] = count + 1;
-
-      if (selected.length >= topK) break;
+    if (
+      MUST_INCLUDE_SOURCES.includes(result.source) &&
+      !mustIncludeSourcesSeen.has(result.source)
+    ) {
+      mustInclude.push(result);
+      mustIncludeSourcesSeen.add(result.source);
+      if (mustIncludeSourcesSeen.size === MUST_INCLUDE_SOURCES.length) break;
     }
   }
 
-  // topK를 못 채웠으면 남은 결과에서 보충
+  const selected: RankedResult[] = [...mustInclude];
+  const sourceCount: Record<string, number> = {};
+  const selectedIds = new Set(selected.map((r) => `${r.source}:${r.id}`));
+
+  // 필수 포함 결과의 소스 카운트 초기화
+  for (const r of selected) {
+    sourceCount[r.source] = (sourceCount[r.source] ?? 0) + 1;
+  }
+
+  // 나머지 슬롯을 소스별 상한을 지키며 채움
+  for (const result of ranked) {
+    if (selected.length >= topK) break;
+
+    const key = `${result.source}:${result.id}`;
+    if (selectedIds.has(key)) continue;
+
+    const count = sourceCount[result.source] ?? 0;
+    if (count < maxPerSource) {
+      selected.push(result);
+      selectedIds.add(key);
+      sourceCount[result.source] = count + 1;
+    }
+  }
+
+  // topK를 못 채웠으면 소스 상한 무시하고 남은 결과에서 보충
   if (selected.length < topK) {
-    const selectedIds = new Set(selected.map((r) => `${r.source}:${r.id}`));
     for (const result of ranked) {
+      if (selected.length >= topK) break;
+
       const key = `${result.source}:${result.id}`;
       if (!selectedIds.has(key)) {
         selected.push(result);
-        if (selected.length >= topK) break;
+        selectedIds.add(key);
       }
     }
   }
 
-  return selected;
+  // finalScore 기준으로 재정렬하여 필수 포함 결과가 점수 순서를 깨지 않도록 함
+  selected.sort((a, b) => b.finalScore - a.finalScore);
+
+  return selected.slice(0, topK);
 }
 
 // ──────────────────────────────────────────────

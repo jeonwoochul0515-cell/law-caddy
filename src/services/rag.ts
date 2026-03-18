@@ -194,6 +194,22 @@ export interface LegalCommentaryResult {
   combined_score: number;
 }
 
+/** 실제 판결문 DB (cases) 검색 결과 (하이브리드) — 41만건 실제 판결 */
+export interface CaseResult {
+  id: string;
+  case_number: string;
+  court: string;
+  case_date: string;
+  category: string;
+  summary: string;
+  key_issues: string;
+  statutes: string;
+  full_text: string;
+  semantic_score: number;
+  keyword_score: number;
+  combined_score: number;
+}
+
 /** 통합 RAG 검색 결과 */
 export interface RAGContext {
   legalForms: LegalFormResult[];
@@ -205,6 +221,7 @@ export interface RAGContext {
   legalTerms: LegalTermResult[];
   legalKnowledge: LegalKnowledgeResult[];
   legalCommentary: LegalCommentaryResult[];
+  cases: CaseResult[];
 }
 
 /** 검색 대상 테이블 타입 */
@@ -242,6 +259,85 @@ interface VoyageEmbeddingResponse {
 }
 
 // ──────────────────────────────────────────────
+// 사건 유형 → 카테고리 필터 매핑
+// (category 컬럼이 있는 테이블에만 적용: legal_judgments, aihub_legal_qa)
+// ──────────────────────────────────────────────
+
+const CASE_TYPE_TO_CATEGORY: Record<string, string[]> = {
+  "민사": ["민사"],
+  "형사": ["형사"],
+  "가사": ["가사"],
+  "행정": ["행정"],
+  "노동": ["노동", "민사"],  // 노동은 민사에도 포함
+  "부동산": ["민사", "부동산"],
+  "채권·채무": ["민사"],
+  "손해배상": ["민사"],
+};
+
+/** category 필터를 지원하는 RPC 함수 이름 집합 */
+const CATEGORY_FILTER_SUPPORTED_RPCS = new Set([
+  "hybrid_search_legal_judgments",
+  "hybrid_search_aihub_qa",
+]);
+
+// ──────────────────────────────────────────────
+// 법률 동의어 확장 (쿼리 텍스트 보강용)
+// ──────────────────────────────────────────────
+
+const LEGAL_SYNONYMS: Record<string, string[]> = {
+  "이혼": ["이혼", "혼인파탄", "협의이혼"],
+  "해고": ["해고", "부당해고", "정리해고", "권고사직"],
+  "사기": ["사기", "기망", "편취"],
+  "횡령": ["횡령", "업무상횡령", "배임"],
+  "교통사고": ["교통사고", "자동차사고", "차량사고"],
+  "임대차": ["임대차", "전세", "월세", "보증금"],
+  "상속": ["상속", "유류분", "유언", "상속포기"],
+};
+
+/**
+ * 쿼리 텍스트에서 법률 동의어를 찾아 확장 용어를 추가합니다.
+ * 원본 쿼리에 없는 동의어만 추가하여 중복을 방지합니다.
+ */
+function expandLegalSynonyms(query: string): string {
+  const expanded = new Set<string>(query.split(/\s+/).filter(Boolean));
+
+  for (const [term, synonyms] of Object.entries(LEGAL_SYNONYMS)) {
+    if (query.includes(term)) {
+      for (const synonym of synonyms) {
+        expanded.add(synonym);
+      }
+    }
+  }
+
+  return [...expanded].join(" ");
+}
+
+/**
+ * 쿼리 특성에 따라 키워드/시맨틱 가중치를 동적으로 조정합니다.
+ * - 사건번호 포함 시: 키워드 0.6 / 시맨틱 0.4 (정확 번호 매칭 우선)
+ * - 매우 짧은 쿼리 (10자 미만): 키워드 0.5 / 시맨틱 0.5
+ * - 기본값: 키워드 0.3 / 시맨틱 0.7
+ */
+function resolveWeights(
+  query: string,
+  keywordWeight: number,
+  semanticWeight: number,
+): { keywordWeight: number; semanticWeight: number } {
+  // 사건번호 패턴: 예) 2023가합12345, 2022나56789
+  const CASE_NUMBER_RE = /\d{4}[가-힣]+\d+/;
+
+  if (CASE_NUMBER_RE.test(query)) {
+    return { keywordWeight: 0.6, semanticWeight: 0.4 };
+  }
+
+  if (query.trim().length < 10) {
+    return { keywordWeight: 0.5, semanticWeight: 0.5 };
+  }
+
+  return { keywordWeight, semanticWeight };
+}
+
+// ──────────────────────────────────────────────
 // 에이전트별 검색 설정
 // ──────────────────────────────────────────────
 
@@ -250,10 +346,10 @@ export const AGENT_SEARCH_CONFIG: Record<
   string,
   { tables: SearchTable[]; limit: number }
 > = {
-  // 판례 검색: legal_judgments(핵심!) + aihub_legal_qa + statutes
+  // 판례 검색: cases(핵심! 41만건 실제 판결) + legal_judgments + aihub_legal_qa + statutes
   // 실제 사건번호가 있는 판결문 검색 가능 = 할루시네이션 해결
   precedent: {
-    tables: ["legal_judgments", "aihub_legal_qa", "statutes", "legal_commentary"],
+    tables: ["cases", "legal_judgments", "aihub_legal_qa", "statutes", "legal_commentary"],
     limit: 5,
   },
   // 적법성 검증: statutes + easy_law + legal_knowledge + legal_commentary
@@ -261,9 +357,9 @@ export const AGENT_SEARCH_CONFIG: Record<
     tables: ["statutes", "easy_law", "legal_knowledge", "legal_commentary"],
     limit: 5,
   },
-  // 쟁점 분석: legal_judgments + aihub_legal_qa + statutes + legal_mrc + legal_commentary
+  // 쟁점 분석: cases + legal_judgments + aihub_legal_qa + statutes + legal_mrc + legal_commentary
   analysis: {
-    tables: ["legal_judgments", "aihub_legal_qa", "statutes", "legal_mrc", "legal_commentary"],
+    tables: ["cases", "legal_judgments", "aihub_legal_qa", "statutes", "legal_mrc", "legal_commentary"],
     limit: 5,
   },
   // 문서 작성: legal_forms + statutes + legal_judgments + legal_terms + legal_commentary
@@ -271,9 +367,9 @@ export const AGENT_SEARCH_CONFIG: Record<
     tables: ["legal_forms", "statutes", "legal_judgments", "legal_terms", "legal_commentary"],
     limit: 5,
   },
-  // 검토: statutes + aihub_legal_qa + legal_judgments + legal_commentary
+  // 검토: statutes + aihub_legal_qa + cases + legal_judgments + legal_commentary
   review: {
-    tables: ["statutes", "aihub_legal_qa", "legal_judgments", "legal_commentary"],
+    tables: ["statutes", "aihub_legal_qa", "cases", "legal_judgments", "legal_commentary"],
     limit: 3,
   },
 };
@@ -623,6 +719,7 @@ export function emptyRAGContext(): RAGContext {
     legalTerms: [],
     legalKnowledge: [],
     legalCommentary: [],
+    cases: [],
   };
 }
 
@@ -637,6 +734,7 @@ const TABLE_RPC_MAP: Record<SearchTable, string> = {
   legal_terms: "hybrid_search_legal_terms",
   legal_knowledge: "hybrid_search_legal_knowledge",
   legal_commentary: "hybrid_search_legal_commentary",
+  cases: "hybrid_search_cases",
 };
 
 /** 테이블 이름과 RAGContext 필드명 매핑 */
@@ -650,6 +748,7 @@ export const TABLE_CONTEXT_KEY_MAP: Record<SearchTable, keyof RAGContext> = {
   legal_terms: "legalTerms",
   legal_knowledge: "legalKnowledge",
   legal_commentary: "legalCommentary",
+  cases: "cases",
 };
 
 /** 테이블별 한국어 로그 라벨 */
@@ -663,6 +762,7 @@ const TABLE_LABEL_MAP: Record<SearchTable, string> = {
   legal_terms: "법령용어",
   legal_knowledge: "법령지식",
   legal_commentary: "법학 해설",
+  cases: "판례 (실제 판결문)",
 };
 
 /**
@@ -775,32 +875,50 @@ export async function searchAll(
     return emptyRAGContext();
   }
 
-  // 하이브리드 검색 공통 파라미터 (FTS에는 전처리된 쿼리 사용)
-  const hybridParams = {
-    query_text: ftsQuery,
-    query_embedding: embedding,
-    match_count: limit,
-    keyword_weight: keywordWeight,
-    semantic_weight: semanticWeight,
-  };
+  // 동의어 확장된 FTS 쿼리 (legal_synonyms 기반 보강)
+  const expandedFtsQuery = expandLegalSynonyms(ftsQuery);
+
+  // 쿼리 특성 기반 가중치 동적 조정
+  const resolvedWeights = resolveWeights(query, keywordWeight, semanticWeight);
+
+  // 사건 유형 → category 필터 배열 (없으면 undefined)
+  const categoryFilter =
+    caseType && CASE_TYPE_TO_CATEGORY[caseType]
+      ? CASE_TYPE_TO_CATEGORY[caseType]
+      : undefined;
 
   // 각 테이블 하이브리드 검색을 병렬로 실행
+  // 테이블별로 category_filter 지원 여부에 따라 파라미터를 다르게 구성
   const searchPromises: Record<string, Promise<unknown[]>> = {};
 
   for (const table of tables) {
     const rpcName = TABLE_RPC_MAP[table];
     const label = TABLE_LABEL_MAP[table];
-    if (rpcName) {
-      searchPromises[table] = callSupabaseRpc<unknown>(rpcName, hybridParams).catch(
-        (error: unknown) => {
-          console.warn(
-            `[RAG] ${label} 하이브리드 검색 실패:`,
-            error instanceof Error ? error.message : error,
-          );
-          return [];
-        },
-      );
+    if (!rpcName) continue;
+
+    // 기본 파라미터 (FTS에는 동의어 확장 + 전처리된 쿼리 사용)
+    const params: Record<string, unknown> = {
+      query_text: expandedFtsQuery,
+      query_embedding: embedding,
+      match_count: limit,
+      keyword_weight: resolvedWeights.keywordWeight,
+      semantic_weight: resolvedWeights.semanticWeight,
+    };
+
+    // category 필터: 해당 RPC가 지원하고 사건 유형이 있을 때만 추가
+    if (categoryFilter && CATEGORY_FILTER_SUPPORTED_RPCS.has(rpcName)) {
+      params.category_filter = categoryFilter;
     }
+
+    searchPromises[table] = callSupabaseRpc<unknown>(rpcName, params).catch(
+      (error: unknown) => {
+        console.warn(
+          `[RAG] ${label} 하이브리드 검색 실패:`,
+          error instanceof Error ? error.message : error,
+        );
+        return [];
+      },
+    );
   }
 
   const keys = Object.keys(searchPromises);
@@ -951,6 +1069,21 @@ export async function searchAllWithRerank(
         category: r.category,
         author: r.author,
         doc_type: r.doc_type,
+      },
+    })),
+    ...context.cases.map((r) => ({
+      id: r.id,
+      content: r.summary || r.full_text,
+      title: `${r.case_number} (${r.court || "-"})`,
+      score: r.combined_score,
+      source: "cases" as const,
+      metadata: {
+        case_number: r.case_number,
+        court: r.court,
+        case_date: r.case_date,
+        category: r.category,
+        key_issues: r.key_issues,
+        statutes: r.statutes,
       },
     })),
   ];
@@ -1173,6 +1306,21 @@ function flattenRAGContext(context: RAGContext): SearchResult[] {
         doc_type: r.doc_type,
       },
     })),
+    ...context.cases.map((r) => ({
+      id: r.id,
+      content: r.summary || r.full_text,
+      title: `${r.case_number} (${r.court || "-"})`,
+      score: r.combined_score,
+      source: "cases" as const,
+      metadata: {
+        case_number: r.case_number,
+        court: r.court,
+        case_date: r.case_date,
+        category: r.category,
+        key_issues: r.key_issues,
+        statutes: r.statutes,
+      },
+    })),
   ];
 }
 
@@ -1213,7 +1361,25 @@ function rebuildRAGContext(ranked: RankedResult[]): RAGContext {
 export function formatRAGContext(results: RAGContext): string {
   const sections: string[] = [];
 
-  // 판결문 (가장 중요 — 실제 사건번호 포함)
+  // ── 우선순위 1: 실제 판례 (cases) — 41만건 실제 법원 판결문, 사건번호 확인됨 ──
+  if (results.cases.length > 0) {
+    const caseLines = results.cases.map(
+      (c) =>
+        `### 📋 ${c.case_number} (${c.court || "-"}, ${c.case_date || "-"})\n` +
+        `- **분류**: ${c.category || "-"}\n` +
+        `- **요지**: ${c.summary}\n` +
+        (c.key_issues ? `- **쟁점**: ${c.key_issues}\n` : "") +
+        (c.statutes ? `- **관련법조**: ${c.statutes}\n` : "") +
+        `- 관련도: 시맨틱 ${(c.semantic_score * 100).toFixed(1)}%, 키워드 ${(c.keyword_score * 100).toFixed(1)}%`,
+    );
+    sections.push(
+      `## ⚖️ 실제 판례 (법원 판결문 DB — 사건번호 확인됨)\n` +
+      `아래 판례는 실제 법원 판결문 데이터베이스에서 검색한 것입니다. 사건번호와 판결내용이 실제 데이터입니다.\n\n` +
+      caseLines.join("\n\n"),
+    );
+  }
+
+  // ── 우선순위 2: 판결문 분석 (legal_judgments) — 실제 사건번호 포함 ──
   if (results.legalJudgments.length > 0) {
     const judgmentLines = results.legalJudgments.map(
       (j, i) =>
@@ -1221,10 +1387,10 @@ export function formatRAGContext(results: RAGContext): string {
         `   판시사항: ${j.summary || j.content}\n` +
         `   [시맨틱: ${(j.semantic_score * 100).toFixed(1)}% | 키워드: ${(j.keyword_score * 100).toFixed(1)}% | 종합: ${(j.combined_score * 100).toFixed(1)}%]`,
     );
-    sections.push(`### 관련 판결문 (실제 사건번호)\n${judgmentLines.join("\n\n")}`);
+    sections.push(`### 관련 판결문 분석 (실제 사건번호)\n${judgmentLines.join("\n\n")}`);
   }
 
-  // 법령 조문
+  // ── 우선순위 3: 법률 조문 (statutes) ──
   if (results.statutes.length > 0) {
     const statuteLines = results.statutes.map(
       (s, i) =>
@@ -1235,7 +1401,19 @@ export function formatRAGContext(results: RAGContext): string {
     sections.push(`### 관련 법령 조문\n${statuteLines.join("\n\n")}`);
   }
 
-  // 판례/법률 QA
+  // ── 우선순위 4: 법률 해설 (legal_commentary) ──
+  if (results.legalCommentary.length > 0) {
+    const commentaryLines = results.legalCommentary.map(
+      (c, i) =>
+        `${i + 1}. [${c.category}/${c.doc_type || "-"}] ${c.title}\n` +
+        (c.author ? `   저자: ${c.author}\n` : "") +
+        `   ${c.summary || c.content}\n` +
+        `   [시맨틱: ${(c.semantic_score * 100).toFixed(1)}% | 키워드: ${(c.keyword_score * 100).toFixed(1)}% | 종합: ${(c.combined_score * 100).toFixed(1)}%]`,
+    );
+    sections.push(`### 관련 법학 해설 자료\n${commentaryLines.join("\n\n")}`);
+  }
+
+  // ── 우선순위 5: 법률 Q&A (aihub_legal_qa, legal_mrc) ──
   if (results.aihubQA.length > 0) {
     const qaLines = results.aihubQA.map(
       (qa, i) =>
@@ -1244,10 +1422,9 @@ export function formatRAGContext(results: RAGContext): string {
         `   출처: ${qa.source_info}\n` +
         `   [시맨틱: ${(qa.semantic_score * 100).toFixed(1)}% | 키워드: ${(qa.keyword_score * 100).toFixed(1)}% | 종합: ${(qa.combined_score * 100).toFixed(1)}%]`,
     );
-    sections.push(`### 관련 판례/법률 QA\n${qaLines.join("\n\n")}`);
+    sections.push(`### 관련 법률 Q&A\n${qaLines.join("\n\n")}`);
   }
 
-  // 기계독해 QA
   if (results.legalMRC.length > 0) {
     const mrcLines = results.legalMRC.map(
       (m, i) =>
@@ -1257,10 +1434,21 @@ export function formatRAGContext(results: RAGContext): string {
         `   근거: ${m.context}\n` +
         `   [시맨틱: ${(m.semantic_score * 100).toFixed(1)}% | 키워드: ${(m.keyword_score * 100).toFixed(1)}% | 종합: ${(m.combined_score * 100).toFixed(1)}%]`,
     );
-    sections.push(`### 법률 문서 해석 QA (기계독해)\n${mrcLines.join("\n\n")}`);
+    sections.push(`### 법률 문서 해석 Q&A (기계독해)\n${mrcLines.join("\n\n")}`);
   }
 
-  // 법령용어
+  // ── 우선순위 6: 법률 서식 (legal_forms) ──
+  if (results.legalForms.length > 0) {
+    const formLines = results.legalForms.map(
+      (f, i) =>
+        `${i + 1}. ${f.title} (${f.form_type} / ${f.case_category})\n` +
+        `   ${f.content}\n` +
+        `   [시맨틱: ${(f.semantic_score * 100).toFixed(1)}% | 키워드: ${(f.keyword_score * 100).toFixed(1)}% | 종합: ${(f.combined_score * 100).toFixed(1)}%]`,
+    );
+    sections.push(`### 관련 법률 서식\n${formLines.join("\n\n")}`);
+  }
+
+  // ── 우선순위 7: 법률 용어 (legal_terms) ──
   if (results.legalTerms.length > 0) {
     const termLines = results.legalTerms.map(
       (t, i) =>
@@ -1273,19 +1461,7 @@ export function formatRAGContext(results: RAGContext): string {
     sections.push(`### 관련 법령용어\n${termLines.join("\n\n")}`);
   }
 
-  // 법령지식 (실생활 법률)
-  if (results.legalKnowledge.length > 0) {
-    const knowledgeLines = results.legalKnowledge.map(
-      (k, i) =>
-        `${i + 1}. [${k.category}] ${k.title ?? k.topic}\n` +
-        `   ${k.content}\n` +
-        (k.related_statutes ? `   관련 법률: ${k.related_statutes}\n` : "") +
-        `   [시맨틱: ${(k.semantic_score * 100).toFixed(1)}% | 키워드: ${(k.keyword_score * 100).toFixed(1)}% | 종합: ${(k.combined_score * 100).toFixed(1)}%]`,
-    );
-    sections.push(`### 관련 법령지식 (실생활 법률)\n${knowledgeLines.join("\n\n")}`);
-  }
-
-  // 생활법률
+  // ── 우선순위 8: 생활법률 (easy_law, legal_knowledge) ──
   if (results.easyLaw.length > 0) {
     const easyLawLines = results.easyLaw.map(
       (el, i) =>
@@ -1297,35 +1473,38 @@ export function formatRAGContext(results: RAGContext): string {
     sections.push(`### 관련 생활법률 정보\n${easyLawLines.join("\n\n")}`);
   }
 
-  // 법률 서식
-  if (results.legalForms.length > 0) {
-    const formLines = results.legalForms.map(
-      (f, i) =>
-        `${i + 1}. ${f.title} (${f.form_type} / ${f.case_category})\n` +
-        `   ${f.content}\n` +
-        `   [시맨틱: ${(f.semantic_score * 100).toFixed(1)}% | 키워드: ${(f.keyword_score * 100).toFixed(1)}% | 종합: ${(f.combined_score * 100).toFixed(1)}%]`,
+  if (results.legalKnowledge.length > 0) {
+    const knowledgeLines = results.legalKnowledge.map(
+      (k, i) =>
+        `${i + 1}. [${k.category}] ${k.title ?? k.topic}\n` +
+        `   ${k.content}\n` +
+        (k.related_statutes ? `   관련 법률: ${k.related_statutes}\n` : "") +
+        `   [시맨틱: ${(k.semantic_score * 100).toFixed(1)}% | 키워드: ${(k.keyword_score * 100).toFixed(1)}% | 종합: ${(k.combined_score * 100).toFixed(1)}%]`,
     );
-    sections.push(`### 관련 법률 서식\n${formLines.join("\n\n")}`);
-  }
-
-  // 법학 해설 자료 (연구보고서, 판례해설, 입법취지)
-  if (results.legalCommentary.length > 0) {
-    const commentaryLines = results.legalCommentary.map(
-      (c, i) =>
-        `${i + 1}. [${c.category}/${c.doc_type || "-"}] ${c.title}\n` +
-        (c.author ? `   저자: ${c.author}\n` : "") +
-        `   ${c.summary || c.content}\n` +
-        `   [시맨틱: ${(c.semantic_score * 100).toFixed(1)}% | 키워드: ${(c.keyword_score * 100).toFixed(1)}% | 종합: ${(c.combined_score * 100).toFixed(1)}%]`,
-    );
-    sections.push(`### 관련 법학 해설 자료\n${commentaryLines.join("\n\n")}`);
+    sections.push(`### 관련 법령지식 (실생활 법률)\n${knowledgeLines.join("\n\n")}`);
   }
 
   if (sections.length === 0) {
     return "";
   }
 
+  // 검색 결과 요약 (상단 1줄)
+  const summaryCounts: string[] = [];
+  if (results.cases.length > 0) summaryCounts.push(`판례 ${results.cases.length}건`);
+  if (results.legalJudgments.length > 0) summaryCounts.push(`판결문 ${results.legalJudgments.length}건`);
+  if (results.statutes.length > 0) summaryCounts.push(`법조문 ${results.statutes.length}건`);
+  if (results.legalCommentary.length > 0) summaryCounts.push(`법학해설 ${results.legalCommentary.length}건`);
+  if (results.aihubQA.length > 0) summaryCounts.push(`법률QA ${results.aihubQA.length}건`);
+  if (results.legalMRC.length > 0) summaryCounts.push(`기계독해QA ${results.legalMRC.length}건`);
+  if (results.legalForms.length > 0) summaryCounts.push(`서식 ${results.legalForms.length}건`);
+  if (results.legalTerms.length > 0) summaryCounts.push(`법령용어 ${results.legalTerms.length}건`);
+  if (results.easyLaw.length > 0) summaryCounts.push(`생활법률 ${results.easyLaw.length}건`);
+  if (results.legalKnowledge.length > 0) summaryCounts.push(`법령지식 ${results.legalKnowledge.length}건`);
+  const summaryLine = `[법률 DB 검색: ${summaryCounts.join(", ")}]`;
+
   return (
-    "──── RAG 검색 결과 (참고 자료) ────\n\n" +
+    "──── RAG 검색 결과 (참고 자료) ────\n" +
+    summaryLine + "\n\n" +
     sections.join("\n\n") +
     "\n\n──── RAG 검색 결과 끝 ────"
   );

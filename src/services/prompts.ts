@@ -79,24 +79,18 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(`문서 유형: ${ctx.docType}`);
   }
 
-  if (ctx.previousTranscripts) {
-    lines.push("");
-    lines.push("[이전 상담 대화록]");
-    lines.push(ctx.previousTranscripts);
-  }
-
-  if (ctx.transcript) {
-    lines.push("");
-    lines.push("[실제 STT 대화록]");
-    lines.push(ctx.transcript);
-  }
-
+  // RAG 컨텍스트를 대화록보다 먼저 배치: Claude가 참고 자료를 먼저 읽은 후 대화록을 처리
   if (ctx.ragContext) {
     lines.push("");
-    lines.push("[참고 법률 자료 (벡터 검색 결과)]");
+    lines.push("## 참고 법률 자료 (AI 검색 결과)");
+    lines.push("아래 자료는 법률 벡터 DB에서 본 사건과 관련하여 검색된 실제 데이터입니다.");
+    lines.push("- '⚖️ 실제 판례' 섹션의 사건번호는 실제 법원 판결문 DB에서 확인된 데이터로, 그대로 인용하세요 (🟢 확인됨 등급).");
+    lines.push("- '관련 판결문 분석' 섹션도 실제 사건번호가 포함된 분석 자료입니다.");
+    lines.push("- 법령 조문, 법학 해설 등 나머지 자료도 공식 데이터베이스 기반입니다.");
+    lines.push("");
     lines.push(ctx.ragContext);
     lines.push("");
-    lines.push("※ 위 참고 자료는 AI가 검색한 것으로, 반드시 내용을 검증 후 활용하세요.");
+    lines.push("※ 위 참고 자료를 우선 활용하고, 추가로 학습 데이터에서 알고 있는 관련 판례·법리도 함께 제시하세요.");
   }
 
   if (ctx.latestPrecedents) {
@@ -113,6 +107,18 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(ctx.fileContents);
     lines.push("");
     lines.push("※ 위 내용은 업로드된 파일에서 자동 추출한 텍스트입니다. 원본 파일과 대조하여 확인하세요.");
+  }
+
+  if (ctx.previousTranscripts) {
+    lines.push("");
+    lines.push("[이전 상담 대화록]");
+    lines.push(ctx.previousTranscripts);
+  }
+
+  if (ctx.transcript) {
+    lines.push("");
+    lines.push("[실제 STT 대화록]");
+    lines.push(ctx.transcript);
   }
 
   return lines.join("\n");
@@ -238,6 +244,7 @@ ${ANTI_HALLUCINATION_RULES}
 ${context}
 
 본 사건의 쟁점에 대해 판례를 분석하세요.
+${hasRAG ? "위 '참고 법률 자료' 중 '⚖️ 실제 판례' 섹션에 포함된 판례는 실제 법원 판결문 데이터베이스에서 검색된 것으로 사건번호가 확인된 데이터입니다. 이 판례들을 1순위(🟢 확인됨)로 인용하세요." : ""}
 ${hasExternalSources ? "법제처/RAG 검색 결과가 있으니 이를 우선 활용하고, 추가로 학습 데이터에서 알고 있는 관련 판례도 함께 제시하세요." : "외부 검색 결과가 없으므로, 학습 데이터에서 확실히 기억하는 관련 판례를 적극적으로 제시하세요. 사건번호가 기억나면 [검증 필요]와 함께 기재하고, 기억나지 않으면 확립된 법리를 서술하세요."}
 
 ## 유리한 판례 (Our Weapons)
