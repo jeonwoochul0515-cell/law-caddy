@@ -7,7 +7,14 @@ import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prom
 import { pollTranscription, formatTranscript } from "../services/rtzr";
 import { formatRAGContext } from "../services/rag";
 import { SearchPool } from "../services/search-pool";
-import { searchLatestPrecedents, formatPrecedentsForPrompt } from "../services/precedent-api";
+import {
+  searchLatestPrecedents,
+  formatPrecedentsForPrompt,
+  searchConstitutionalDecisions,
+  formatConstitutionalForPrompt,
+  searchLegalInterpretations,
+  formatInterpretationsForPrompt,
+} from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
 import { CASE_TYPES } from "../config/constants";
@@ -117,20 +124,56 @@ async function runSingleAgent(
     console.warn(`[${agentId}] RAG 검색 실패:`, err instanceof Error ? err.message : err);
   }
 
-  // precedent 에이전트: 법제처 실시간 판례 검색 (실패 시 graceful degradation)
+  // precedent 에이전트: 법제처 실시간 판례·헌재결정례 검색 (실패 시 graceful degradation)
+  // legal 에이전트: 법령해석례 검색 추가 (실패 시 graceful degradation)
   let latestPrecedents = "";
+  let constitutionalDecisions = "";
+  let legalInterpretations = "";
+
   if (agentId === "precedent") {
-    try {
-      const searchQuery = context.caseType
-        ? `${context.caseType} ${context.caseDesc}`
-        : context.caseDesc;
-      const precedents = await searchLatestPrecedents(searchQuery, 5);
+    const searchQuery = context.caseType
+      ? `${context.caseType} ${context.caseDesc}`
+      : context.caseDesc;
+
+    // 판례 + 헌재결정례를 병렬로 검색
+    const [precedentResults, detcResults] = await Promise.allSettled([
+      searchLatestPrecedents(searchQuery, 5),
+      searchConstitutionalDecisions(searchQuery, 3),
+    ]);
+
+    if (precedentResults.status === "fulfilled") {
+      const precedents = precedentResults.value;
       latestPrecedents = formatPrecedentsForPrompt(precedents);
       if (precedents.length === 0) {
-        console.warn("[precedent] 법제처 API 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
+        console.warn("[precedent] 법제처 판례 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
+      }
+    } else {
+      console.warn("[precedent] 법제처 판례 API 실패:", precedentResults.reason);
+    }
+
+    if (detcResults.status === "fulfilled") {
+      constitutionalDecisions = formatConstitutionalForPrompt(detcResults.value);
+      if (detcResults.value.length === 0) {
+        console.warn("[precedent] 헌재결정례 검색 결과 0건");
+      }
+    } else {
+      console.warn("[precedent] 헌재결정례 API 실패:", detcResults.reason);
+    }
+  }
+
+  if (agentId === "legal") {
+    // 적법성 검증 시 공식 법령해석례 보강
+    const searchQuery = context.caseType
+      ? `${context.caseType} ${context.caseDesc}`
+      : context.caseDesc;
+    try {
+      const interpretations = await searchLegalInterpretations(searchQuery, 3);
+      legalInterpretations = formatInterpretationsForPrompt(interpretations);
+      if (interpretations.length === 0) {
+        console.warn("[legal] 법령해석례 검색 결과 0건");
       }
     } catch (err) {
-      console.warn("[precedent] 법제처 API 실패:", err instanceof Error ? err.message : err);
+      console.warn("[legal] 법령해석례 API 실패:", err instanceof Error ? err.message : err);
     }
   }
 
@@ -141,6 +184,8 @@ async function runSingleAgent(
     ...context,
     ...(ragContext ? { ragContext } : {}),
     ...(latestPrecedents ? { latestPrecedents } : {}),
+    ...(constitutionalDecisions ? { constitutionalDecisions } : {}),
+    ...(legalInterpretations ? { legalInterpretations } : {}),
   };
   const prompt = buildPrompt(promptId, contextWithRAG);
 

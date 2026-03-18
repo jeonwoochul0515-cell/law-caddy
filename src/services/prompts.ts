@@ -31,6 +31,8 @@ export interface AgentContext {
   checkQuestions?: CheckQuestion[];
   ragContext?: string;  // RAG 벡터 검색 결과 텍스트 (선택적)
   latestPrecedents?: string;  // 법제처 실시간 판례 검색 결과 (선택적)
+  constitutionalDecisions?: string;  // 법제처 헌재결정례 검색 결과 (선택적)
+  legalInterpretations?: string;     // 법제처 법령해석례 검색 결과 (선택적)
   fileContents?: string;  // PDF/문서 파일에서 추출한 텍스트 (선택적)
   lawyerName?: string;  // 변호사 이름 (프로필)
   firmName?: string;    // 법률사무소 이름 (프로필)
@@ -99,6 +101,22 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(ctx.latestPrecedents);
     lines.push("");
     lines.push("※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
+  }
+
+  if (ctx.constitutionalDecisions) {
+    lines.push("");
+    lines.push("[관련 헌재결정례 (법제처 실시간 검색)]");
+    lines.push(ctx.constitutionalDecisions);
+    lines.push("");
+    lines.push("※ 위 헌재결정례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
+  }
+
+  if (ctx.legalInterpretations) {
+    lines.push("");
+    lines.push("[관련 법령해석례 (법제처 실시간 검색)]");
+    lines.push(ctx.legalInterpretations);
+    lines.push("");
+    lines.push("※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.");
   }
 
   if (ctx.fileContents) {
