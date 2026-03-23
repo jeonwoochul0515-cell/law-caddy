@@ -22,6 +22,7 @@ import { parseCheckQuestionsResponse } from "../hooks/useDocument";
 import { uploadRecordingFile } from "../services/firebase/storage";
 import { createRecording } from "../services/firebase/firestore";
 import { extractAllPdfTexts } from "../services/pdf";
+import { isImageFile, extractAllImageTexts } from "../services/ocr";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 import type { CaseType, DocType } from "../types/agent";
 
@@ -323,18 +324,30 @@ export default function CheckpointPage() {
         const pdfFiles = allFiles.filter((f) =>
           f.type === "application/pdf" || !!f.name?.match(/\.pdf$/i),
         );
-        if (pdfFiles.length > 0) {
-          setUploadProgress("PDF 텍스트 추출 중...");
-          try {
-            const pdfText = await extractAllPdfTexts(pdfFiles);
-            // 기존 에이전트 결과에 체크포인트 첨부 PDF 내용 추가
-            state.agentResults = {
-              ...state.agentResults,
-              stt: (state.agentResults.stt ?? "") + `\n\n[체크포인트 첨부 PDF 내용]\n${pdfText}`,
-            };
-          } catch (err) {
-            console.error("PDF 텍스트 추출 실패:", err);
-          }
+        const imageFilesForOcr = allFiles.filter((f) => isImageFile(f));
+
+        // PDF + 이미지 OCR 병렬 처리
+        const [pdfText, imageText] = await Promise.all([
+          pdfFiles.length > 0
+            ? (setUploadProgress("PDF 텍스트 추출 중..."), extractAllPdfTexts(pdfFiles).catch((err) => {
+                console.error("PDF 텍스트 추출 실패:", err);
+                return "";
+              }))
+            : Promise.resolve(""),
+          imageFilesForOcr.length > 0
+            ? (setUploadProgress("이미지 OCR 처리 중..."), extractAllImageTexts(imageFilesForOcr).catch((err) => {
+                console.error("이미지 OCR 실패:", err);
+                return "";
+              }))
+            : Promise.resolve(""),
+        ]);
+
+        const attachedContents = [pdfText, imageText].filter(Boolean).join("\n\n---\n\n");
+        if (attachedContents) {
+          state.agentResults = {
+            ...state.agentResults,
+            stt: (state.agentResults.stt ?? "") + `\n\n[체크포인트 첨부 파일 내용]\n${attachedContents}`,
+          };
         }
       } finally {
         setUploading(false);

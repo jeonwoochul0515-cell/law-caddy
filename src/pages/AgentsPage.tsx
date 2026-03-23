@@ -11,6 +11,7 @@ import { transcribeFile } from "../services/rtzr";
 import { callClaude } from "../services/claude";
 import { buildCaseDescriptionPrompt } from "../services/prompts";
 import { extractAllPdfTexts } from "../services/pdf";
+import { isImageFile, extractAllImageTexts } from "../services/ocr";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -84,17 +85,32 @@ export default function AgentsPage() {
     const pdfFiles = allFiles.filter((f: File) =>
       f.type === "application/pdf" || f.name?.match(/\.pdf$/i),
     );
+    const imageFiles = allFiles.filter((f: File) => isImageFile(f));
 
-    // PDF 텍스트 추출 + STT 요청을 병렬로 진행
+    // PDF 텍스트 추출 + 이미지 OCR + STT 요청을 병렬로 진행
     const startAgents = async () => {
-      // PDF 텍스트 추출 (있으면)
+      // PDF 텍스트 추출 + 이미지 OCR 병렬 실행
+      const [pdfContents, imageContents] = await Promise.all([
+        pdfFiles.length > 0
+          ? extractAllPdfTexts(pdfFiles).catch((err) => {
+              console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
+              return "";
+            })
+          : Promise.resolve(""),
+        imageFiles.length > 0
+          ? extractAllImageTexts(imageFiles).catch((err) => {
+              console.error("[AgentsPage] 이미지 OCR 실패:", err);
+              return "";
+            })
+          : Promise.resolve(""),
+      ]);
+
+      // PDF + 이미지 OCR 결과 합산
       let fileContents = "";
-      if (pdfFiles.length > 0) {
-        try {
-          fileContents = await extractAllPdfTexts(pdfFiles);
-        } catch (err) {
-          console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
-        }
+      if (pdfContents && imageContents) {
+        fileContents = pdfContents + "\n\n---\n\n" + imageContents;
+      } else {
+        fileContents = pdfContents || imageContents;
       }
 
       const baseContext = {
