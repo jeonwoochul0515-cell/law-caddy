@@ -6,19 +6,53 @@ import LoginPage from "./pages/LoginPage";
 import LandingPage from "./pages/LandingPage";
 import ErrorFallback from "./components/ui/ErrorFallback";
 
-// Lazy-loaded pages (코드 스플리팅)
-const RegisterPage = lazy(() => import("./pages/RegisterPage"));
-const PendingPage = lazy(() => import("./pages/PendingPage"));
-const DashboardPage = lazy(() => import("./pages/DashboardPage"));
-const RecordPage = lazy(() => import("./pages/RecordPage"));
-const AgentsPage = lazy(() => import("./pages/AgentsPage"));
-const CheckpointPage = lazy(() => import("./pages/CheckpointPage"));
-const DocumentPage = lazy(() => import("./pages/DocumentPage"));
-const CasesPage = lazy(() => import("./pages/CasesPage"));
-const CaseDetailPage = lazy(() => import("./pages/CaseDetailPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const AdminPage = lazy(() => import("./pages/AdminPage"));
-const FinancePage = lazy(() => import("./pages/FinancePage"));
+/**
+ * 배포 후 캐시된 이전 청크 파일을 요청할 때 발생하는 로드 에러를 처리합니다.
+ * 청크 로드 실패 시 한 번만 페이지를 새로고침합니다.
+ */
+function lazyWithRetry(importFn: () => Promise<{ default: React.ComponentType }>) {
+  return lazy(() =>
+    importFn().catch((error: unknown) => {
+      const isChunkError =
+        error instanceof Error &&
+        (error.message.includes("Failed to fetch dynamically imported module") ||
+         error.message.includes("Loading chunk") ||
+         error.message.includes("Loading CSS chunk"));
+
+      // 무한 새로고침 방지: sessionStorage로 1회만 시도
+      const reloadKey = "chunk-reload";
+      if (isChunkError && !sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, "1");
+        window.location.reload();
+        // reload 중에는 빈 컴포넌트 반환
+        return { default: () => null } as { default: React.ComponentType };
+      }
+
+      // 이미 새로고침 했거나 다른 에러면 throw
+      sessionStorage.removeItem(reloadKey);
+      throw error;
+    }),
+  );
+}
+
+// 페이지 로드 성공 시 reload 플래그 제거
+if (sessionStorage.getItem("chunk-reload")) {
+  sessionStorage.removeItem("chunk-reload");
+}
+
+// Lazy-loaded pages (코드 스플리팅 + 청크 에러 자동 복구)
+const RegisterPage = lazyWithRetry(() => import("./pages/RegisterPage"));
+const PendingPage = lazyWithRetry(() => import("./pages/PendingPage"));
+const DashboardPage = lazyWithRetry(() => import("./pages/DashboardPage"));
+const RecordPage = lazyWithRetry(() => import("./pages/RecordPage"));
+const AgentsPage = lazyWithRetry(() => import("./pages/AgentsPage"));
+const CheckpointPage = lazyWithRetry(() => import("./pages/CheckpointPage"));
+const DocumentPage = lazyWithRetry(() => import("./pages/DocumentPage"));
+const CasesPage = lazyWithRetry(() => import("./pages/CasesPage"));
+const CaseDetailPage = lazyWithRetry(() => import("./pages/CaseDetailPage"));
+const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
+const AdminPage = lazyWithRetry(() => import("./pages/AdminPage"));
+const FinancePage = lazyWithRetry(() => import("./pages/FinancePage"));
 
 function LazyFallback() {
   return (
