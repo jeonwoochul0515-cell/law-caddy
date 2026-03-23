@@ -27,6 +27,17 @@ interface RunAgentsContext extends AgentContext {
 /** 에이전트 실행 단계 */
 type AgentStep = "idle" | "running" | "completed" | "error";
 
+/** sessionStorage 캐시 키 */
+const AGENTS_CACHE_KEY = "law-caddy-agents-results";
+
+/** 캐시 데이터 구조 */
+interface AgentsCacheData {
+  agents: Record<AgentId, AgentState>;
+  classifiedCaseType: CaseType | null;
+  clientName: string;
+  timestamp: number;
+}
+
 /** useAgents 반환 타입 */
 interface UseAgentsReturn {
   agents: Record<AgentId, AgentState>;
@@ -36,6 +47,7 @@ interface UseAgentsReturn {
   isClassifying: boolean;
   runAllAgents: (context: RunAgentsContext) => Promise<Record<AgentId, AgentState>>;
   resetAgents: () => void;
+  restoreFromCache: (clientName: string) => boolean;
 }
 
 /** 에이전트 ID 목록 */
@@ -231,6 +243,31 @@ export default function useAgents(): UseAgentsReturn {
     setAgents(createInitialStates());
     setIsRunning(false);
     setCurrentStep("idle");
+    setClassifiedCaseType(null);
+  }, []);
+
+  /** sessionStorage에서 이전 에이전트 결과 복원 */
+  const restoreFromCache = useCallback((clientName: string): boolean => {
+    try {
+      const cached = sessionStorage.getItem(AGENTS_CACHE_KEY);
+      if (!cached) return false;
+      const data = JSON.parse(cached) as AgentsCacheData;
+      // 같은 의뢰인의 결과인지 확인 (30분 이내)
+      if (data.clientName !== clientName) return false;
+      if (Date.now() - data.timestamp > 30 * 60 * 1000) return false;
+      // 모든 에이전트가 완료 상태인지 확인
+      const allDone = Object.values(data.agents).every(
+        (a) => a.status === "completed" || a.status === "error",
+      );
+      if (!allDone) return false;
+      setAgents(data.agents);
+      setClassifiedCaseType(data.classifiedCaseType);
+      setCurrentStep("completed");
+      setIsRunning(false);
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   /** 6개 에이전트 병렬 실행 */
@@ -305,6 +342,7 @@ export default function useAgents(): UseAgentsReturn {
 
       // 에이전트 완료 후 사건 유형 자동 분류
       const analysisResult = finalStates.analysis?.result;
+      let caseType: CaseType | null = null;
       if (analysisResult && !context.caseType) {
         setIsClassifying(true);
         try {
@@ -312,13 +350,26 @@ export default function useAgents(): UseAgentsReturn {
           const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
           const trimmed = result.trim();
           const matched = CASE_TYPES.find((t) => trimmed.includes(t));
-          setClassifiedCaseType(matched ?? "기타");
+          caseType = matched ?? "기타";
+          setClassifiedCaseType(caseType);
         } catch {
-          setClassifiedCaseType("기타");
+          caseType = "기타";
+          setClassifiedCaseType(caseType);
         } finally {
           setIsClassifying(false);
         }
       }
+
+      // 결과를 sessionStorage에 캐시 (다음 방문 시 복원용)
+      try {
+        const cacheData: AgentsCacheData = {
+          agents: finalStates,
+          classifiedCaseType: caseType ?? (context.caseType as CaseType) ?? null,
+          clientName: context.clientName,
+          timestamp: Date.now(),
+        };
+        sessionStorage.setItem(AGENTS_CACHE_KEY, JSON.stringify(cacheData));
+      } catch { /* quota */ }
 
       return finalStates;
     },
@@ -333,5 +384,6 @@ export default function useAgents(): UseAgentsReturn {
     isClassifying,
     runAllAgents,
     resetAgents,
+    restoreFromCache,
   };
 }

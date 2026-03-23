@@ -58,10 +58,11 @@ export default function AgentsPage() {
     } catch { return null; }
   })();
 
-  const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents } = useAgents();
+  const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents, restoreFromCache } = useAgents();
   const { addCase } = useCases();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
   const [started, setStarted] = useState(false);
+  const [restoredFromCache, setRestoredFromCache] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<DocType | null>(null);
   const [isCreatingCase, setIsCreatingCase] = useState(false);
   const [createdCaseId, setCreatedCaseId] = useState<string | null>(state?.caseId ?? null);
@@ -70,6 +71,14 @@ export default function AgentsPage() {
 
   useEffect(() => {
     if (!state || started) return;
+
+    // 이전 분석 결과가 캐시에 있으면 복원 (다시 분석하지 않음)
+    if (!rawState?.files?.length && restoreFromCache(state.clientName)) {
+      setStarted(true);
+      setRestoredFromCache(true);
+      return;
+    }
+
     setStarted(true);
 
     const fullDesc = state.typedNotes
@@ -148,6 +157,11 @@ export default function AgentsPage() {
   // 에이전트 완료 후 사건 개요가 없으면 AI로 자동 생성
   useEffect(() => {
     if (!allCompleted || !state || generatedDesc !== null) return;
+    // 캐시에서 복원된 경우 + 이미 사건이 있으면 AI 호출 불필요
+    if (restoredFromCache && hasExistingCase) {
+      setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`);
+      return;
+    }
     if (state.caseDesc && state.caseDesc.trim().length > 10) {
       setGeneratedDesc(state.caseDesc);
       return;
