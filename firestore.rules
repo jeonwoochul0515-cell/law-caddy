@@ -107,6 +107,50 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // ── 수임료 (Fees) ──
+    match /fees/{feeId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+
+      // ── 분할납부 (Installments 서브컬렉션) ──
+      match /installments/{installmentId} {
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/fees/$(feeId)).data.ownerId == request.auth.uid;
+        allow read, update, delete: if isAuthenticated()
+          && get(/databases/$(database)/documents/fees/$(feeId)).data.ownerId == request.auth.uid;
+        allow read: if isAdmin();
+      }
+    }
+
+    // ── 사건별 경비 (Case Expenses) ──
+    match /case_expenses/{expenseId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+    }
+
+    // ── 거래 내역 (Transactions) ──
+    match /transactions/{transactionId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+    }
+
+    // ── 사무소 경비 (Office Expenses) ──
+    match /office_expenses/{expenseId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+    }
+
+    // ── 예수금 (Deposits) ──
+    match /deposits/{depositId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+    }
+
     // ── 구독 정보 ──
     // 사용자는 본인 구독만 읽기 가능, 쓰기는 서버(Admin SDK) 또는 관리자만
     match /subscriptions/{uid} {

@@ -8,6 +8,44 @@ import type { Env } from "./_shared/types";
 /** 법제처 API 계정 (공개 OC) */
 const LAW_API_OC = "jeonwoochul0515";
 
+/** 법제처 API 요청 타임아웃 (ms) */
+const FETCH_TIMEOUT_MS = 8000;
+
+/** 재시도 횟수 */
+const MAX_RETRIES = 2;
+
+/**
+ * 타임아웃 + 재시도가 적용된 fetch 래퍼
+ */
+async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.ok || attempt === retries) return response;
+      // 서버 에러(5xx)만 재시도
+      if (response.status < 500) return response;
+    } catch (error: unknown) {
+      clearTimeout(timeoutId);
+      if (attempt === retries) {
+        const isAbort = error instanceof DOMException && error.name === "AbortError";
+        throw new Error(
+          isAbort
+            ? `법제처 API 응답 시간 초과 (${FETCH_TIMEOUT_MS}ms)`
+            : `법제처 API 연결 실패: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      // 재시도 전 짧은 대기
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  // unreachable
+  throw new Error("법제처 API 호출 실패");
+}
+
 /** 법제처 API — 검색용 URL (lawSearch.do) */
 const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
 
@@ -223,7 +261,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("type", "JSON");
       url.searchParams.set("ID", body.detcId);
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithRetry(url.toString());
 
       if (!response.ok) {
         return Response.json(
@@ -261,7 +299,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("type", "JSON");
       url.searchParams.set("ID", body.id);
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithRetry(url.toString());
 
       if (!response.ok) {
         return Response.json(
@@ -313,7 +351,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("display", String(count));
       url.searchParams.set("sort", "ddes"); // 최신순
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithRetry(url.toString());
 
       if (!response.ok) {
         return Response.json(
@@ -361,7 +399,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("display", String(count));
       url.searchParams.set("sort", "ddes"); // 최신순
 
-      const response = await fetch(url.toString());
+      const response = await fetchWithRetry(url.toString());
 
       if (!response.ok) {
         return Response.json(
@@ -408,7 +446,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     url.searchParams.set("display", String(count));
     url.searchParams.set("sort", "ddes"); // 최신순
 
-    const response = await fetch(url.toString());
+    const response = await fetchWithRetry(url.toString());
 
     if (!response.ok) {
       return Response.json(
