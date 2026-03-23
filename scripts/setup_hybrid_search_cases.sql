@@ -100,7 +100,7 @@ BEGIN
     c.id,
     c.case_number,
     c.court,
-    c.case_date,
+    c.case_date::text   AS case_date,
     c.category,
     c.summary,
     c.key_issues,
