@@ -2,6 +2,8 @@
 // Claude Vision API를 사용하여 이미지에서 텍스트를 추출하고 문서 유형을 분류
 
 import * as Sentry from "@sentry/react";
+import { authHeaders } from "./api-auth";
+import { withRetry } from "./retry";
 
 const isDev = import.meta.env.DEV;
 const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
@@ -24,8 +26,8 @@ export function isImageFile(file: File): boolean {
 /** OCR 결과 */
 export interface OcrResult {
   fileName: string;
-  documentType: string;   // AI가 분류한 문서 유형 (예: "계약서", "영수증", "판결문" 등)
-  extractedText: string;  // 추출된 전체 텍스트
+  documentType: string;
+  extractedText: string;
 }
 
 /** 파일당 최대 문자 수 */
@@ -49,6 +51,8 @@ const OCR_SYSTEM_PROMPT = `당신은 한국 법률 문서 판독 전문가입니
 - 표가 있으면 | 구분자로 구조를 유지하세요.
 - 사진이나 증거 자료(현장 사진, 상해 사진 등)인 경우 보이는 내용을 상세히 묘사하세요.`;
 
+const OCR_USER_MESSAGE = "이 이미지의 문서 유형을 분류하고, 텍스트를 모두 추출해 주세요.";
+
 /** File → base64 문자열 변환 */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -63,32 +67,46 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/** Vision messages 구성 */
+function buildVisionMessages(base64: string, mediaType: string) {
+  return [
+    {
+      role: "user" as const,
+      content: [
+        {
+          type: "image" as const,
+          source: { type: "base64" as const, media_type: mediaType, data: base64 },
+        },
+        {
+          type: "text" as const,
+          text: OCR_USER_MESSAGE,
+        },
+      ],
+    },
+  ];
+}
+
 /**
  * 단일 이미지 파일에서 OCR로 텍스트를 추출하고 문서 유형을 분류합니다.
  */
 export async function extractImageText(file: File): Promise<OcrResult> {
   const base64 = await fileToBase64(file);
   const mediaType = file.type || "image/jpeg";
+  const messages = buildVisionMessages(base64, mediaType);
 
-  const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
-  const apiKey = DIRECT_API_KEY;
+  let response: Response;
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "anthropic-version": API_VERSION,
-  };
-
-  if (apiKey) {
-    headers["x-api-key"] = apiKey;
+  if (DIRECT_API_KEY) {
+    // 로컬 개발 또는 프론트엔드 직접 호출
+    const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-api-key": DIRECT_API_KEY,
+      "anthropic-version": API_VERSION,
+    };
     if (!isDev) {
       headers["anthropic-dangerous-direct-browser-access"] = "true";
     }
-  }
-
-  // 프록시 또는 직접 호출
-  let response: Response;
-
-  if (apiKey) {
     response = await fetch(url, {
       method: "POST",
       headers,
@@ -97,36 +115,21 @@ export async function extractImageText(file: File): Promise<OcrResult> {
         max_tokens: 4096,
         temperature: 0,
         system: OCR_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: mediaType, data: base64 },
-              },
-              {
-                type: "text",
-                text: "이 이미지의 문서 유형을 분류하고, 텍스트를 모두 추출해 주세요.",
-              },
-            ],
-          },
-        ],
+        messages,
       }),
     });
   } else {
-    // Cloudflare 프록시 경유 (Vision 지원)
-    const { authHeaders } = await import("./api-auth");
-    const proxyHeaders = await authHeaders({ "Content-Type": "application/json" });
-    response = await fetch("/api/claude-vision", {
-      method: "POST",
-      headers: proxyHeaders,
-      body: JSON.stringify({
-        systemPrompt: OCR_SYSTEM_PROMPT,
-        imageBase64: base64,
-        mediaType,
-        userMessage: "이 이미지의 문서 유형을 분류하고, 텍스트를 모두 추출해 주세요.",
-      }),
+    // 프로덕션: 기존 /api/claude 프록시 사용 (Vision messages 전달)
+    response = await withRetry(async () => {
+      const headers = await authHeaders({ "Content-Type": "application/json" });
+      return fetch("/api/claude", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          systemPrompt: OCR_SYSTEM_PROMPT,
+          messages,
+        }),
+      });
     });
   }
 
@@ -147,7 +150,6 @@ export async function extractImageText(file: File): Promise<OcrResult> {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   if (!jsonMatch) {
-    // JSON 파싱 실패 시 원본 텍스트를 그대로 반환
     return {
       fileName: file.name,
       documentType: "기타",
@@ -201,7 +203,6 @@ export async function extractAllImageTexts(files: File[]): Promise<string> {
           ? ocr.extractedText.slice(0, remaining) + "\n... (내용 일부 생략)"
           : ocr.extractedText;
 
-      // 파일당 글자 수 제한
       const finalText =
         truncatedText.length > MAX_CHARS_PER_FILE
           ? truncatedText.slice(0, MAX_CHARS_PER_FILE) + "\n... (파일 내용 일부 생략)"

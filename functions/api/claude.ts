@@ -6,9 +6,10 @@ const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
 const TEMPERATURE = 0.2;
 
+/** 텍스트 또는 Vision(이미지+텍스트) content를 지원하는 메시지 타입 */
 interface ChatMessage {
   role: "user" | "assistant";
-  content: string;
+  content: string | Array<{ type: string; [key: string]: unknown }>;
 }
 
 interface ClaudeRequest {
