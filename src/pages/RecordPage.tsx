@@ -49,11 +49,6 @@ export default function RecordPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [typedNotes, setTypedNotes] = useState("");
 
-  // 파일 input refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const addFileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [savingOnly, setSavingOnly] = useState(false);
   const [saveProgress, setSaveProgress] = useState("");
@@ -86,12 +81,24 @@ export default function RecordPage() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const [hwpWarning, setHwpWarning] = useState("");
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (selected && selected.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(selected)]);
+      const fileArr = Array.from(selected);
+      const hwpFiles = fileArr.filter((f) => /\.(hwp|hwpx|doc|docx)$/i.test(f.name));
+      const otherFiles = fileArr.filter((f) => !/\.(hwp|hwpx|doc|docx)$/i.test(f.name));
+
+      if (hwpFiles.length > 0) {
+        const names = hwpFiles.map((f) => f.name).join(", ");
+        setHwpWarning(`"${names}" 파일은 한글/워드 형식입니다. PDF로 변환 후 업로드하시면 AI가 내용을 분석할 수 있습니다. (한글 → 파일 → 다른 이름으로 저장 → PDF)`);
+      }
+
+      if (otherFiles.length > 0) {
+        setFiles((prev) => [...prev, ...otherFiles]);
+      }
     }
-    // input value 초기화 (같은 파일 재선택 가능)
     e.target.value = "";
   };
 
@@ -441,73 +448,43 @@ export default function RecordPage() {
               </div>
             )}
 
-            {/* 숨겨진 file input들 — 오프스크린 배치 (display:none 사용 금지) */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
-            />
-            <input
-              ref={folderInputRef}
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
-              {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleCameraCapture}
-              style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
-            />
-            <input
-              ref={addFileInputRef}
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              style={{ position: "fixed", top: "-9999px", left: "-9999px" }}
-            />
-
             {!isDragging && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* 파일 선택 */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <Upload className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">파일 선택</span>
                   <span className="text-xs text-text-dim">오디오, 이미지, 문서 등</span>
-                </button>
+                  <input type="file" multiple onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                </label>
 
                 {/* 폴더 업로드 */}
-                <button
-                  type="button"
-                  onClick={() => folderInputRef.current?.click()}
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <FolderOpen className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">폴더 선택</span>
                   <span className="text-xs text-text-dim">폴더 내 파일 일괄 첨부</span>
-                </button>
+                  <input type="file" multiple onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" {...({ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} />
+                </label>
 
                 {/* 카메라 촬영 */}
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors"
-                >
+                <label className="relative flex flex-col items-center gap-3 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-gold/30 transition-colors">
                   <Camera className="w-8 h-8 text-text-dim" />
                   <span className="text-sm text-text-dim text-center">카메라 촬영</span>
                   <span className="text-xs text-text-dim">사진 직접 촬영</span>
-                </button>
+                  <input type="file" accept="image/*" capture="environment" onChange={handleCameraCapture} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                </label>
 
+              </div>
+            )}
+
+            {/* HWP/DOCX 변환 안내 */}
+            {hwpWarning && (
+              <div className="mt-3 flex items-start gap-2 bg-warning/8 border border-warning/20 rounded-lg px-4 py-3">
+                <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs text-text-primary">{hwpWarning}</p>
+                  <button onClick={() => setHwpWarning("")} className="text-xs text-gold mt-1 hover:underline">닫기</button>
+                </div>
               </div>
             )}
 
@@ -518,14 +495,11 @@ export default function RecordPage() {
                   <h4 className="text-sm font-medium text-text-primary">
                     첨부 파일 ({files.length}개)
                   </h4>
-                  <button
-                    type="button"
-                    onClick={() => addFileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors"
-                  >
+                  <label className="relative flex items-center gap-1.5 text-xs text-gold cursor-pointer hover:text-gold-bright transition-colors">
                     <Plus className="w-3.5 h-3.5" />
                     추가
-                  </button>
+                    <input type="file" multiple onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  </label>
                 </div>
                 {files.map((f, i) => (
                   <div

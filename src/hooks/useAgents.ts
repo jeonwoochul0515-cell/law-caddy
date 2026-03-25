@@ -17,63 +17,75 @@ import {
   formatInterpretationsForPrompt,
 } from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
-import type { AgentId, AgentState, CaseType } from "../types/agent";
+import type { AgentId, AgentState, CaseType, IssueWithKeywords } from "../types/agent";
 import { CASE_TYPES } from "../config/constants";
 
 /**
- * AI로 사건 텍스트에서 판례 검색 키워드를 추출합니다.
- * Claude Haiku로 빠르게 핵심 쟁점 + 검색어를 생성합니다.
+ * AI로 사건 텍스트를 분석하여 쟁점을 파악하고, 각 쟁점별 검색 키워드를 생성합니다.
+ * 1회 호출로 쟁점 분석 + 키워드 추출을 동시에 수행합니다.
  */
-async function extractSearchKeywordsWithAI(
+async function analyzeIssuesWithAI(
   caseDesc: string,
   caseType?: string,
   fileContents?: string,
-): Promise<string[]> {
+): Promise<IssueWithKeywords[]> {
   const allText = [caseDesc, fileContents].filter(Boolean).join("\n\n");
-  if (!allText.trim()) return caseType ? [caseType] : [];
+  if (!allText.trim()) {
+    return caseType
+      ? [{ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" }]
+      : [];
+  }
 
-  // 텍스트를 충분히 제공 (쟁점 파악을 위해)
   const truncated = allText.slice(0, 6000);
 
   try {
     const result = await callClaude(
-      `당신은 한국 법률 판례 검색 전문가입니다.
+      `당신은 한국 법률 사건 분석 전문가입니다.
 주어진 사건 내용(판결문, 준비서면, 상담 내용 등)을 분석하여:
-1. 핵심 쟁점을 모두 파악하고
-2. 각 쟁점에 대해 법제처(law.go.kr) 판례 검색에 최적화된 검색어를 추출하세요.
+1. 핵심 법적 쟁점 3~5개를 우선순위순으로 파악하고
+2. 각 쟁점별로 법제처(law.go.kr) 판례 검색에 최적화된 키워드 2개를 추출하세요.
 
 규칙:
 - 반드시 JSON 배열로만 응답 (다른 텍스트 없이)
-- 쟁점별로 1~2개씩, 총 8~15개의 검색어 추출
-- 각 검색어는 1~3단어 (법제처 API는 짧은 키워드가 검색률이 높음)
-- 법률 용어 사용 (예: "손해배상", "국가배상", "위자료", "보안처분")
-- 동일 쟁점을 다른 각도로 검색할 수 있도록 유사 키워드도 포함
-  예: "부당해고" + "해고무효" / "위자료" + "정신적 손해"
-- 너무 포괄적인 용어(예: "민사", "형사", "판결") 단독 사용 금지
+- 각 쟁점의 키워드는 1~3단어 (법제처 API는 짧은 키워드가 검색률 높음)
+- priority: "high"(승패를 좌우하는 핵심 쟁점), "medium"(보강 필요), "low"(방어적 검토)
+- 쟁점이 구체적이고 명확해야 함 (예: "손해배상" 아닌 "석방 후 가족의 손해배상청구권")
 
-예시: 국가배상 사건의 경우
-["국가배상", "손해배상 국가", "위자료", "보안처분 불법", "가족 손해배상청구권", "석방 후 감시", "형사보상금 공제", "위자료 산정기준", "불법행위 공무원"]`,
+예시 응답:
+[
+  {"id":1,"issue":"석방 후 혼인·출생 가족의 손해배상청구권","description":"석방 후 결혼·출생한 가족에게 별도의 손해배상청구권이 인정되는지","keywords":["가족 손해배상","석방 후 위자료"],"priority":"high"},
+  {"id":2,"issue":"보안처분의 불법행위 해당 여부","description":"보안처분 자체가 국가의 불법행위에 해당하는지","keywords":["보안처분 국가배상","보안처분 불법행위"],"priority":"high"},
+  {"id":3,"issue":"위자료 산정 기준","description":"국가배상 사건에서 위자료 금액 산정의 고려 요소","keywords":["위자료 산정기준","국가배상 위자료"],"priority":"medium"}
+]`,
       `${caseType ? `[사건 유형: ${caseType}]\n` : ""}${truncated}`,
     );
 
     const jsonMatch = result.match(/\[[\s\S]*?\]/);
     if (jsonMatch) {
-      const keywords = JSON.parse(jsonMatch[0]) as string[];
-      const filtered = keywords.filter((k) => typeof k === "string" && k.length >= 2).slice(0, 15);
-      console.log("[AI 키워드 추출] 결과:", filtered);
-      return filtered;
+      const issues = JSON.parse(jsonMatch[0]) as IssueWithKeywords[];
+      const valid = issues
+        .filter((i) => i.issue && i.keywords?.length > 0)
+        .slice(0, 5);
+      console.log("[쟁점 분석] 결과:", valid.map((i) => `${i.id}. ${i.issue} [${i.priority}] → ${i.keywords.join(", ")}`));
+      return valid;
     }
   } catch (err) {
-    console.warn("[AI 키워드 추출] 실패, 폴백:", err);
+    console.warn("[쟁점 분석] 실패, 폴백:", err);
   }
 
   // AI 실패 시 기본 폴백
-  return caseType ? [caseType] : ["손해배상"];
+  return caseType
+    ? [{ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" }]
+    : [{ id: 1, issue: "손해배상", description: "기본 검색", keywords: ["손해배상"], priority: "high" }];
 }
 
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
 interface RunAgentsContext extends AgentContext {
   transcribeId?: string;
+  /** AI 추출 검색 키워드 (runAllAgents에서 1회 추출 → 에이전트 간 공유) */
+  searchKeywords?: string[];
+  /** 쟁점 분석 결과 (runAllAgents에서 1회 분석 → 에이전트 간 공유) */
+  identifiedIssues?: IssueWithKeywords[];
 }
 
 /** 에이전트 실행 단계 */
@@ -195,80 +207,78 @@ async function runSingleAgent(
   let legalInterpretations = "";
 
   if (agentId === "precedent") {
-    // 1단계: AI로 쟁점 파악 + 쟁점별 검색어 생성
-    const keywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType, context.fileContents);
-    console.log("[precedent] AI 추출 검색 키워드:", keywords);
+    // 쟁점별 판례 검색 (쟁점은 runAllAgents에서 1회 분석하여 공유)
+    const issues = context.identifiedIssues ?? [];
+    console.log("[precedent] 쟁점", issues.length, "건으로 판례 검색");
 
-    // 2단계: 키워드별 개별 검색 (법제처 API는 단일 키워드가 정확도 높음)
-    const allPrecedents: Awaited<ReturnType<typeof searchLatestPrecedents>> = [];
+    const issueSections: string[] = [];
     const allDetc: Awaited<ReturnType<typeof searchConstitutionalDecisions>> = [];
     const seen = new Set<string>();
+    let totalPrecedents = 0;
 
-    // 키워드를 4개씩 배치로 병렬 검색 (API 부하 분산)
-    for (let i = 0; i < keywords.length; i += 4) {
-      const batch = keywords.slice(i, i + 4);
-      await Promise.allSettled(batch.map(async (kw) => {
-        try {
-          const [precs, detcs] = await Promise.allSettled([
-            searchLatestPrecedents(kw, 5),
-            searchConstitutionalDecisions(kw, 3),
-          ]);
-          if (precs.status === "fulfilled") {
-            for (const p of precs.value) {
-              if (!seen.has(p.caseNumber)) {
-                seen.add(p.caseNumber);
-                allPrecedents.push(p);
+    // 쟁점별 검색 (쟁점당 키워드 2개를 병렬 처리)
+    for (const issue of issues) {
+      const issuePrecedents: Awaited<ReturnType<typeof searchLatestPrecedents>> = [];
+
+      await Promise.allSettled(
+        issue.keywords.map(async (kw) => {
+          try {
+            const [precs, detcs] = await Promise.allSettled([
+              searchLatestPrecedents(kw, 3),
+              searchConstitutionalDecisions(kw, 2),
+            ]);
+            if (precs.status === "fulfilled") {
+              for (const p of precs.value) {
+                if (!seen.has(p.caseNumber)) { seen.add(p.caseNumber); issuePrecedents.push(p); }
               }
             }
-          }
-          if (detcs.status === "fulfilled") {
-            for (const d of detcs.value) {
-              if (!seen.has(d.caseNumber)) {
-                seen.add(d.caseNumber);
-                allDetc.push(d);
+            if (detcs.status === "fulfilled") {
+              for (const d of detcs.value) {
+                if (!seen.has(d.caseNumber)) { seen.add(d.caseNumber); allDetc.push(d); }
               }
             }
+          } catch (err) {
+            console.warn(`[precedent] "${kw}" 검색 실패:`, err);
           }
-        } catch (err) {
-          console.warn(`[precedent] "${kw}" 검색 실패:`, err);
-        }
-      }));
-    }
+        }),
+      );
 
-    // 3단계: 상위 20건의 상세 내용 조회 (판시사항, 판결요지, 판례내용)
-    const topPrecedents = allPrecedents.slice(0, 20);
-    if (topPrecedents.length > 0) {
-      console.log(`[precedent] ${topPrecedents.length}건 상세 조회 중...`);
-      // 5건씩 병렬 조회 (API 부하 분산)
-      for (let i = 0; i < topPrecedents.length; i += 5) {
-        const batch = topPrecedents.slice(i, i + 5);
-        const detailResults = await Promise.allSettled(
-          batch.map((p) =>
-            p.serialNumber ? getPrecedentDetail(p.serialNumber) : Promise.resolve(null)
-          ),
+      // 쟁점당 상위 3건 상세 조회
+      const topForIssue = issuePrecedents.slice(0, 3);
+      if (topForIssue.length > 0) {
+        const details = await Promise.allSettled(
+          topForIssue.map((p) => p.serialNumber ? getPrecedentDetail(p.serialNumber) : Promise.resolve(null)),
         );
-        for (let j = 0; j < detailResults.length; j++) {
-          const r = detailResults[j];
+        for (let j = 0; j < details.length; j++) {
+          const r = details[j];
           if (r.status === "fulfilled" && r.value) {
-            topPrecedents[i + j] = { ...topPrecedents[i + j], ...r.value };
+            topForIssue[j] = { ...topForIssue[j], ...r.value };
           }
         }
       }
+
+      totalPrecedents += issuePrecedents.length;
+      console.log(`[precedent] 쟁점 ${issue.id} "${issue.issue}" → ${issuePrecedents.length}건 (상세 ${topForIssue.length}건)`);
+
+      if (topForIssue.length > 0) {
+        const header = `## 쟁점 ${issue.id}: ${issue.issue} [${issue.priority.toUpperCase()}]\n${issue.description}`;
+        const body = formatPrecedentsForPrompt(topForIssue);
+        issueSections.push(`${header}\n\n${body}`);
+      }
     }
 
-    latestPrecedents = formatPrecedentsForPrompt(topPrecedents);
+    latestPrecedents = issueSections.join("\n\n---\n\n");
     constitutionalDecisions = formatConstitutionalForPrompt(allDetc.slice(0, 5));
 
-    console.log(`[precedent] 판례 ${allPrecedents.length}건 (상세 ${topPrecedents.length}건), 헌재 ${allDetc.length}건`);
-    if (allPrecedents.length === 0) {
+    console.log(`[precedent] 총 ${totalPrecedents}건 (쟁점 ${issues.length}개), 헌재 ${allDetc.length}건`);
+    if (totalPrecedents === 0) {
       console.warn("[precedent] 법제처 판례 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
     }
   }
 
   if (agentId === "legal") {
-    // 적법성 검증 시 공식 법령해석례 보강
-    const legalKeywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType, context.fileContents);
-    const legalKw = legalKeywords[0] || "법령해석";
+    // 공유 키워드에서 첫 번째 사용
+    const legalKw = context.searchKeywords?.[0] || "법령해석";
     try {
       const interpretations = await searchLegalInterpretations(legalKw, 3);
       legalInterpretations = formatInterpretationsForPrompt(interpretations);
@@ -379,10 +389,16 @@ export default function useAgents(): UseAgentsReturn {
       // SearchPool 생성: 1회 검색 → 에이전트 간 공유 (쿼리 중복 제거)
       const searchPool = new SearchPool(context.caseDesc, context.caseType as string | undefined);
 
+      // 쟁점 분석 1회 → 모든 에이전트에서 공유
+      const identifiedIssues = await analyzeIssuesWithAI(context.caseDesc, context.caseType, context.fileContents);
+      const searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
+      console.log("[runAllAgents] 쟁점 분석 완료:", identifiedIssues.length, "건, 키워드:", searchKeywords);
+      const contextWithKeywords = { ...context, searchKeywords, identifiedIssues };
+
       // 병렬 실행
       const promises = AGENT_IDS.map(async (agentId) => {
         try {
-          const result = await runSingleAgent(agentId, context, searchPool);
+          const result = await runSingleAgent(agentId, contextWithKeywords, searchPool);
           const successState: AgentState = {
             id: agentId,
             status: "completed",

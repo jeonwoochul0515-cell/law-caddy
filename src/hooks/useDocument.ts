@@ -60,34 +60,33 @@ export function parseCheckQuestionsResponse(response: string): CheckQuestion[] {
   const jsonStart = cleaned.indexOf("[");
   const jsonEnd = cleaned.lastIndexOf("]");
   if (jsonStart === -1 || jsonEnd === -1) {
-    throw new Error("체크포인트 질문 응답에서 JSON 배열을 찾을 수 없습니다.");
+    console.warn("[parseCheckQuestions] JSON 배열을 찾을 수 없음. 응답 앞 200자:", cleaned.slice(0, 200));
+    return [];
   }
 
-  const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
-  const parsed: unknown = JSON.parse(jsonStr);
+  let parsed: unknown;
+  try {
+    const jsonStr = cleaned.slice(jsonStart, jsonEnd + 1);
+    parsed = JSON.parse(jsonStr);
+  } catch (err) {
+    console.warn("[parseCheckQuestions] JSON 파싱 실패:", err);
+    return [];
+  }
 
   if (!Array.isArray(parsed)) {
-    throw new Error("체크포인트 응답이 배열 형식이 아닙니다.");
+    return [];
   }
 
-  // 각 항목의 구조 검증
-  return parsed.map((item: unknown, index: number) => {
-    if (
-      typeof item !== "object" ||
-      item === null ||
-      !("question" in item) ||
-      !("why" in item) ||
-      !("category" in item)
-    ) {
-      throw new Error(`체크포인트 질문 ${index + 1}번의 형식이 올바르지 않습니다.`);
-    }
-
-    const obj = item as Record<string, unknown>;
-    return {
-      id: typeof obj.id === "number" ? obj.id : index + 1,
-      question: String(obj.question),
-      why: String(obj.why),
-      category: String(obj.category) as CheckQuestion["category"],
+  // 유연한 구조 검증 — question 필드만 있으면 허용
+  return parsed
+    .filter((item: unknown) => typeof item === "object" && item !== null && "question" in item)
+    .map((item: unknown, index: number) => {
+      const obj = item as Record<string, unknown>;
+      return {
+        id: typeof obj.id === "number" ? obj.id : index + 1,
+        question: String(obj.question),
+        why: String(obj.why ?? obj.reason ?? ""),
+        category: String(obj.category ?? "사실관계") as CheckQuestion["category"],
       hints: Array.isArray(obj.hints)
         ? obj.hints.map((h: unknown) => String(h))
         : undefined,

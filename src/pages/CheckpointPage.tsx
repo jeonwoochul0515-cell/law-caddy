@@ -26,6 +26,16 @@ import { isImageFile, extractAllImageTexts } from "../services/ocr";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 import type { CaseType, DocType } from "../types/agent";
 
+/** docgen 응답 파싱 실패 시 기본 체크포인트 질문 */
+function getDefaultQuestions(): CheckQuestion[] {
+  return [
+    { id: 1, question: "관련 증거자료(계약서, 영수증, 사진 등)가 있습니까?", why: "증거 확보 여부에 따라 문서 전략이 달라집니다.", category: "증거확보" },
+    { id: 2, question: "상대방과 합의 시도를 한 적이 있습니까?", why: "합의 이력이 문서 작성 방향에 영향을 줍니다.", category: "사실관계" },
+    { id: 3, question: "사건 발생 시점과 현재까지의 경과를 간략히 정리해 주세요.", why: "소멸시효 검토 및 사건 경위 파악에 필요합니다.", category: "사실관계" },
+    { id: 4, question: "원하시는 결과(청구 금액, 요구 사항 등)가 구체적으로 있습니까?", why: "청구취지 및 문서 방향 설정에 필요합니다.", category: "전략수립" },
+  ];
+}
+
 /** 녹음 상태 관리 (질문별 독립 녹음) */
 interface RecordingState {
   questionId: number | null;
@@ -88,24 +98,18 @@ export default function CheckpointPage() {
     } catch { return null; }
   })();
 
-  // 체크포인트 질문 (agentResults.docgen에서 파싱) — lazy 초기화
-  const [parseError] = useState(() => {
-    if (!state?.agentResults?.docgen) return false;
-    try {
-      parseCheckQuestionsResponse(state.agentResults.docgen);
-      return false;
-    } catch {
-      return true;
-    }
-  });
+  // 체크포인트 질문 (agentResults.docgen에서 파싱) — JSON 실패 시 기본 질문 제공
   const [checkQuestions] = useState<CheckQuestion[]>(() => {
-    if (!state?.agentResults?.docgen) return [];
+    if (!state?.agentResults?.docgen) return getDefaultQuestions();
     try {
-      return parseCheckQuestionsResponse(state.agentResults.docgen);
+      const parsed = parseCheckQuestionsResponse(state.agentResults.docgen);
+      return parsed.length > 0 ? parsed : getDefaultQuestions();
     } catch {
-      return [];
+      console.warn("[Checkpoint] docgen 응답 파싱 실패, 기본 질문 사용");
+      return getDefaultQuestions();
     }
   });
+  const parseError = false;
 
   // 각 질문별 답변 상태
   const [answers, setAnswers] = useState<Map<number, CheckpointAnswer>>(new Map());

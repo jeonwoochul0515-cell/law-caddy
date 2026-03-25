@@ -5,6 +5,15 @@ export type { DocType } from "./document";
 
 export type AgentId = "precedent" | "legal" | "stt" | "analysis" | "docgen" | "review";
 
+/** 쟁점 분석 결과 (판례 검색 키워드 포함) */
+export interface IssueWithKeywords {
+  id: number;
+  issue: string;
+  description: string;
+  keywords: string[];
+  priority: "high" | "medium" | "low";
+}
+
 export interface AgentState {
   id: AgentId;
   status: "idle" | "running" | "completed" | "error";
