@@ -32,3 +32,4 @@ stt-backend/.env
 *.sln
 *.sw?
 scripts/config.py
+.claude/settings.local.json
