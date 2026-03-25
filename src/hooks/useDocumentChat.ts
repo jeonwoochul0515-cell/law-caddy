@@ -129,8 +129,8 @@ export default function useDocumentChat(
         const parts: string[] = [text];
         if (pdfFiles.length > 0) {
           try {
-            const pdfText = await extractAllPdfTexts(pdfFiles);
-            parts.push(`\n\n[첨부 PDF 내용]\n${pdfText}`);
+            const pdfResult = await extractAllPdfTexts(pdfFiles);
+            parts.push(`\n\n[첨부 PDF 내용]\n${pdfResult.text}`);
           } catch {
             parts.push(`\n\n[첨부 PDF ${pdfFiles.length}건 — 텍스트 추출 실패]`);
           }

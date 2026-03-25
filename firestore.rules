@@ -37,10 +37,14 @@ service cloud.firestore {
         && request.resource.data.role == "lawyer"
         && request.resource.data.status in ["pending", "approved"];
 
-      // 본인 문서 수정 (role, status, verified 변경 금지)
+      // 본인 문서 수정 (role 변경 금지, status는 프로필 완성 시 pending→approved만 허용)
       allow update: if isAuthenticated() && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
-        && request.resource.data.status == resource.data.status
+        && (
+          request.resource.data.status == resource.data.status
+          || (resource.data.status == "pending" && request.resource.data.status == "approved"
+              && request.resource.data.profileCompleted == true)
+        )
         && (!("verified" in request.resource.data) || request.resource.data.verified == resource.data.verified);
 
       // 관리자: 모든 사용자 문서 읽기/쓰기 (역할/상태 값 검증 포함)
@@ -171,6 +175,12 @@ service cloud.firestore {
 
       // 클라이언트 쓰기 차단 — Admin SDK(서버)에서만 쓰기 가능
       allow write: if false;
+    }
+
+    // ── 버그 리포트 (베타 테스트) ──
+    match /bug_reports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin();
     }
   }
 }

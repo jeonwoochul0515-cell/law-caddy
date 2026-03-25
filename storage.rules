@@ -57,6 +57,15 @@ service firebase.storage {
       allow read: if isAdmin();
     }
 
+    // ── 추출 텍스트 파일: 본인만 읽기/쓰기 ──
+    match /extracted-texts/{ownerId}/{allPaths=**} {
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('text/.*');
+      allow read: if isAdmin();
+    }
+
     // ── 사업자등록증 파일 ──
     match /business-registrations/{ownerId}/{fileName} {
       allow read: if isAuthenticated() && request.auth.uid == ownerId;

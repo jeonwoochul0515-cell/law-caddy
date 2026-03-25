@@ -9,6 +9,7 @@ import { formatRAGContext } from "../services/rag";
 import { SearchPool } from "../services/search-pool";
 import {
   searchLatestPrecedents,
+  getPrecedentDetail,
   formatPrecedentsForPrompt,
   searchConstitutionalDecisions,
   formatConstitutionalForPrompt,
@@ -18,6 +19,57 @@ import {
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
 import { CASE_TYPES } from "../config/constants";
+
+/**
+ * AI로 사건 텍스트에서 판례 검색 키워드를 추출합니다.
+ * Claude Haiku로 빠르게 핵심 쟁점 + 검색어를 생성합니다.
+ */
+async function extractSearchKeywordsWithAI(
+  caseDesc: string,
+  caseType?: string,
+  fileContents?: string,
+): Promise<string[]> {
+  const allText = [caseDesc, fileContents].filter(Boolean).join("\n\n");
+  if (!allText.trim()) return caseType ? [caseType] : [];
+
+  // 텍스트를 충분히 제공 (쟁점 파악을 위해)
+  const truncated = allText.slice(0, 6000);
+
+  try {
+    const result = await callClaude(
+      `당신은 한국 법률 판례 검색 전문가입니다.
+주어진 사건 내용(판결문, 준비서면, 상담 내용 등)을 분석하여:
+1. 핵심 쟁점을 모두 파악하고
+2. 각 쟁점에 대해 법제처(law.go.kr) 판례 검색에 최적화된 검색어를 추출하세요.
+
+규칙:
+- 반드시 JSON 배열로만 응답 (다른 텍스트 없이)
+- 쟁점별로 1~2개씩, 총 8~15개의 검색어 추출
+- 각 검색어는 1~3단어 (법제처 API는 짧은 키워드가 검색률이 높음)
+- 법률 용어 사용 (예: "손해배상", "국가배상", "위자료", "보안처분")
+- 동일 쟁점을 다른 각도로 검색할 수 있도록 유사 키워드도 포함
+  예: "부당해고" + "해고무효" / "위자료" + "정신적 손해"
+- 너무 포괄적인 용어(예: "민사", "형사", "판결") 단독 사용 금지
+
+예시: 국가배상 사건의 경우
+["국가배상", "손해배상 국가", "위자료", "보안처분 불법", "가족 손해배상청구권", "석방 후 감시", "형사보상금 공제", "위자료 산정기준", "불법행위 공무원"]`,
+      `${caseType ? `[사건 유형: ${caseType}]\n` : ""}${truncated}`,
+    );
+
+    const jsonMatch = result.match(/\[[\s\S]*?\]/);
+    if (jsonMatch) {
+      const keywords = JSON.parse(jsonMatch[0]) as string[];
+      const filtered = keywords.filter((k) => typeof k === "string" && k.length >= 2).slice(0, 15);
+      console.log("[AI 키워드 추출] 결과:", filtered);
+      return filtered;
+    }
+  } catch (err) {
+    console.warn("[AI 키워드 추출] 실패, 폴백:", err);
+  }
+
+  // AI 실패 시 기본 폴백
+  return caseType ? [caseType] : ["손해배상"];
+}
 
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
 interface RunAgentsContext extends AgentContext {
@@ -143,43 +195,82 @@ async function runSingleAgent(
   let legalInterpretations = "";
 
   if (agentId === "precedent") {
-    const searchQuery = context.caseType
-      ? `${context.caseType} ${context.caseDesc}`
-      : context.caseDesc;
+    // 1단계: AI로 쟁점 파악 + 쟁점별 검색어 생성
+    const keywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType, context.fileContents);
+    console.log("[precedent] AI 추출 검색 키워드:", keywords);
 
-    // 판례 + 헌재결정례를 병렬로 검색
-    const [precedentResults, detcResults] = await Promise.allSettled([
-      searchLatestPrecedents(searchQuery, 5),
-      searchConstitutionalDecisions(searchQuery, 3),
-    ]);
+    // 2단계: 키워드별 개별 검색 (법제처 API는 단일 키워드가 정확도 높음)
+    const allPrecedents: Awaited<ReturnType<typeof searchLatestPrecedents>> = [];
+    const allDetc: Awaited<ReturnType<typeof searchConstitutionalDecisions>> = [];
+    const seen = new Set<string>();
 
-    if (precedentResults.status === "fulfilled") {
-      const precedents = precedentResults.value;
-      latestPrecedents = formatPrecedentsForPrompt(precedents);
-      if (precedents.length === 0) {
-        console.warn("[precedent] 법제처 판례 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
-      }
-    } else {
-      console.warn("[precedent] 법제처 판례 API 실패:", precedentResults.reason);
+    // 키워드를 4개씩 배치로 병렬 검색 (API 부하 분산)
+    for (let i = 0; i < keywords.length; i += 4) {
+      const batch = keywords.slice(i, i + 4);
+      await Promise.allSettled(batch.map(async (kw) => {
+        try {
+          const [precs, detcs] = await Promise.allSettled([
+            searchLatestPrecedents(kw, 5),
+            searchConstitutionalDecisions(kw, 3),
+          ]);
+          if (precs.status === "fulfilled") {
+            for (const p of precs.value) {
+              if (!seen.has(p.caseNumber)) {
+                seen.add(p.caseNumber);
+                allPrecedents.push(p);
+              }
+            }
+          }
+          if (detcs.status === "fulfilled") {
+            for (const d of detcs.value) {
+              if (!seen.has(d.caseNumber)) {
+                seen.add(d.caseNumber);
+                allDetc.push(d);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[precedent] "${kw}" 검색 실패:`, err);
+        }
+      }));
     }
 
-    if (detcResults.status === "fulfilled") {
-      constitutionalDecisions = formatConstitutionalForPrompt(detcResults.value);
-      if (detcResults.value.length === 0) {
-        console.warn("[precedent] 헌재결정례 검색 결과 0건");
+    // 3단계: 상위 20건의 상세 내용 조회 (판시사항, 판결요지, 판례내용)
+    const topPrecedents = allPrecedents.slice(0, 20);
+    if (topPrecedents.length > 0) {
+      console.log(`[precedent] ${topPrecedents.length}건 상세 조회 중...`);
+      // 5건씩 병렬 조회 (API 부하 분산)
+      for (let i = 0; i < topPrecedents.length; i += 5) {
+        const batch = topPrecedents.slice(i, i + 5);
+        const detailResults = await Promise.allSettled(
+          batch.map((p) =>
+            p.serialNumber ? getPrecedentDetail(p.serialNumber) : Promise.resolve(null)
+          ),
+        );
+        for (let j = 0; j < detailResults.length; j++) {
+          const r = detailResults[j];
+          if (r.status === "fulfilled" && r.value) {
+            topPrecedents[i + j] = { ...topPrecedents[i + j], ...r.value };
+          }
+        }
       }
-    } else {
-      console.warn("[precedent] 헌재결정례 API 실패:", detcResults.reason);
+    }
+
+    latestPrecedents = formatPrecedentsForPrompt(topPrecedents);
+    constitutionalDecisions = formatConstitutionalForPrompt(allDetc.slice(0, 5));
+
+    console.log(`[precedent] 판례 ${allPrecedents.length}건 (상세 ${topPrecedents.length}건), 헌재 ${allDetc.length}건`);
+    if (allPrecedents.length === 0) {
+      console.warn("[precedent] 법제처 판례 검색 결과 0건 — AI 학습 데이터 기반으로 판례 검색합니다.");
     }
   }
 
   if (agentId === "legal") {
     // 적법성 검증 시 공식 법령해석례 보강
-    const searchQuery = context.caseType
-      ? `${context.caseType} ${context.caseDesc}`
-      : context.caseDesc;
+    const legalKeywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType, context.fileContents);
+    const legalKw = legalKeywords[0] || "법령해석";
     try {
-      const interpretations = await searchLegalInterpretations(searchQuery, 3);
+      const interpretations = await searchLegalInterpretations(legalKw, 3);
       legalInterpretations = formatInterpretationsForPrompt(interpretations);
       if (interpretations.length === 0) {
         console.warn("[legal] 법령해석례 검색 결과 0건");

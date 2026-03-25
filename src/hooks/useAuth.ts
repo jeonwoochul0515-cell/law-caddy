@@ -1,17 +1,18 @@
 // Firebase 인증 상태 관리 훅 (Zustand)
-// onAuthStateChanged 리스너 + Firestore 사용자 문서 연동
+// 구글 로그인 + Firestore 사용자 문서 연동
 // 데모 모드: Firebase 없이 목(mock) 사용자로 즉시 인증
 
 import { create } from "zustand";
 import { isDemoMode, DEMO_USER } from "../config/demo";
 import type { User } from "../types/user";
 
-/** 회원가입 시 추가 입력 정보 */
-interface RegisterData {
+/** 프로필 설정 데이터 */
+interface ProfileSetupData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
   phone?: string;
+  officePhone?: string;
   privacyConsented?: boolean;
   businessNumber?: string;
   businessVerified?: boolean;
@@ -20,6 +21,17 @@ interface RegisterData {
   businessType?: string;
   businessCategory?: string;
   businessStartDate?: string;
+  businessCorporateNumber?: string;
+  businessTaxOffice?: string;
+  businessTaxType?: string;
+}
+
+/** 신규 구글 유저 정보 (프로필 미완성) */
+interface NewGoogleUser {
+  firebaseUid: string;
+  email: string;
+  photoURL?: string;
+  displayName?: string;
 }
 
 /** Auth 스토어 상태 */
@@ -27,42 +39,35 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   initialized: boolean;
+  /** 구글 로그인 했지만 프로필 미완성인 신규 유저 */
+  newGoogleUser: NewGoogleUser | null;
 }
 
 /** Auth 스토어 액션 */
 interface AuthActions {
-  /** Firebase Auth 상태 리스너 시작 */
   initialize: () => () => void;
-  /** 이메일/비밀번호 로그인 */
-  login: (email: string, password: string) => Promise<User>;
-  /** 변호사 회원가입 */
-  register: (
-    email: string,
-    password: string,
-    userData: RegisterData,
-  ) => Promise<void>;
-  /** 로그아웃 */
+  googleLogin: () => Promise<{ isNewUser: boolean }>;
+  completeProfile: (profileData: ProfileSetupData) => Promise<User>;
   logout: () => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
 
-const useAuth = create<AuthStore>((set) => ({
-  // 초기 상태
+const useAuth = create<AuthStore>((set, get) => ({
   user: null,
   loading: true,
   initialized: false,
+  newGoogleUser: null,
 
   initialize: () => {
-    // 데모 모드: Firebase 리스너 없이 즉시 데모 사용자로 설정
     if (isDemoMode) {
       set({ user: DEMO_USER, loading: false, initialized: true });
-      // 아무 작업도 하지 않는 unsubscribe 함수 반환
       return () => {};
     }
 
-    // Firebase 모드: 동적으로 Firebase 모듈을 로드
-    // (top-level import를 사용하면 데모 모드에서도 Firebase 초기화가 실행됨)
+    let unsubscribeFn: (() => void) | null = null;
+    let disposed = false;
+
     const setupListener = async () => {
       const { onAuthStateChanged } = await import("firebase/auth");
       const { doc, getDoc } = await import("firebase/firestore");
@@ -78,28 +83,36 @@ const useAuth = create<AuthStore>((set) => ({
           try {
             const docRef = doc(db, "users", firebaseUser.uid);
             const docSnap = await getDoc(docRef);
-            const userDoc = docSnap.exists()
-              ? (docSnap.data() as User)
-              : null;
-            set({ user: userDoc, loading: false, initialized: true });
+            if (docSnap.exists()) {
+              const userDoc = docSnap.data() as User;
+              set({ user: userDoc, newGoogleUser: null, loading: false, initialized: true });
+            } else {
+              // 구글로 로그인했지만 Firestore 문서가 없는 신규 유저
+              set({
+                user: null,
+                newGoogleUser: {
+                  firebaseUid: firebaseUser.uid,
+                  email: firebaseUser.email || "",
+                  photoURL: firebaseUser.photoURL || undefined,
+                  displayName: firebaseUser.displayName || undefined,
+                },
+                loading: false,
+                initialized: true,
+              });
+            }
           } catch {
-            // Firestore 조회 실패 시에도 로딩은 완료
             set({ user: null, loading: false, initialized: true });
           }
         } else {
-          set({ user: null, loading: false, initialized: true });
+          set({ user: null, newGoogleUser: null, loading: false, initialized: true });
         }
       });
 
       return unsubscribe;
     };
 
-    // 비동기 리스너 설정 시작
-    let unsubscribeFn: (() => void) | null = null;
-    let disposed = false;
     setupListener().then((unsub) => {
       if (disposed) {
-        // 컴포넌트가 이미 언마운트된 경우 즉시 해제
         unsub();
       } else {
         unsubscribeFn = unsub;
@@ -108,7 +121,6 @@ const useAuth = create<AuthStore>((set) => ({
       set({ user: null, loading: false, initialized: true });
     });
 
-    // 외부에 반환하는 unsubscribe: 비동기 설정 완료 후 해제
     return () => {
       disposed = true;
       if (unsubscribeFn) {
@@ -117,18 +129,61 @@ const useAuth = create<AuthStore>((set) => ({
     };
   },
 
-  login: async (email: string, password: string) => {
-    // 데모 모드: 즉시 데모 사용자로 로그인
+  googleLogin: async () => {
     if (isDemoMode) {
       set({ user: DEMO_USER, loading: false });
-      return DEMO_USER;
+      return { isNewUser: false };
     }
 
     set({ loading: true });
     try {
-      const { signIn } = await import("../services/firebase/auth");
-      const user = await signIn(email, password);
-      set({ user, loading: false });
+      const { signInWithGoogle } = await import("../services/firebase/auth");
+      const result = await signInWithGoogle();
+
+      if (result.isNewUser) {
+        set({
+          user: null,
+          newGoogleUser: {
+            firebaseUid: result.firebaseUid,
+            email: result.email,
+            photoURL: result.photoURL,
+            displayName: result.displayName,
+          },
+          loading: false,
+        });
+        return { isNewUser: true };
+      } else {
+        set({ user: result.user, newGoogleUser: null, loading: false });
+        return { isNewUser: false };
+      }
+    } catch (error: unknown) {
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  completeProfile: async (profileData: ProfileSetupData) => {
+    const { newGoogleUser, user: existingUser } = get();
+
+    // 신규 유저 또는 프로필 미완성 기존 유저
+    const uid = newGoogleUser?.firebaseUid || existingUser?.uid;
+    const email = newGoogleUser?.email || existingUser?.email;
+    const photoURL = newGoogleUser?.photoURL || existingUser?.photoURL;
+
+    if (!uid || !email) {
+      throw new Error("프로필을 설정할 사용자 정보가 없습니다.");
+    }
+
+    set({ loading: true });
+    try {
+      const { completeProfile: completeProfileService } = await import("../services/firebase/auth");
+      const user = await completeProfileService(
+        uid,
+        email,
+        photoURL,
+        profileData,
+      );
+      set({ user, newGoogleUser: null, loading: false });
       return user;
     } catch (error: unknown) {
       set({ loading: false });
@@ -136,40 +191,9 @@ const useAuth = create<AuthStore>((set) => ({
     }
   },
 
-  register: async (
-    email: string,
-    password: string,
-    userData: RegisterData,
-  ) => {
-    // 데모 모드: 즉시 활성화 사용자로 설정
-    if (isDemoMode) {
-      const approvedUser: User = {
-        ...DEMO_USER,
-        email,
-        name: userData.name,
-        firmName: userData.firmName,
-        barLicenseNumber: userData.barLicenseNumber,
-        status: "approved",
-      };
-      set({ user: approvedUser, loading: false });
-      return;
-    }
-
-    set({ loading: true });
-    try {
-      const { signUp } = await import("../services/firebase/auth");
-      const user = await signUp(email, password, userData);
-      set({ user, loading: false });
-    } catch (error: unknown) {
-      set({ loading: false });
-      throw error;
-    }
-  },
-
   logout: async () => {
-    // 데모 모드: 즉시 사용자 제거
     if (isDemoMode) {
-      set({ user: null, loading: false });
+      set({ user: null, newGoogleUser: null, loading: false });
       return;
     }
 
@@ -177,7 +201,7 @@ const useAuth = create<AuthStore>((set) => ({
     try {
       const { signOut } = await import("../services/firebase/auth");
       await signOut();
-      set({ user: null, loading: false });
+      set({ user: null, newGoogleUser: null, loading: false });
     } catch (error: unknown) {
       set({ loading: false });
       throw error;

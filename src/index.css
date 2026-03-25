@@ -1,22 +1,35 @@
 @import "tailwindcss";
 
-/* LAW-CADDY 커스텀 테마 */
+/* LAW-CADDY 프리미엄 테마 (라이트 모드) */
 @theme {
-  --color-navy: #0B1120;
-  --color-navy-light: #111827;
-  --color-surface: rgba(255, 255, 255, 0.025);
-  --color-surface-hover: rgba(255, 255, 255, 0.05);
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.12);
-  --color-gold: #C8A961;
-  --color-gold-dim: rgba(200, 169, 97, 0.15);
-  --color-gold-bright: #E8D5A0;
-  --color-text-primary: #E8E0D0;
-  --color-text-dim: rgba(255, 255, 255, 0.4);
-  --color-success: #4ADE80;
-  --color-error: #EF4444;
-  --color-warning: #F59E0B;
-  --color-info: #60A5FA;
+  /* Primary: Deep Forest Green */
+  --color-navy: #faf9f5;
+  --color-navy-light: #efeeea;
+  --color-surface: rgba(1, 38, 31, 0.03);
+  --color-surface-hover: rgba(1, 38, 31, 0.06);
+  --color-border: rgba(1, 38, 31, 0.08);
+  --color-border-hover: rgba(1, 38, 31, 0.15);
+  /* Gold → Premium Dark Gold */
+  --color-gold: #735c00;
+  --color-gold-dim: rgba(115, 92, 0, 0.08);
+  --color-gold-bright: #574500;
+  /* Text */
+  --color-text-primary: #1b1c1a;
+  --color-text-dim: rgba(1, 38, 31, 0.5);
+  /* Status */
+  --color-success: #2d6a4f;
+  --color-error: #ba1a1a;
+  --color-warning: #735c00;
+  --color-info: #43655c;
+  /* New: Primary container */
+  --color-primary: #01261f;
+  --color-primary-container: #1a3c34;
+  --color-secondary: #735c00;
+  --color-secondary-container: #fed65b;
+  --color-surface-container: #efeeea;
+  --color-on-surface-variant: #414846;
+  --color-outline: #717976;
+  --color-outline-variant: #c1c8c4;
 }
 
 /* 글로벌 스타일 */
@@ -24,11 +37,16 @@ html, body, #root {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background-color: #0B1120;
-  color: #E8E0D0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+  background-color: #faf9f5;
+  color: #1b1c1a;
+  font-family: 'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 서체 */
+.font-headline, .font-serif {
+  font-family: 'Noto Serif KR', serif;
 }
 
 /* 스크롤바 */
@@ -39,9 +57,20 @@ html, body, #root {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(1, 38, 31, 0.1);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(1, 38, 31, 0.2);
+}
+
+/* Glass panel */
+.glass-panel {
+  backdrop-filter: blur(12px);
+  background: rgba(250, 249, 245, 0.85);
+}
+
+/* Gold border */
+.gold-border-bottom {
+  border-bottom: 0.5px solid #735c00;
 }

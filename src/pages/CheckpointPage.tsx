@@ -327,13 +327,13 @@ export default function CheckpointPage() {
         const imageFilesForOcr = allFiles.filter((f) => isImageFile(f));
 
         // PDF + 이미지 OCR 병렬 처리
-        const [pdfText, imageText] = await Promise.all([
+        const [pdfResult, imageText] = await Promise.all([
           pdfFiles.length > 0
             ? (setUploadProgress("PDF 텍스트 추출 중..."), extractAllPdfTexts(pdfFiles).catch((err) => {
                 console.error("PDF 텍스트 추출 실패:", err);
-                return "";
+                return { text: "", ocrTexts: [] };
               }))
-            : Promise.resolve(""),
+            : Promise.resolve({ text: "", ocrTexts: [] }),
           imageFilesForOcr.length > 0
             ? (setUploadProgress("이미지 OCR 처리 중..."), extractAllImageTexts(imageFilesForOcr).catch((err) => {
                 console.error("이미지 OCR 실패:", err);
@@ -342,6 +342,7 @@ export default function CheckpointPage() {
             : Promise.resolve(""),
         ]);
 
+        const pdfText = pdfResult.text;
         const attachedContents = [pdfText, imageText].filter(Boolean).join("\n\n---\n\n");
         if (attachedContents) {
           state.agentResults = {

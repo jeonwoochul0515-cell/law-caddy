@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&amp;family=Manrope:wght@300;400;500;700&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-fixed-dim": "#aacec3",
+              "surface-container-lowest": "#ffffff",
+              "secondary-container": "#fed65b",
+              "inverse-primary": "#aacec3",
+              "on-error": "#ffffff",
+              "secondary-fixed": "#ffe088",
+              "on-tertiary-container": "#a09f9e",
+              "surface-tint": "#43655c",
+              "primary": "#01261f",
+              "error": "#ba1a1a",
+              "surface-container": "#efeeea",
+              "secondary-fixed-dim": "#e9c349",
+              "on-secondary-container": "#745c00",
+              "on-primary-fixed-variant": "#2b4d44",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#241a00",
+              "on-primary": "#ffffff",
+              "tertiary": "#212121",
+              "tertiary-container": "#363636",
+              "surface-container-high": "#e9e8e4",
+              "secondary": "#735c00",
+              "tertiary-fixed-dim": "#c8c6c6",
+              "inverse-on-surface": "#f2f1ed",
+              "surface-dim": "#dbdad6",
+              "inverse-surface": "#2f312e",
+              "surface": "#faf9f5",
+              "surface-variant": "#e3e2df",
+              "on-secondary": "#ffffff",
+              "on-primary-fixed": "#00201a",
+              "on-surface-variant": "#414846",
+              "on-secondary-fixed-variant": "#574500",
+              "tertiary-fixed": "#e4e2e1",
+              "outline": "#717976",
+              "on-primary-container": "#83a69c",
+              "background": "#faf9f5",
+              "primary-fixed": "#c5eadf",
+              "on-tertiary-fixed": "#1b1c1c",
+              "on-background": "#1b1c1a",
+              "on-error-container": "#93000a",
+              "surface-bright": "#faf9f5",
+              "error-container": "#ffdad6",
+              "on-surface": "#1b1c1a",
+              "primary-container": "#1a3c34",
+              "surface-container-low": "#f4f4f0",
+              "on-tertiary-fixed-variant": "#474747",
+              "surface-container-highest": "#e3e2df",
+              "outline-variant": "#c1c8c4"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif KR", "serif"],
+              "body": ["Manrope", "sans-serif"],
+              "label": ["Manrope", "sans-serif"],
+              "serif": ["Noto Serif KR", "serif"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #faf9f5; color: #1b1c1a; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+        .hero-gradient { background: linear-gradient(135deg, #01261f 0%, #1a3c34 100%); }
+        .gold-border-bottom { border-bottom: 0.5px solid #735c00; }
+        .glass-panel { backdrop-filter: blur(12px); background: rgba(250, 249, 245, 0.85); }
+        .asymmetric-shape { clip-path: polygon(0 0, 100% 5%, 100% 100%, 0 95%); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface selection:bg-secondary/30">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#faf9f5] dark:bg-[#01261f] border-b border-[#01261f]/5 dark:border-[#735c00]/10 flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#01261f] dark:text-[#faf9f5] hover:bg-[#f0eee4] dark:hover:bg-[#1a3c34] transition-colors duration-400 p-2 rounded-full">menu</button>
+<h1 class="text-2xl font-serif italic text-[#01261f] dark:text-[#735c00] tracking-tight">Law-Caddy</h1>
+</div>
+<div class="hidden md:flex items-center space-x-12">
+<nav class="flex space-x-8">
+<a class="text-[#735c00] font-bold font-serif text-lg tracking-tight" href="#">라운지</a>
+<a class="text-[#01261f]/60 dark:text-[#faf9f5]/60 hover:bg-[#f0eee4] dark:hover:bg-[#1a3c34] transition-colors duration-400 px-2 py-1" href="#">법률상담</a>
+<a class="text-[#01261f]/60 dark:text-[#faf9f5]/60 hover:bg-[#f0eee4] dark:hover:bg-[#1a3c34] transition-colors duration-400 px-2 py-1" href="#">컨시어지</a>
+<a class="text-[#01261f]/60 dark:text-[#faf9f5]/60 hover:bg-[#f0eee4] dark:hover:bg-[#1a3c34] transition-colors duration-400 px-2 py-1" href="#">마이클럽</a>
+</nav>
+</div>
+<div class="flex items-center">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white text-xs border border-secondary/20 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up of a professional male VVIP member" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIqy1FlwD2NjbsP9kFh2Au6BMavOG-zulkjIk1g2-dN5Ygk7lGUA1awPfR9kQoiimVahKned-nii2j_sVzCyXHtWzZEmAsTwtHGTFx2y85Hj613Z-PF5eQSk_g0xPTHQty1kFRJHUcttkNpxDL0Wqer2XyYmxTcBg-bNfoOpP3b_kpVaN_eggFDgyV626P19qGlDxYuw6TqGNLgBy7iKUgejSkAKk97AWP_5CStExYoiH4hC_9xycdkMVmZy9DOvQscyS68LgKH6YS"/>
+</div>
+</div>
+</header>
+<main class="pt-16">
+<!-- Hero Section -->
+<section class="relative min-h-[795px] flex items-center overflow-hidden bg-primary text-surface">
+<div class="absolute inset-0 z-0 opacity-40">
+<img class="w-full h-full object-cover" data-alt="Morning mist on a luxury professional golf course green" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASTu49qiPx03Mwd0zVQd0didf7o_Rl2ue2aZdHMjbd7fS3g-enwtJkd0tYu8yNTgXMeSWifT0TNQzPt5a1nW8ufaPKvgchVgndMzhoVeuc3pO1yxRn3oESqDEki7Gx2CPratfZTpyeJATihV8RfWXbqUPltVtkcln1jtSR7dtvWHfsERzIdj9Z1DQq2d0xZUDSkBij4OTsLXuTmvbpxF9OsRdfSXSgew09jiT0cXAtmbyamRz90YKtF1EHja9aYJ42TeoyCLDJcVZ-"/>
+<div class="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-transparent"></div>
+</div>
+<div class="container mx-auto px-6 relative z-10 flex flex-col items-start max-w-6xl">
+<div class="mb-6 flex items-center space-x-3">
+<span class="w-1 h-8 bg-secondary"></span>
+<span class="font-body text-secondary tracking-[0.3em] text-sm font-bold">PREMIUM LEGAL CURATION</span>
+</div>
+<h2 class="text-5xl md:text-7xl font-headline font-black leading-tight mb-8">
+                    당신의 실력에,<br/>
+                    최상의 전략을 <span class="italic text-secondary">티업(Tea-up)</span>하다.
+                </h2>
+<p class="text-xl md:text-2xl font-serif text-surface-variant/80 max-w-2xl leading-relaxed mb-12">
+                    복잡한 법률의 필드 위에서, 오직 당신만을 위한 <br class="hidden md:block"/>
+                    프라이빗 캐디가 되어 드립니다.
+                </p>
+<button class="bg-secondary text-primary px-10 py-5 rounded-lg font-bold text-lg hover:bg-secondary-container transition-all duration-500 shadow-xl flex items-center group">
+                    프라이빗 상담 신청하기
+                    <span class="material-symbols-outlined ml-3 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+<!-- Scroll Indicator -->
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-50">
+<span class="text-[10px] tracking-widest uppercase">Explore More</span>
+<div class="w-px h-12 bg-surface/30"></div>
+</div>
+</section>
+<!-- Stats Section (Glassmorphism Bento) -->
+<section class="py-24 bg-surface relative z-20 -mt-12 md:-mt-20">
+<div class="container mx-auto px-6 max-w-6xl">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-surface-container-low p-12 rounded-2xl flex flex-col justify-between h-80 relative overflow-hidden group">
+<div class="relative z-10">
+<span class="text-6xl font-headline font-bold text-primary block mb-4">99%</span>
+<h3 class="text-xl font-serif text-on-surface">고객 만족도</h3>
+<p class="text-on-surface-variant mt-4 max-w-xs">자산 규모 100억 이상의 VVIP 고객님들이 신뢰하는 수치입니다.</p>
+</div>
+<span class="material-symbols-outlined absolute -right-4 -bottom-4 text-primary/5 text-9xl group-hover:scale-110 transition-transform duration-700">verified</span>
+</div>
+<div class="bg-primary text-surface p-12 rounded-2xl flex flex-col justify-between h-80 relative overflow-hidden group">
+<div class="relative z-10">
+<span class="text-6xl font-headline font-bold text-secondary block mb-4">200+</span>
+<h3 class="text-xl font-serif">파트너 변호사</h3>
+<p class="text-surface-variant mt-4 max-w-xs">각 분야 최고의 전략가들이 당신의 상황을 정밀 분석합니다.</p>
+</div>
+<span class="material-symbols-outlined absolute -right-4 -bottom-4 text-secondary/10 text-9xl group-hover:scale-110 transition-transform duration-700">gavel</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Section (Editorial Layout) -->
+<section class="py-32 bg-surface relative">
+<div class="container mx-auto px-6 max-w-6xl">
+<div class="flex flex-col md:flex-row gap-20 items-center mb-40">
+<div class="w-full md:w-1/2">
+<div class="relative">
+<img class="rounded-2xl shadow-2xl z-10 relative aspect-[4/5] object-cover" data-alt="High-end leather furniture in a private legal office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPmx4PT9cOeVT38huJsxndgKBi8JAVGkbJW1foego6Q--KWxCQfIA3FJNN59I9Z8RrSwPxawrbUfxsceqUz4fXUJD0jseP_f2mZ0eATGDRZ0DpDwJMa8WZcCdACbAEceJsboQSypZSOuEeBSB9yBgryCokE6T42iYZ0CMhcE34Ji7Ya_3rNJZP-a5W1HV0kH_tf1iSaX-jBDJzL5rIGBNkRuPVEfeJp1bJ-nTPp8cSTPSqbAbSq8eMmzLdv96tSs4V0ayJER8venMr"/>
+<div class="absolute -top-10 -left-10 w-40 h-40 border-l border-t border-secondary opacity-30"></div>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex flex-col items-start">
+<span class="text-secondary font-bold tracking-widest text-xs mb-6">INTELLIGENT ANALYSIS</span>
+<h3 class="text-4xl md:text-5xl font-headline font-bold text-primary mb-8 leading-tight">AI 문서 분석</h3>
+<p class="text-lg text-on-surface-variant leading-relaxed mb-10 font-body">
+                            수만 건의 판례와 최신 법령을 초단위로 스캔하여, 당신의 리스크를 사전 예측합니다. 단순한 데이터 나열이 아닌, 승리를 위한 핵심 동선을 파악합니다.
+                        </p>
+<div class="gold-border-bottom pb-2">
+<a class="text-secondary font-bold flex items-center group" href="#">
+                                기술력 자세히 보기
+                                <span class="material-symbols-outlined ml-2 text-sm group-hover:translate-x-1 transition-transform">north_east</span>
+</a>
+</div>
+</div>
+</div>
+<div class="flex flex-col md:flex-row-reverse gap-20 items-center mb-40">
+<div class="w-full md:w-1/2">
+<div class="relative">
+<img class="rounded-2xl shadow-2xl z-10 relative aspect-[4/5] object-cover" data-alt="Elegant wooden interior of a private member's lounge" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIrCoVgdyuCbyEVNsOvh0KA98uTb1MFEUZxP3NvuUIUu0Zmqekk5Q3xpmQ_gfcdv03qoaf3gxPygg2xRiHL4S0KzlM7rqpoRQ9Ne3tJf7ykWM8p8gWj1B7Rj8eePklvIFV3klzgZtAxWsUrsl8lahH47rdos3b0Vvgz8tJhBDwL3o3yWOW2gdZXhkEPYRmcPSutjVhkicb8EHN5_RBIAvaN7bPaNF8fl5wLU_baHeFkyLT4NCb0kv4-UWStAAoCTgXG4uT5dYPbeqx"/>
+<div class="absolute -bottom-10 -right-10 w-40 h-40 border-r border-b border-secondary opacity-30"></div>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex flex-col items-start">
+<span class="text-secondary font-bold tracking-widest text-xs mb-6">HUMAN TOUCH</span>
+<h3 class="text-4xl md:text-5xl font-headline font-bold text-primary mb-8 leading-tight">1:1 프리미엄 컨시어지</h3>
+<p class="text-lg text-on-surface-variant leading-relaxed mb-10 font-body">
+                            전담 캐디처럼 당신의 일상을 밀착 보좌합니다. 법률적 판단이 필요한 모든 순간, 즉각적인 응답과 맞춤형 솔루션을 제안합니다.
+                        </p>
+<div class="gold-border-bottom pb-2">
+<a class="text-secondary font-bold flex items-center group" href="#">
+                                멤버십 혜택 확인
+                                <span class="material-symbols-outlined ml-2 text-sm group-hover:translate-x-1 transition-transform">north_east</span>
+</a>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-3xl p-12 md:p-24 flex flex-col md:flex-row gap-16 items-center">
+<div class="w-full md:w-2/3">
+<h3 class="text-4xl font-headline font-bold text-primary mb-6">전략 라운지</h3>
+<p class="text-lg text-on-surface-variant font-body mb-8">
+                            온라인을 넘어 오프라인에서도 품격 있는 회동을 지원합니다. 법률가들과의 프라이빗한 네트워킹을 위한 '라운지'를 지금 예약하십시오.
+                        </p>
+<div class="flex flex-wrap gap-4">
+<span class="px-6 py-2 bg-primary text-secondary rounded-full text-sm font-bold">VVIP 전용</span>
+<span class="px-6 py-2 bg-surface text-on-surface rounded-full text-sm font-bold shadow-sm">강남 센터</span>
+<span class="px-6 py-2 bg-surface text-on-surface rounded-full text-sm font-bold shadow-sm">제주 라운지</span>
+</div>
+</div>
+<div class="w-full md:w-1/3">
+<img class="w-full h-auto rounded-xl shadow-lg grayscale hover:grayscale-0 transition-all duration-700" data-alt="Luxurious dark wood law office desk with professional accessories" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7uNIfsnIi9YAP3karcZIy7NS5FjldIu2pQswnfUFLPAREnaD1qqFTMxQrfS1zXYUPp1DY9yE1wVh_Xa85MbdDW-k9frfvPI7sx0rsBZ1ZL_Gj39FDCmXDPYaKupfmsIdBR7uE1X3TskIA3klxTTkHJvBf7m5pYAm3VCCnmLhBvorem6KSpXZVOt4Cg-Lk7yMeg8KiXjAvDmz1-kQuo37l9dqznsz4vT4CRUnFk0bGeZzkXUOY7MRSv_mwyj7f3SrKgbDPdnABpmTJ"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA -->
+<section class="py-32 bg-primary overflow-hidden relative">
+<div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-secondary via-transparent to-transparent"></div>
+<div class="container mx-auto px-6 text-center relative z-10">
+<h2 class="text-4xl md:text-6xl font-headline font-bold text-surface mb-12">
+                    당신의 다음 홀(Hole)을 위한<br/>
+                    가장 현명한 동행.
+                </h2>
+<div class="flex flex-col md:flex-row justify-center items-center gap-6">
+<button class="bg-secondary text-primary px-12 py-6 rounded-lg font-bold text-xl hover:bg-secondary-container transition-all duration-400 w-full md:w-auto shadow-2xl">
+                        프라이빗 상담 신청하기
+                    </button>
+<button class="text-surface-variant border border-surface-variant/30 px-12 py-6 rounded-lg font-bold text-xl hover:bg-surface/5 transition-all duration-400 w-full md:w-auto">
+                        서비스 가이드 다운로드
+                    </button>
+</div>
+<p class="mt-12 text-surface-variant/40 text-sm tracking-widest font-body">EXCLUSIVE FOR BLACK LABEL MEMBERSHIP</p>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-highest pt-20 pb-40 px-6">
+<div class="container mx-auto max-w-6xl">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+<div class="col-span-1 md:col-span-1">
+<h4 class="text-2xl font-serif italic text-primary mb-6">Law-Caddy</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                        최고의 법률 파트너와 함께하는 <br/>
+                        프라이빗 컨시어지 서비스.
+                    </p>
+</div>
+<div>
+<h5 class="font-bold text-primary mb-6">서비스</h5>
+<ul class="space-y-4 text-sm text-on-surface-variant">
+<li><a class="hover:text-secondary" href="#">AI 법률 분석</a></li>
+<li><a class="hover:text-secondary" href="#">전담 변호사 매칭</a></li>
+<li><a class="hover:text-secondary" href="#">라운지 예약</a></li>
+<li><a class="hover:text-secondary" href="#">자산 관리 가이드</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-bold text-primary mb-6">회사소개</h5>
+<ul class="space-y-4 text-sm text-on-surface-variant">
+<li><a class="hover:text-secondary" href="#">팀 소개</a></li>
+<li><a class="hover:text-secondary" href="#">파트너 협력</a></li>
+<li><a class="hover:text-secondary" href="#">채용 정보</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-bold text-primary mb-6">문의</h5>
+<ul class="space-y-4 text-sm text-on-surface-variant">
+<li>1588-XXXX</li>
+<li>concierge@lawcaddy.com</li>
+<li>서울특별시 강남구 테헤란로 XXX</li>
+</ul>
+</div>
+</div>
+<div class="pt-8 border-t border-primary/5 flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-xs text-on-surface-variant/60 font-body">© 2024 Law-Caddy. All rights reserved.</p>
+<div class="flex gap-8 text-xs text-on-surface-variant/60 font-body">
+<a class="hover:text-primary" href="#">이용약관</a>
+<a class="hover:text-primary font-bold" href="#">개인정보처리방침</a>
+</div>
+</div>
+</div>
+</footer>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-[#faf9f5]/90 dark:bg-[#01261f]/90 backdrop-blur-md border-t border-[#01261f]/5 shadow-[0_-4px_40px_rgba(1,38,31,0.04)] flex justify-around items-center pt-3 pb-6 px-4">
+<a class="flex flex-col items-center text-[#735c00] scale-105 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1">table_bar</span>
+<span class="font-sans text-[11px] tracking-widest font-medium uppercase">라운지</span>
+</a>
+<a class="flex flex-col items-center text-[#01261f]/40 dark:text-[#faf9f5]/40 hover:text-[#735c00] ease-out duration-400" href="#">
+<span class="material-symbols-outlined mb-1">gavel</span>
+<span class="font-sans text-[11px] tracking-widest font-medium uppercase">법률상담</span>
+</a>
+<a class="flex flex-col items-center text-[#01261f]/40 dark:text-[#faf9f5]/40 hover:text-[#735c00] ease-out duration-400" href="#">
+<span class="material-symbols-outlined mb-1">concierge</span>
+<span class="font-sans text-[11px] tracking-widest font-medium uppercase">컨시어지</span>
+</a>
+<a class="flex flex-col items-center text-[#01261f]/40 dark:text-[#faf9f5]/40 hover:text-[#735c00] ease-out duration-400" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-sans text-[11px] tracking-widest font-medium uppercase">마이클럽</span>
+</a>
+</nav>
+</body></html>

@@ -7,8 +7,11 @@ import { authHeaders } from "./api-auth";
 // 공통
 // ---------------------------------------------------------------------------
 
-/** dev 환경에서는 Vite 프록시 사용 */
-const PROXY_URL = "/api/precedent-search";
+/** 커스텀 도메인에서는 pages.dev로 우회 (Cloudflare Zone 프록시 외부 API 차단 문제) */
+const API_BASE = typeof window !== "undefined" && window.location.hostname !== "law-caddy.pages.dev"
+  ? "https://law-caddy.pages.dev"
+  : "";
+const PROXY_URL = `${API_BASE}/api/precedent-search`;
 
 // ---------------------------------------------------------------------------
 // 판례 (prec) 타입 및 함수
@@ -135,19 +138,23 @@ export function formatPrecedentsForPrompt(
     ];
 
     if (p.keyPoints) {
-      parts.push(`   판시사항: ${truncate(p.keyPoints, 500)}`);
+      parts.push(`   【판시사항】 ${truncate(p.keyPoints, 1500)}`);
     }
 
     if (p.summary) {
-      parts.push(`   판결요지: ${truncate(p.summary, 500)}`);
+      parts.push(`   【판결요지】 ${truncate(p.summary, 2000)}`);
+    }
+
+    if (p.content) {
+      parts.push(`   【판례내용(발췌)】 ${truncate(p.content, 2000)}`);
     }
 
     if (p.refStatutes) {
-      parts.push(`   참조조문: ${truncate(p.refStatutes, 300)}`);
+      parts.push(`   【참조조문】 ${truncate(p.refStatutes, 500)}`);
     }
 
     if (p.refCases) {
-      parts.push(`   참조판례: ${truncate(p.refCases, 300)}`);
+      parts.push(`   【참조판례】 ${truncate(p.refCases, 500)}`);
     }
 
     return parts.join("\n");

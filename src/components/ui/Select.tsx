@@ -14,7 +14,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 const selectBase =
   "w-full appearance-none rounded-xl border border-border bg-navy-light px-4 py-2.5 pr-10 text-sm text-text-primary transition-colors duration-200 focus:border-gold focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
 
-/** 다크 테마 셀렉트 드롭다운 */
+/** 셀렉트 드롭다운 */
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, className = "", id, ...rest }, ref) => {
     const selectId = id ?? label?.replace(/\s+/g, "-").toLowerCase();

@@ -1,9 +1,9 @@
 // Firebase Authentication 서비스
-// 이메일/비밀번호 인증 + Firestore 사용자 문서 관리
+// 구글 로그인 + Firestore 사용자 문서 관리
 
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   updatePassword,
   reauthenticateWithCredential,
@@ -20,12 +20,15 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../../config/firebase";
 import type { User } from "../../types/user";
 
-/** 회원가입 시 추가 입력 정보 */
-interface SignUpData {
+const googleProvider = new GoogleAuthProvider();
+
+/** 프로필 완성 시 필요한 데이터 */
+export interface ProfileSetupData {
   name: string;
   firmName: string;
   barLicenseNumber: string;
   phone?: string;
+  officePhone?: string;
   privacyConsented?: boolean;
   businessNumber?: string;
   businessVerified?: boolean;
@@ -34,67 +37,100 @@ interface SignUpData {
   businessType?: string;
   businessCategory?: string;
   businessStartDate?: string;
+  businessCorporateNumber?: string;
+  businessTaxOffice?: string;
+  businessTaxType?: string;
 }
 
 /**
- * 신규 변호사 회원가입
- * Firebase Auth 계정 생성 + Firestore users 문서 생성 (status: "approved" 즉시 활성화)
- *
- * @param email - 이메일
- * @param password - 비밀번호
- * @param userData - 변호사 추가 정보
- * @returns 생성된 사용자 정보
- * @throws 가입 실패 시 에러
+ * 구글 로그인
+ * - 기존 유저: Firestore 문서 반환
+ * - 신규 유저: null 반환 (프로필 설정 필요)
  */
-export async function signUp(
+export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser: boolean; firebaseUid: string; email: string; photoURL?: string; displayName?: string }> {
+  try {
+    const result = await signInWithPopup(auth!, googleProvider);
+    const { uid, email, photoURL, displayName } = result.user;
+
+    const userDoc = await getUserDoc(uid);
+
+    if (userDoc) {
+      return { user: userDoc, isNewUser: false, firebaseUid: uid, email: email || "", photoURL: photoURL || undefined, displayName: displayName || undefined };
+    }
+
+    // 신규 유저 — 프로필 설정이 필요함
+    return { user: null, isNewUser: true, firebaseUid: uid, email: email || "", photoURL: photoURL || undefined, displayName: displayName || undefined };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const firebaseError = error as Error & { code?: string };
+      switch (firebaseError.code) {
+        case "auth/popup-closed-by-user":
+          throw new Error("로그인이 취소되었습니다.");
+        case "auth/popup-blocked":
+          throw new Error("팝업이 차단되었습니다. 팝업 차단을 해제해 주세요.");
+        case "auth/account-exists-with-different-credential":
+          throw new Error("이미 다른 방법으로 가입된 이메일입니다.");
+        default:
+          throw error;
+      }
+    }
+    throw new Error("구글 로그인 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 프로필 설정 완료 (첫 구글 로그인 후)
+ * Firestore users 문서 생성 + 사업자등록증 업로드
+ */
+export async function completeProfile(
+  uid: string,
   email: string,
-  password: string,
-  userData: SignUpData
+  photoURL: string | undefined,
+  profileData: ProfileSetupData
 ): Promise<User> {
   try {
-    // Firebase Auth 계정 생성
-    const credential = await createUserWithEmailAndPassword(
-      auth!,
-      email,
-      password
-    );
-    const { uid } = credential.user;
-
     // 사업자등록증 이미지 업로드
     let businessLicenseUrl: string | undefined;
-    if (userData.businessLicenseFile && storage) {
-      const ext = userData.businessLicenseFile.name.split(".").pop() || "jpg";
+    if (profileData.businessLicenseFile && storage) {
+      const ext = profileData.businessLicenseFile.name.split(".").pop() || "jpg";
       const storageRef = ref(storage, `business-registrations/${uid}/${uid}.${ext}`);
-      await uploadBytes(storageRef, userData.businessLicenseFile);
+      await uploadBytes(storageRef, profileData.businessLicenseFile);
       businessLicenseUrl = await getDownloadURL(storageRef);
     }
 
-    // Firestore 사용자 문서 생성
-    const userDoc: Omit<User, "createdAt" | "privacyConsentedAt"> & { createdAt: ReturnType<typeof serverTimestamp>; privacyConsentedAt?: ReturnType<typeof serverTimestamp> } = {
+    // 변호사업 확인 여부에 따라 상태 결정
+    const isApproved = profileData.businessVerified === true;
+
+    const userDoc: Record<string, unknown> = {
       uid,
       email,
-      name: userData.name,
-      firmName: userData.firmName,
-      barLicenseNumber: userData.barLicenseNumber,
+      photoURL: photoURL || null,
+      name: profileData.name,
+      firmName: profileData.firmName,
+      barLicenseNumber: profileData.barLicenseNumber,
       role: "lawyer",
-      status: userData.businessVerified ? "approved" : "pending",
+      status: isApproved ? "approved" : "pending",
       plan: "free",
       createdAt: serverTimestamp(),
-      phone: userData.phone,
-      privacyConsented: userData.privacyConsented,
-      ...(userData.privacyConsented ? { privacyConsentedAt: serverTimestamp() } : {}),
-      businessNumber: userData.businessNumber,
-      businessVerified: userData.businessVerified,
-      businessLicenseUrl,
-      businessAddress: userData.businessAddress,
-      businessType: userData.businessType,
-      businessCategory: userData.businessCategory,
-      businessStartDate: userData.businessStartDate,
+      phone: profileData.phone || null,
+      officePhone: profileData.officePhone || null,
+      privacyConsented: profileData.privacyConsented || false,
+      ...(profileData.privacyConsented ? { privacyConsentedAt: serverTimestamp() } : {}),
+      businessNumber: profileData.businessNumber || null,
+      businessVerified: profileData.businessVerified || false,
+      businessLicenseUrl: businessLicenseUrl || null,
+      businessAddress: profileData.businessAddress || null,
+      businessType: profileData.businessType || null,
+      businessCategory: profileData.businessCategory || null,
+      businessStartDate: profileData.businessStartDate || null,
+      businessCorporateNumber: profileData.businessCorporateNumber || null,
+      businessTaxOffice: profileData.businessTaxOffice || null,
+      businessTaxType: profileData.businessTaxType || null,
+      profileCompleted: true,
     };
 
     await setDoc(doc(db!, "users", uid), userDoc);
 
-    // 생성된 문서를 다시 읽어서 반환
     const createdUser = await getUserDoc(uid);
     if (!createdUser) {
       throw new Error("사용자 문서 생성 후 조회에 실패했습니다.");
@@ -103,68 +139,9 @@ export async function signUp(
     return createdUser;
   } catch (error: unknown) {
     if (error instanceof Error) {
-      // Firebase Auth 에러 코드별 한국어 메시지
-      const firebaseError = error as Error & { code?: string };
-      switch (firebaseError.code) {
-        case "auth/email-already-in-use":
-          throw new Error("이미 등록된 이메일입니다.");
-        case "auth/invalid-email":
-          throw new Error("유효하지 않은 이메일 형식입니다.");
-        case "auth/weak-password":
-          throw new Error("비밀번호는 6자 이상이어야 합니다.");
-        default:
-          throw error;
-      }
+      throw error;
     }
-    throw new Error("회원가입 중 알 수 없는 오류가 발생했습니다.");
-  }
-}
-
-/**
- * 이메일/비밀번호 로그인
- *
- * @param email - 이메일
- * @param password - 비밀번호
- * @returns 사용자 정보
- * @throws 로그인 실패 시 에러
- */
-export async function signIn(
-  email: string,
-  password: string
-): Promise<User> {
-  try {
-    const credential = await signInWithEmailAndPassword(
-      auth!,
-      email,
-      password
-    );
-    const { uid } = credential.user;
-
-    const userDoc = await getUserDoc(uid);
-    if (!userDoc) {
-      throw new Error("사용자 정보를 찾을 수 없습니다. 관리자에게 문의하세요.");
-    }
-
-    return userDoc;
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      const firebaseError = error as Error & { code?: string };
-      switch (firebaseError.code) {
-        case "auth/user-not-found":
-          throw new Error("등록되지 않은 이메일입니다.");
-        case "auth/wrong-password":
-          throw new Error("비밀번호가 일치하지 않습니다.");
-        case "auth/invalid-credential":
-          throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
-        case "auth/too-many-requests":
-          throw new Error(
-            "로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요."
-          );
-        default:
-          throw error;
-      }
-    }
-    throw new Error("로그인 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("프로필 설정 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
@@ -184,9 +161,6 @@ export async function signOut(): Promise<void> {
 
 /**
  * Firestore에서 사용자 문서를 조회합니다.
- *
- * @param uid - Firebase Auth UID
- * @returns 사용자 정보 또는 null
  */
 export async function getUserDoc(uid: string): Promise<User | null> {
   try {
@@ -208,9 +182,6 @@ export async function getUserDoc(uid: string): Promise<User | null> {
 
 /**
  * 비밀번호 변경
- *
- * @param currentPassword - 현재 비밀번호 (재인증 필요)
- * @param newPassword - 새 비밀번호
  */
 export async function changePassword(
   currentPassword: string,

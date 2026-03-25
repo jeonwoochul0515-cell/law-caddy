@@ -9,6 +9,10 @@ export interface BusinessOcrResult {
   startDate: string;
   businessType: string;
   businessCategory: string;
+  corporateNumber?: string;
+  taxOffice?: string;
+  taxType?: string;
+  officePhone?: string;
   confidence: "high" | "medium" | "low";
 }
 
@@ -100,17 +104,21 @@ async function ocrDirect(base64: string, mediaType: string, apiKey: string): Pro
         max_tokens: 1024,
         temperature: 0,
         system: `당신은 한국 사업자등록증 문서 판독 전문가입니다.
-사업자등록증 이미지에서 다음 정보를 정확히 추출하세요.
+사업자등록증 이미지에서 모든 정보를 빠짐없이 정확히 추출하세요.
 
 반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
 {
   "businessNumber": "사업자등록번호 (숫자만, 하이픈 제거)",
   "companyName": "상호(법인명)",
   "representativeName": "대표자(성명)",
-  "address": "사업장 소재지",
+  "address": "사업장 소재지 (전체 주소)",
   "startDate": "개업연월일 (YYYYMMDD)",
   "businessType": "업태",
   "businessCategory": "종목",
+  "corporateNumber": "법인등록번호 (있으면, 없으면 빈 문자열)",
+  "taxOffice": "관할세무서 (예: ○○세무서)",
+  "taxType": "사업자 유형 (일반과세자, 간이과세자, 면세사업자 등)",
+  "officePhone": "사업장 전화번호 (있으면, 없으면 빈 문자열)",
   "confidence": "high|medium|low"
 }`,
         messages: [

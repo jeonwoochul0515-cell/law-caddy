@@ -130,14 +130,20 @@ async function callClaudeDirect(
 
 /**
  * Cloudflare Functions 프록시를 통해 호출합니다 (프로덕션).
+ * 커스텀 도메인(law-caddy.com)에서는 pages.dev로 직접 호출하여
+ * Cloudflare Zone 프록시의 아웃바운드 IP 차이로 인한 403을 우회합니다.
  */
+const API_BASE = typeof window !== "undefined" && window.location.hostname !== "law-caddy.pages.dev"
+  ? "https://law-caddy.pages.dev"
+  : "";
+
 async function callClaudeProxy(
   systemPrompt: string,
   userMessage: string,
 ): Promise<string> {
   return withRetry(async () => {
     const headers = await authHeaders({ "Content-Type": "application/json" });
-    const response = await fetch("/api/claude", {
+    const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
       body: JSON.stringify({ systemPrompt, userMessage }),
@@ -179,6 +185,11 @@ export async function callClaude(
     return await callClaudeProxy(systemPrompt, userMessage);
   } catch (error: unknown) {
     Sentry.captureException(error);
+    const errMsg = error instanceof Error ? error.message : "알 수 없는 오류";
+    // 전역 API 에러 알림
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("api-error", { detail: errMsg }));
+    }
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
         "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
@@ -265,7 +276,7 @@ async function callClaudeChatProxy(
 ): Promise<string> {
   return withRetry(async () => {
     const headers = await authHeaders({ "Content-Type": "application/json" });
-    const response = await fetch("/api/claude", {
+    const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
       body: JSON.stringify({ systemPrompt, messages }),

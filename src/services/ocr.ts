@@ -10,7 +10,7 @@ const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefi
 const DEV_PROXY_URL = "/api/anthropic/v1/messages";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const API_VERSION = "2023-06-01";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-haiku-4-5-20251001";
 
 /** 이미지 확장자 판별 */
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
@@ -119,10 +119,13 @@ export async function extractImageText(file: File): Promise<OcrResult> {
       }),
     });
   } else {
-    // 프로덕션: 기존 /api/claude 프록시 사용 (Vision messages 전달)
+    // 프로덕션: /api/claude 프록시 사용 (커스텀 도메인은 pages.dev 경유)
+    const apiBase = typeof window !== "undefined" && window.location.hostname !== "law-caddy.pages.dev"
+      ? "https://law-caddy.pages.dev"
+      : "";
     response = await withRetry(async () => {
       const headers = await authHeaders({ "Content-Type": "application/json" });
-      return fetch("/api/claude", {
+      return fetch(`${apiBase}/api/claude`, {
         method: "POST",
         headers,
         body: JSON.stringify({

@@ -10,7 +10,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 const inputBase =
   "w-full rounded-xl border border-border bg-navy-light px-4 py-2.5 text-sm text-text-primary placeholder:text-text-dim transition-colors duration-200 focus:border-gold focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
 
-/** 다크 테마 텍스트 입력 */
+/** 텍스트 입력 */
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, className = "", id, ...rest }, ref) => {
     const inputId = id ?? label?.replace(/\s+/g, "-").toLowerCase();

@@ -22,7 +22,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // Anthropic API 테스트 (?test=claude)
   if (test === "claude" && apiKey) {
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const testReq = new Request("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -35,6 +35,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           messages: [{ role: "user", content: "hi" }],
         }),
       });
+      const resp = await fetch(testReq);
 
       if (resp.ok) {
         results.anthropicTest = "OK";

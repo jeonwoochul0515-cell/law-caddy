@@ -113,17 +113,17 @@ function AnimatedCounter({
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-[#efeeea]">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-5 text-left group"
       >
-        <span className="text-text-primary font-medium pr-4 group-hover:text-gold transition-colors">
+        <span className="text-[#1b1c1a] font-medium pr-4 group-hover:text-[#735c00] transition-colors">
           {q}
         </span>
         <ChevronDown
-          className={`w-5 h-5 text-text-dim flex-shrink-0 transition-transform duration-300 ${
-            open ? "rotate-180 text-gold" : ""
+          className={`w-5 h-5 text-[#414846] flex-shrink-0 transition-transform duration-300 ${
+            open ? "rotate-180 text-[#735c00]" : ""
           }`}
         />
       </button>
@@ -132,7 +132,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           open ? "max-h-40 pb-5" : "max-h-0"
         }`}
       >
-        <p className="text-text-dim leading-relaxed text-sm">{a}</p>
+        <p className="text-[#414846] leading-relaxed text-sm">{a}</p>
       </div>
     </div>
   );
@@ -147,42 +147,42 @@ const AGENTS = [
     nickname: "판서",
     name: "판례 검색",
     desc: "30년 경력의 판례 전문가. 유사 판례 3~5건을 즉시 검색하고 시사점을 분석합니다",
-    color: "text-blue",
+    color: "text-[#1a3c34]",
   },
   {
     icon: <Shield className="w-5 h-5" />,
     nickname: "율무",
     name: "적법성 검증",
     desc: "윤리위원회 출신 감사관. 통비법·변호사법·개보법 준수 여부를 빈틈없이 확인합니다",
-    color: "text-success",
+    color: "text-[#1a3c34]",
   },
   {
     icon: <Mic className="w-5 h-5" />,
     nickname: "소리",
     name: "음성 변환",
     desc: "법정 속기사 출신 청각 전문가. RTZR STT로 화자를 구분한 정확한 대화록을 생성합니다",
-    color: "text-warning",
+    color: "text-[#735c00]",
   },
   {
     icon: <Brain className="w-5 h-5" />,
     nickname: "혜안",
     name: "쟁점 분석",
     desc: "로스쿨 교수 출신 전략가. 핵심 쟁점 3가지를 꿰뚫어보고 법조문을 매칭합니다",
-    color: "text-error",
+    color: "text-[#01261f]",
   },
   {
     icon: <FileText className="w-5 h-5" />,
     nickname: "필묵",
     name: "문서 작성",
     desc: "대형 로펌 15년차 문서 장인. 판사를 설득하는 완성도 높은 법률 문서를 작성합니다",
-    color: "text-gold",
+    color: "text-[#735c00]",
   },
   {
     icon: <Award className="w-5 h-5" />,
     nickname: "감수",
     name: "검토·감수",
     desc: "대법원 재판연구관 출신. 5점 척도 품질 평가와 수정 제안으로 문서를 한 단계 끌어올립니다",
-    color: "text-info",
+    color: "text-[#1a3c34]",
   },
 ];
 
@@ -253,26 +253,32 @@ const FAQS = [
    ──────────────────────────────────────────── */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-navy">
+    <div className="min-h-screen bg-[#faf9f5]">
       {/* ─── Navigation ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-navy/90 backdrop-blur-xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#efeeea] bg-[#faf9f5]/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <Scale className="w-6 h-6 text-gold" />
-            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-gold to-gold-bright bg-clip-text text-transparent">
-              LAW-CADDY
+            <Scale className="w-6 h-6 text-[#01261f]" />
+            <span className="text-xl font-serif italic font-bold tracking-tight text-[#01261f]">
+              Law-Caddy
             </span>
           </Link>
+          <div className="hidden sm:flex items-center gap-8 text-sm text-[#414846]">
+            <a href="#features" className="hover:text-[#01261f] transition-colors">기능</a>
+            <a href="#agents" className="hover:text-[#01261f] transition-colors">에이전트</a>
+            <a href="#pricing" className="hover:text-[#01261f] transition-colors">요금제</a>
+            <a href="#faq" className="hover:text-[#01261f] transition-colors">FAQ</a>
+          </div>
           <div className="flex items-center gap-3">
             <Link
               to="/login"
-              className="px-4 py-2 text-sm text-text-dim hover:text-text-primary transition-colors"
+              className="px-4 py-2 text-sm text-[#414846] hover:text-[#01261f] transition-colors"
             >
               로그인
             </Link>
             <Link
-              to="/register"
-              className="px-5 py-2 text-sm rounded-lg bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold hover:opacity-90 transition-opacity"
+              to="/login"
+              className="px-5 py-2 text-sm rounded-lg bg-[#01261f] text-white font-semibold hover:bg-[#1a3c34] transition-colors"
             >
               시작하기
             </Link>
@@ -281,72 +287,73 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero Section ─── */}
-      <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-gold/[0.04] rounded-full blur-3xl" />
-          <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-gold/[0.02] rounded-full blur-3xl" />
-        </div>
+      <section className="relative pt-16 overflow-hidden">
+        <div className="bg-[#01261f] pt-20 pb-24 sm:pt-28 sm:pb-32 px-4 sm:px-6 lg:px-8">
+          {/* Subtle background texture */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-[#1a3c34]/40 rounded-full blur-3xl" />
+          </div>
 
-        <div className="relative max-w-4xl mx-auto text-center">
-          {/* Exclusive badge */}
-          <FadeIn>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-dim border border-gold/20 mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
-              <span className="text-xs tracking-widest uppercase text-gold font-medium">
-                변호사 전용 AI 어시스턴트
-              </span>
-            </div>
-          </FadeIn>
+          <div className="relative max-w-4xl mx-auto text-center">
+            {/* Exclusive badge */}
+            <FadeIn>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/10 mb-8">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#fed65b] animate-pulse" />
+                <span className="text-xs tracking-widest uppercase text-[#fed65b] font-medium">
+                  변호사 전용 AI 어시스턴트
+                </span>
+              </div>
+            </FadeIn>
 
-          {/* Headline */}
-          <FadeIn delay={100}>
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold mb-6 leading-tight">
-              <span className="text-text-primary">최고의 플레이에는</span>
-              <br />
-              <span className="bg-gradient-to-r from-gold via-gold-bright to-gold bg-clip-text text-transparent">
-                최고의 캐디가
-              </span>
-              <br />
-              <span className="text-text-primary">필요합니다</span>
-            </h1>
-          </FadeIn>
+            {/* Headline */}
+            <FadeIn delay={100}>
+              <h1 className="font-serif text-4xl sm:text-5xl lg:text-7xl font-bold mb-6 leading-tight">
+                <span className="text-white">최고의 플레이에는</span>
+                <br />
+                <span className="text-[#fed65b]">
+                  최고의 캐디가
+                </span>
+                <br />
+                <span className="text-white">필요합니다</span>
+              </h1>
+            </FadeIn>
 
-          {/* Subheadline */}
-          <FadeIn delay={200}>
-            <p className="text-lg sm:text-xl text-text-dim max-w-2xl mx-auto mb-4 leading-relaxed">
-              상담 녹음 하나로, 판례 검색부터 문서 작성까지.
-              <br className="hidden sm:block" />
-              변호사님의 시간을 돌려드립니다.
-            </p>
-            <p className="text-sm text-gold/60 tracking-wider uppercase mb-10">
-              Your Legal Caddy — Always by Your Side
-            </p>
-          </FadeIn>
+            {/* Subheadline */}
+            <FadeIn delay={200}>
+              <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-4 leading-relaxed">
+                상담 녹음 하나로, 판례 검색부터 문서 작성까지.
+                <br className="hidden sm:block" />
+                변호사님의 시간을 돌려드립니다.
+              </p>
+              <p className="text-sm text-[#fed65b]/60 tracking-wider uppercase mb-10">
+                Your Legal Caddy — Always by Your Side
+              </p>
+            </FadeIn>
 
-          {/* CTA */}
-          <FadeIn delay={300}>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                to="/register"
-                className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-gold to-gold-bright text-navy font-bold text-lg hover:opacity-90 transition-all hover:scale-[1.02] shadow-lg shadow-gold/20"
-              >
-                무료로 시작하기
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/login?demo=true"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-border hover:border-gold/30 text-text-primary hover:text-gold transition-all text-lg"
-              >
-                데모 체험
-              </Link>
-            </div>
-          </FadeIn>
+            {/* CTA */}
+            <FadeIn delay={300}>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  to="/login"
+                  className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-xl bg-[#fed65b] text-[#01261f] font-bold text-lg hover:bg-[#ffe88a] transition-all hover:scale-[1.02] shadow-lg shadow-black/20"
+                >
+                  무료로 시작하기
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+                <Link
+                  to="/login?demo=true"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border border-white/20 hover:border-white/40 text-white hover:text-[#fed65b] transition-all text-lg"
+                >
+                  데모 체험
+                </Link>
+              </div>
+            </FadeIn>
+          </div>
         </div>
       </section>
 
       {/* ─── Trust Bar ─── */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 border-y border-border/50">
+      <section className="py-12 px-4 sm:px-6 lg:px-8 border-b border-[#efeeea] bg-white">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
             { value: 1200, suffix: "+", label: "분석 완료 건수" },
@@ -356,13 +363,13 @@ export default function LandingPage() {
           ].map((stat) => (
             <FadeIn key={stat.label}>
               <div>
-                <div className="text-3xl sm:text-4xl font-bold text-gold mb-1">
+                <div className="text-3xl sm:text-4xl font-bold font-serif text-[#01261f] mb-1">
                   <AnimatedCounter
                     end={stat.value}
                     suffix={stat.suffix}
                   />
                 </div>
-                <div className="text-sm text-text-dim">{stat.label}</div>
+                <div className="text-sm text-[#414846]">{stat.label}</div>
               </div>
             </FadeIn>
           ))}
@@ -370,14 +377,14 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Pain → Solution ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
+      <section id="features" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-[#faf9f5]">
         <div className="max-w-6xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 변호사님, 이런 경험 있으신가요?
               </h2>
-              <p className="text-text-dim text-lg max-w-2xl mx-auto">
+              <p className="text-[#414846] text-lg max-w-2xl mx-auto">
                 상담은 30분인데, 문서 작성에 3시간.
                 <br />
                 판례 검색에 또 2시간. 그 시간, 돌려받으세요.
@@ -407,17 +414,17 @@ export default function LandingPage() {
               },
             ].map((item, i) => (
               <FadeIn key={item.pain} delay={i * 100}>
-                <div className="group p-8 rounded-2xl bg-surface border border-border hover:border-gold/20 transition-all h-full">
-                  <div className="w-12 h-12 rounded-xl bg-gold-dim flex items-center justify-center mb-6 text-gold group-hover:scale-110 transition-transform">
+                <div className="group p-8 rounded-2xl bg-white border border-[#efeeea] hover:border-[#735c00]/20 hover:shadow-lg transition-all h-full">
+                  <div className="w-12 h-12 rounded-xl bg-[#01261f]/10 flex items-center justify-center mb-6 text-[#01261f] group-hover:scale-110 transition-transform">
                     {item.icon}
                   </div>
-                  <p className="text-text-dim text-sm mb-2 line-through decoration-text-dim/30">
+                  <p className="text-[#414846] text-sm mb-2 line-through decoration-[#414846]/30">
                     {item.pain}
                   </p>
-                  <h3 className="text-lg font-semibold text-text-primary mb-3">
+                  <h3 className="text-lg font-semibold text-[#1b1c1a] mb-3">
                     {item.solution}
                   </h3>
-                  <p className="text-sm text-gold font-medium">{item.metric}</p>
+                  <p className="text-sm text-[#735c00] font-medium">{item.metric}</p>
                 </div>
               </FadeIn>
             ))}
@@ -426,14 +433,14 @@ export default function LandingPage() {
       </section>
 
       {/* ─── How It Works ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-white">
         <div className="max-w-5xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 3단계, 그게 전부입니다
               </h2>
-              <p className="text-text-dim text-lg">
+              <p className="text-[#414846] text-lg">
                 페어웨이를 벗어나지 않는 정확한 업무 흐름
               </p>
             </div>
@@ -463,17 +470,17 @@ export default function LandingPage() {
               <FadeIn key={item.step} delay={i * 150}>
                 <div className="relative text-center">
                   {/* Step number */}
-                  <div className="text-6xl font-black text-gold/[0.08] absolute -top-4 left-1/2 -translate-x-1/2 select-none">
+                  <div className="text-6xl font-black text-[#01261f]/[0.06] absolute -top-4 left-1/2 -translate-x-1/2 select-none font-serif">
                     {item.step}
                   </div>
                   <div className="relative">
-                    <div className="w-16 h-16 rounded-2xl bg-gold-dim border border-gold/20 flex items-center justify-center mx-auto mb-6 text-gold">
+                    <div className="w-16 h-16 rounded-2xl bg-[#01261f] flex items-center justify-center mx-auto mb-6 text-white">
                       {item.icon}
                     </div>
-                    <h3 className="text-xl font-bold text-text-primary mb-3">
+                    <h3 className="text-xl font-bold text-[#1b1c1a] mb-3">
                       {item.title}
                     </h3>
-                    <p className="text-text-dim leading-relaxed text-sm">
+                    <p className="text-[#414846] leading-relaxed text-sm">
                       {item.desc}
                     </p>
                   </div>
@@ -485,14 +492,14 @@ export default function LandingPage() {
       </section>
 
       {/* ─── 6 Agents ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section id="agents" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-[#faf9f5]">
         <div className="max-w-6xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 6명의 전문 AI가 동시에 일합니다
               </h2>
-              <p className="text-text-dim text-lg max-w-2xl mx-auto">
+              <p className="text-[#414846] text-lg max-w-2xl mx-auto">
                 마치 숙련된 캐디가 코스를 읽듯,
                 <br className="hidden sm:block" />
                 각 에이전트가 전문 영역을 병렬로 분석합니다.
@@ -503,17 +510,17 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {AGENTS.map((agent, i) => (
               <FadeIn key={agent.name} delay={i * 80}>
-                <div className="group flex items-start gap-4 p-6 rounded-xl bg-surface border border-border hover:border-gold/20 transition-all h-full">
+                <div className="group flex items-start gap-4 p-6 rounded-xl bg-white border border-[#efeeea] hover:border-[#735c00]/20 hover:shadow-md transition-all h-full">
                   <div
-                    className={`w-10 h-10 rounded-lg bg-surface-hover flex items-center justify-center flex-shrink-0 ${agent.color} group-hover:scale-110 transition-transform`}
+                    className={`w-10 h-10 rounded-lg bg-[#efeeea] flex items-center justify-center flex-shrink-0 ${agent.color} group-hover:scale-110 transition-transform`}
                   >
                     {agent.icon}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-text-primary mb-1">
-                      {agent.nickname} <span className="text-text-dim font-normal text-sm">· {agent.name}</span>
+                    <h4 className="font-semibold text-[#1b1c1a] mb-1">
+                      {agent.nickname} <span className="text-[#414846] font-normal text-sm">· {agent.name}</span>
                     </h4>
-                    <p className="text-sm text-text-dim leading-relaxed">
+                    <p className="text-sm text-[#414846] leading-relaxed">
                       {agent.desc}
                     </p>
                   </div>
@@ -525,14 +532,14 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Before / After ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-white">
         <div className="max-w-4xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 홀인원 같은 변화
               </h2>
-              <p className="text-text-dim text-lg">
+              <p className="text-[#414846] text-lg">
                 LAW-CADDY 도입 전과 후를 비교해보세요.
               </p>
             </div>
@@ -541,8 +548,8 @@ export default function LandingPage() {
           <FadeIn>
             <div className="grid md:grid-cols-2 gap-6">
               {/* Before */}
-              <div className="p-8 rounded-2xl bg-surface border border-border">
-                <div className="text-sm font-medium text-error mb-6 uppercase tracking-wider">
+              <div className="p-8 rounded-2xl bg-[#faf9f5] border border-[#efeeea]">
+                <div className="text-sm font-medium text-red-600 mb-6 uppercase tracking-wider">
                   Before
                 </div>
                 <ul className="space-y-4">
@@ -555,9 +562,9 @@ export default function LandingPage() {
                   ].map((item) => (
                     <li
                       key={item}
-                      className="flex items-start gap-3 text-text-dim text-sm"
+                      className="flex items-start gap-3 text-[#414846] text-sm"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-error/60 mt-1.5 flex-shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -565,8 +572,8 @@ export default function LandingPage() {
               </div>
 
               {/* After */}
-              <div className="p-8 rounded-2xl bg-gold-dim border border-gold/20">
-                <div className="text-sm font-medium text-gold mb-6 uppercase tracking-wider">
+              <div className="p-8 rounded-2xl bg-[#01261f] border border-[#1a3c34]">
+                <div className="text-sm font-medium text-[#fed65b] mb-6 uppercase tracking-wider">
                   After — with LAW-CADDY
                 </div>
                 <ul className="space-y-4">
@@ -579,9 +586,9 @@ export default function LandingPage() {
                   ].map((item) => (
                     <li
                       key={item}
-                      className="flex items-start gap-3 text-text-primary text-sm"
+                      className="flex items-start gap-3 text-white text-sm"
                     >
-                      <Check className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />
+                      <Check className="w-4 h-4 text-[#fed65b] mt-0.5 flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -592,12 +599,12 @@ export default function LandingPage() {
 
           <FadeIn delay={200}>
             <div className="mt-8 text-center">
-              <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-surface border border-border">
-                <Zap className="w-5 h-5 text-gold" />
-                <span className="text-text-primary font-semibold">
+              <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-[#efeeea] border border-[#efeeea]">
+                <Zap className="w-5 h-5 text-[#735c00]" />
+                <span className="text-[#1b1c1a] font-semibold">
                   6시간 → 10분.
                 </span>
-                <span className="text-text-dim">
+                <span className="text-[#414846]">
                   나머지 시간은 변호사님의 것입니다.
                 </span>
               </div>
@@ -607,11 +614,11 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Testimonials ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-[#faf9f5]">
         <div className="max-w-5xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 변호사님들의 이야기
               </h2>
             </div>
@@ -642,19 +649,19 @@ export default function LandingPage() {
               },
             ].map((t, i) => (
               <FadeIn key={t.name} delay={i * 100}>
-                <div className="p-8 rounded-2xl bg-surface border border-border h-full flex flex-col">
+                <div className="p-8 rounded-2xl bg-white border border-[#efeeea] h-full flex flex-col">
                   {/* Quote marks */}
-                  <span className="text-3xl text-gold/30 font-serif leading-none mb-4">
+                  <span className="text-3xl text-[#735c00]/30 font-serif leading-none mb-4">
                     &ldquo;
                   </span>
-                  <p className="text-text-primary text-sm leading-relaxed flex-1 mb-6">
+                  <p className="text-[#1b1c1a] text-sm leading-relaxed flex-1 mb-6">
                     {t.quote}
                   </p>
-                  <div className="border-t border-border pt-4">
-                    <div className="font-medium text-text-primary text-sm">
+                  <div className="border-t border-[#efeeea] pt-4">
+                    <div className="font-medium text-[#1b1c1a] text-sm">
                       {t.name}
                     </div>
-                    <div className="text-text-dim text-xs mt-0.5">
+                    <div className="text-[#414846] text-xs mt-0.5">
                       {t.firm} · {t.years}
                     </div>
                   </div>
@@ -666,14 +673,14 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Pricing ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section id="pricing" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-white">
         <div className="max-w-5xl mx-auto">
           <FadeIn>
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 요금제
               </h2>
-              <p className="text-text-dim text-lg">
+              <p className="text-[#414846] text-lg">
                 사무소 규모에 맞는 플랜을 선택하세요.
               </p>
             </div>
@@ -685,19 +692,19 @@ export default function LandingPage() {
                 <div
                   className={`relative p-8 rounded-2xl border transition-all h-full flex flex-col ${
                     plan.highlighted
-                      ? "bg-gold-dim border-gold/30 shadow-xl shadow-gold/10"
-                      : "bg-surface border-border hover:border-border-hover"
+                      ? "bg-[#01261f] border-[#1a3c34] shadow-xl shadow-[#01261f]/10"
+                      : "bg-[#faf9f5] border-[#efeeea] hover:border-[#735c00]/20"
                   }`}
                 >
                   {plan.highlighted && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-gold to-gold-bright text-navy text-xs font-bold whitespace-nowrap">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#fed65b] text-[#01261f] text-xs font-bold whitespace-nowrap">
                       추천
                     </div>
                   )}
 
                   <h3
                     className={`text-xl font-bold mb-2 ${
-                      plan.highlighted ? "text-gold" : "text-text-primary"
+                      plan.highlighted ? "text-[#fed65b]" : "text-[#1b1c1a]"
                     }`}
                   >
                     {plan.name}
@@ -707,13 +714,13 @@ export default function LandingPage() {
                     <span
                       className={`text-4xl font-bold ${
                         plan.highlighted
-                          ? "text-gold-bright"
-                          : "text-text-primary"
+                          ? "text-white"
+                          : "text-[#01261f]"
                       }`}
                     >
                       {plan.price}
                     </span>
-                    <span className="text-text-dim text-sm">{plan.period}</span>
+                    <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[#414846]"}`}>{plan.period}</span>
                   </div>
 
                   <ul className="space-y-3 mb-8 flex-1">
@@ -724,20 +731,20 @@ export default function LandingPage() {
                       >
                         <Check
                           className={`w-4 h-4 flex-shrink-0 ${
-                            plan.highlighted ? "text-gold" : "text-success"
+                            plan.highlighted ? "text-[#fed65b]" : "text-[#01261f]"
                           }`}
                         />
-                        <span className="text-text-primary">{feature}</span>
+                        <span className={plan.highlighted ? "text-white/90" : "text-[#1b1c1a]"}>{feature}</span>
                       </li>
                     ))}
                   </ul>
 
                   <Link
-                    to="/register"
+                    to="/login"
                     className={`block w-full text-center py-3 rounded-xl font-semibold transition-all ${
                       plan.highlighted
-                        ? "bg-gradient-to-r from-gold to-gold-bright text-navy hover:opacity-90"
-                        : "border border-border hover:border-gold/30 text-text-primary hover:text-gold"
+                        ? "bg-[#fed65b] text-[#01261f] hover:bg-[#ffe88a]"
+                        : "border border-[#efeeea] hover:border-[#735c00]/30 text-[#1b1c1a] hover:text-[#735c00]"
                     }`}
                   >
                     시작하기
@@ -750,18 +757,18 @@ export default function LandingPage() {
       </section>
 
       {/* ─── FAQ ─── */}
-      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <section id="faq" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-[#faf9f5]">
         <div className="max-w-3xl mx-auto">
           <FadeIn>
             <div className="text-center mb-12">
-              <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
                 자주 묻는 질문
               </h2>
             </div>
           </FadeIn>
 
           <FadeIn>
-            <div className="rounded-2xl bg-surface border border-border p-6 sm:p-8">
+            <div className="rounded-2xl bg-white border border-[#efeeea] p-6 sm:p-8">
               {FAQS.map((faq) => (
                 <FAQItem key={faq.q} q={faq.q} a={faq.a} />
               ))}
@@ -771,30 +778,29 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Final CTA ─── */}
-      <section className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 border-t border-border/50 relative overflow-hidden">
-        {/* Background glow */}
+      <section className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#01261f]">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gold/[0.04] rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#1a3c34]/50 rounded-full blur-3xl" />
         </div>
 
         <div className="relative max-w-3xl mx-auto text-center">
           <FadeIn>
-            <p className="text-sm text-gold/60 tracking-wider uppercase mb-6">
+            <p className="text-sm text-[#fed65b]/60 tracking-wider uppercase mb-6">
               Your Game, Our Caddy
             </p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-text-primary mb-6 leading-tight">
+            <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
               변호사님의 실력에
               <br />
-              <span className="bg-gradient-to-r from-gold to-gold-bright bg-clip-text text-transparent">
+              <span className="text-[#fed65b]">
                 최고의 캐디를 더하세요
               </span>
             </h2>
-            <p className="text-text-dim text-lg mb-10">
+            <p className="text-white/60 text-lg mb-10">
               AI가 분석하고, 변호사가 결정합니다.
             </p>
             <Link
-              to="/register"
-              className="group inline-flex items-center gap-2.5 px-10 py-4 rounded-xl bg-gradient-to-r from-gold to-gold-bright text-navy font-bold text-lg hover:opacity-90 transition-all hover:scale-[1.02] shadow-lg shadow-gold/20"
+              to="/login"
+              className="group inline-flex items-center gap-2.5 px-10 py-4 rounded-xl bg-[#fed65b] text-[#01261f] font-bold text-lg hover:bg-[#ffe88a] transition-all hover:scale-[1.02] shadow-lg shadow-black/20"
             >
               지금 시작하기
               <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
@@ -804,26 +810,26 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-border/50">
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-[#faf9f5]">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-gold/40" />
-            <span className="text-sm text-text-dim">
-              &copy; 2025 LAW-CADDY. AI가 분석하고, 변호사가 결정합니다.
+            <Scale className="w-4 h-4 text-[#735c00]/40" />
+            <span className="text-sm text-[#414846]">
+              &copy; 2025 Law-Caddy. AI가 분석하고, 변호사가 결정합니다.
             </span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-text-dim">
+          <div className="flex items-center gap-6 text-sm text-[#414846]">
             <Link
               to="/login"
-              className="hover:text-text-primary transition-colors"
+              className="hover:text-[#01261f] transition-colors"
             >
               로그인
             </Link>
             <Link
-              to="/register"
-              className="hover:text-text-primary transition-colors"
+              to="/login"
+              className="hover:text-[#01261f] transition-colors"
             >
-              회원가입
+              시작하기
             </Link>
           </div>
         </div>

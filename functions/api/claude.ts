@@ -38,12 +38,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // messages 배열이 있으면 그대로 사용, 없으면 userMessage에서 변환
     const messages: ChatMessage[] = body.messages ?? [
       { role: "user", content: body.userMessage! },
     ];
 
-    const response = await fetch(ANTHROPIC_API_URL, {
+    // 원본 요청의 컨텍스트를 완전히 격리한 새 Request 생성
+    const anthropicRequest = new Request(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -58,6 +58,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         messages,
       }),
     });
+
+    const response = await fetch(anthropicRequest);
 
     if (!response.ok) {
       const errorText = await response.text();

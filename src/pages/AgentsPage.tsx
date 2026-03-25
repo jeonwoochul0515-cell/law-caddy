@@ -12,6 +12,7 @@ import { callClaude } from "../services/claude";
 import { buildCaseDescriptionPrompt } from "../services/prompts";
 import { extractAllPdfTexts } from "../services/pdf";
 import { isImageFile, extractAllImageTexts } from "../services/ocr";
+import { saveExtractedText } from "../services/file-save";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -67,6 +68,7 @@ export default function AgentsPage() {
   const [isCreatingCase, setIsCreatingCase] = useState(false);
   const [createdCaseId, setCreatedCaseId] = useState<string | null>(state?.caseId ?? null);
   const [caseError, setCaseError] = useState<string | null>(null);
+  const [prepStatus, setPrepStatus] = useState<string>("");
   const hasExistingCase = Boolean(state?.caseId);
 
   useEffect(() => {
@@ -99,13 +101,16 @@ export default function AgentsPage() {
     // PDF 텍스트 추출 + 이미지 OCR + STT 요청을 병렬로 진행
     const startAgents = async () => {
       // PDF 텍스트 추출 + 이미지 OCR 병렬 실행
-      const [pdfContents, imageContents] = await Promise.all([
+      if (pdfFiles.length > 0) setPrepStatus(`PDF ${pdfFiles.length}개 텍스트 추출 중...`);
+      if (imageFiles.length > 0) setPrepStatus((s) => s ? `${s} / 이미지 OCR 중...` : `이미지 ${imageFiles.length}개 OCR 중...`);
+
+      const [pdfResult, imageContents] = await Promise.all([
         pdfFiles.length > 0
           ? extractAllPdfTexts(pdfFiles).catch((err) => {
               console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
-              return "";
+              return { text: "", ocrTexts: [] };
             })
-          : Promise.resolve(""),
+          : Promise.resolve({ text: "", ocrTexts: [] }),
         imageFiles.length > 0
           ? extractAllImageTexts(imageFiles).catch((err) => {
               console.error("[AgentsPage] 이미지 OCR 실패:", err);
@@ -114,6 +119,8 @@ export default function AgentsPage() {
           : Promise.resolve(""),
       ]);
 
+      const pdfContents = pdfResult.text;
+
       // PDF + 이미지 OCR 결과 합산
       let fileContents = "";
       if (pdfContents && imageContents) {
@@ -121,6 +128,23 @@ export default function AgentsPage() {
       } else {
         fileContents = pdfContents || imageContents;
       }
+
+      // OCR로 추출한 파일만 텍스트로 저장 (텍스트 레이어 추출은 저장 안 함)
+      const ocrSaveTargets = [
+        ...pdfResult.ocrTexts,
+        ...(imageContents ? [{ fileName: "이미지_OCR", text: imageContents }] : []),
+      ];
+      if (ocrSaveTargets.length > 0) {
+        setPrepStatus("OCR 텍스트 저장 중...");
+        const ocrCombined = ocrSaveTargets
+          .map((t) => `[${t.fileName}]\n${t.text}`)
+          .join("\n\n---\n\n");
+        saveExtractedText(ocrCombined, state.clientName, state.caseId).catch((err) =>
+          console.warn("[AgentsPage] OCR 텍스트 저장 실패:", err),
+        );
+      }
+
+      setPrepStatus("에이전트 분석 시작...");
 
       const baseContext = {
         clientName: state.clientName,
@@ -133,6 +157,7 @@ export default function AgentsPage() {
       // 오디오 파일이 있으면 STT 요청 후 에이전트 실행
       if (audioFiles.length > 0) {
         try {
+          setPrepStatus("음성 파일 변환 요청 중...");
           const transcribeId = await transcribeFile(audioFiles[0]);
           runAllAgents({ ...baseContext, transcribeId });
         } catch (err) {
@@ -177,6 +202,7 @@ export default function AgentsPage() {
     callClaude(prompt, "사건 개요를 요약해 주세요.")
       .then((desc) => setGeneratedDesc(desc.trim()))
       .catch(() => setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCompleted, state, agents, generatedDesc]);
 
   // 에이전트 완료 + 사건 개요 준비 → 자동으로 사건 파일 생성
@@ -323,6 +349,9 @@ export default function AgentsPage() {
                 )}
               </div>
               <p className="text-xs font-medium text-text-primary">{agent.nickname} <span className="text-text-dim">· {agent.name}</span></p>
+              {!agentState?.status && prepStatus && (
+                <p className="text-[10px] text-gold mt-1 truncate">{prepStatus}</p>
+              )}
             </button>
           );
         })}
@@ -355,7 +384,7 @@ export default function AgentsPage() {
               {activeTab === "docgen" ? (
                 <DocgenResultView result={agents[activeTab].result} />
               ) : (
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
+                <div className="prose max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
                   {agents[activeTab].result}
                 </div>
               )}
@@ -365,7 +394,16 @@ export default function AgentsPage() {
               오류: {agents[activeTab].error ?? "알 수 없는 오류"}
             </div>
           ) : (
-            <div className="text-text-dim text-sm py-8 text-center">대기 중...</div>
+            <div className="text-text-dim text-sm py-8 text-center flex flex-col items-center gap-2">
+              {prepStatus ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-gold" />
+                  <span>{prepStatus}</span>
+                </>
+              ) : (
+                "대기 중..."
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -540,7 +578,7 @@ function DocgenResultView({ result }: { result: string }) {
 
   if (questions.length === 0) {
     return (
-      <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
+      <div className="prose max-w-none whitespace-pre-wrap text-sm text-text-primary leading-relaxed">
         {result}
       </div>
     );

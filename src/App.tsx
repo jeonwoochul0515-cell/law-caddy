@@ -41,7 +41,7 @@ if (sessionStorage.getItem("chunk-reload")) {
 }
 
 // Lazy-loaded pages (코드 스플리팅 + 청크 에러 자동 복구)
-const RegisterPage = lazyWithRetry(() => import("./pages/RegisterPage"));
+const ProfileSetupPage = lazyWithRetry(() => import("./pages/ProfileSetupPage"));
 const PendingPage = lazyWithRetry(() => import("./pages/PendingPage"));
 const DashboardPage = lazyWithRetry(() => import("./pages/DashboardPage"));
 const RecordPage = lazyWithRetry(() => import("./pages/RecordPage"));
@@ -56,9 +56,9 @@ const FinancePage = lazyWithRetry(() => import("./pages/FinancePage"));
 
 function LazyFallback() {
   return (
-    <div className="min-h-screen bg-navy flex items-center justify-center">
+    <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin mx-auto mb-4" />
         <p className="text-text-dim text-sm">페이지 로딩 중...</p>
       </div>
     </div>
@@ -73,9 +73,9 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-navy flex items-center justify-center">
+      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin mx-auto mb-4" />
           <p className="text-text-dim text-sm">로딩 중...</p>
         </div>
       </div>
@@ -83,6 +83,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  // 프로필 미완성 → 프로필 설정으로
+  if (!user.profileCompleted) return <Navigate to="/profile-setup" replace />;
   if (user.status === "rejected") return <Navigate to="/login" replace />;
   if (user.status === "pending") return <Navigate to="/pending" replace />;
 
@@ -97,8 +99,8 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-navy flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
       </div>
     );
   }
@@ -118,14 +120,40 @@ function RequirePending({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-navy flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  // 프로필 미완성 → 프로필 설정으로
+  if (!user.profileCompleted) return <Navigate to="/profile-setup" replace />;
   if (user.status === "approved") return <Navigate to="/dashboard" replace />;
+
+  return <>{children}</>;
+}
+
+// 프로필 설정 필요 라우트 가드 (구글 로그인 후 프로필 미완성)
+function RequireProfileSetup({ children }: { children: React.ReactNode }) {
+  const newGoogleUser = useAuth((s) => s.newGoogleUser);
+  const user = useAuth((s) => s.user);
+  const initialized = useAuth((s) => s.initialized);
+  const loading = useAuth((s) => s.loading);
+
+  if (!initialized || loading) {
+    return (
+      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 이미 프로필 완성된 유저는 대시보드로
+  if (user?.profileCompleted && user?.status === "approved") return <Navigate to="/dashboard" replace />;
+
+  // 신규 구글 유저 또는 프로필 미완성 유저
+  if (!newGoogleUser && !user) return <Navigate to="/login" replace />;
 
   return <>{children}</>;
 }
@@ -133,17 +161,20 @@ function RequirePending({ children }: { children: React.ReactNode }) {
 // 미인증 전용 라우트 (이미 로그인된 경우 대시보드로)
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth((s) => s.user);
+  const newGoogleUser = useAuth((s) => s.newGoogleUser);
   const initialized = useAuth((s) => s.initialized);
 
   if (!initialized) {
     return (
-      <div className="min-h-screen bg-navy flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (user?.status === "approved") return <Navigate to="/dashboard" replace />;
+  if (user?.profileCompleted && user?.status === "approved") return <Navigate to="/dashboard" replace />;
+  // 구글 로그인했지만 프로필 미완성 → 프로필 설정으로
+  if (newGoogleUser || (user && !user.profileCompleted)) return <Navigate to="/profile-setup" replace />;
 
   return <>{children}</>;
 }
@@ -163,7 +194,7 @@ export default function App() {
         <Routes>
           {/* 공개 라우트 */}
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
-          <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
+          <Route path="/profile-setup" element={<RequireProfileSetup><ProfileSetupPage /></RequireProfileSetup>} />
           <Route path="/pending" element={<RequirePending><PendingPage /></RequirePending>} />
 
           {/* 인증 필요 라우트 */}

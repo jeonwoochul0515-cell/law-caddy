@@ -4,6 +4,8 @@
 import type { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import BugReportButton from "../ui/BugReportButton";
+import ApiStatusMonitor from "../ui/ApiStatusMonitor";
 import useAuth from "../../hooks/useAuth";
 
 interface AppLayoutProps {
@@ -14,6 +16,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const user = useAuth((state) => state.user);
+  const logout = useAuth((state) => state.logout);
 
   // Sidebar에 전달할 사용자 정보
   const sidebarUser = user
@@ -21,9 +24,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
     : null;
 
   return (
-    <div className="flex min-h-screen bg-navy">
+    <div className="flex min-h-screen bg-[#faf9f5]">
       {/* 사이드바 */}
-      <Sidebar user={sidebarUser} />
+      <Sidebar user={sidebarUser} onLogout={logout} />
 
       {/* 메인 콘텐츠 영역: 사이드바 너비만큼 좌측 여백 */}
       <div className="ml-16 flex flex-1 flex-col lg:ml-60">
@@ -35,6 +38,12 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           {children}
         </main>
       </div>
+
+      {/* API 상태 모니터링 */}
+      <ApiStatusMonitor />
+
+      {/* 베타 버그 리포트 버튼 */}
+      <BugReportButton />
     </div>
   );
 }
