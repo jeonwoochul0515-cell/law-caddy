@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard", icon: <LayoutDashboard size={20} />, label: "대시보드" },
   { to: "/record", icon: <Mic size={20} />, label: "새 상담" },
   { to: "/cases", icon: <FolderOpen size={20} />, label: "사건 관리" },
-  { to: "/finance", icon: <Calculator size={20} />, label: "재무 관리", premium: true },
+  { to: "/finance", icon: <Calculator size={20} />, label: "재무 관리" },
   { to: "/settings", icon: <Settings size={20} />, label: "설정" },
   { to: "/admin", icon: <Shield size={20} />, label: "관리자", adminOnly: true },
 ];

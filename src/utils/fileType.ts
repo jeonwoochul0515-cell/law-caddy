@@ -45,3 +45,32 @@ export function getFileTypeInfo(fileName: string): FileTypeInfo {
 export function isAudioFile(fileName: string): boolean {
   return AUDIO_EXTS.has(getExt(fileName));
 }
+
+const EXCEL_EXTS = new Set([".xls", ".xlsx"]);
+const EXCEL_MIMES = new Set([
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+
+/** Excel 파일 여부 (File 객체 또는 파일명) */
+export function isExcelFile(file: File | string): boolean {
+  if (typeof file === "string") return EXCEL_EXTS.has(getExt(file));
+  return EXCEL_MIMES.has(file.type) || EXCEL_EXTS.has(getExt(file.name));
+}
+
+const PPTX_EXTS = new Set([".pptx"]);
+const PPTX_MIMES = new Set([
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+/** PPTX 파일 여부 (레거시 .ppt 제외 — 클라이언트 파싱 불가) */
+export function isPptxFile(file: File | string): boolean {
+  if (typeof file === "string") return PPTX_EXTS.has(getExt(file));
+  return PPTX_MIMES.has(file.type) || PPTX_EXTS.has(getExt(file.name));
+}
+
+/** 레거시 .ppt 파일 여부 */
+export function isLegacyPptFile(file: File | string): boolean {
+  const name = typeof file === "string" ? file : file.name;
+  return getExt(name) === ".ppt";
+}

@@ -12,6 +12,9 @@ import { callClaude } from "../services/claude";
 import { buildCaseDescriptionPrompt } from "../services/prompts";
 import { extractAllPdfTexts } from "../services/pdf";
 import { isImageFile, extractAllImageTexts } from "../services/ocr";
+import { extractAllExcelTexts } from "../services/excel";
+import { extractAllPptxTexts } from "../services/pptx";
+import { isExcelFile, isPptxFile } from "../utils/fileType";
 import { saveExtractedText } from "../services/file-save";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
@@ -97,14 +100,20 @@ export default function AgentsPage() {
       f.type === "application/pdf" || f.name?.match(/\.pdf$/i),
     );
     const imageFiles = allFiles.filter((f: File) => isImageFile(f));
+    const excelFiles = allFiles.filter((f: File) => isExcelFile(f));
+    const pptxFiles = allFiles.filter((f: File) => isPptxFile(f));
 
-    // PDF 텍스트 추출 + 이미지 OCR + STT 요청을 병렬로 진행
+    // PDF 텍스트 추출 + 이미지 OCR + Excel/PPT 추출 + STT 요청을 병렬로 진행
     const startAgents = async () => {
-      // PDF 텍스트 추출 + 이미지 OCR 병렬 실행
-      if (pdfFiles.length > 0) setPrepStatus(`PDF ${pdfFiles.length}개 텍스트 추출 중...`);
-      if (imageFiles.length > 0) setPrepStatus((s) => s ? `${s} / 이미지 OCR 중...` : `이미지 ${imageFiles.length}개 OCR 중...`);
+      // 상태 메시지 구성
+      const statusParts: string[] = [];
+      if (pdfFiles.length > 0) statusParts.push(`PDF ${pdfFiles.length}개 추출`);
+      if (imageFiles.length > 0) statusParts.push(`이미지 ${imageFiles.length}개 OCR`);
+      if (excelFiles.length > 0) statusParts.push(`Excel ${excelFiles.length}개 추출`);
+      if (pptxFiles.length > 0) statusParts.push(`PPT ${pptxFiles.length}개 추출`);
+      if (statusParts.length > 0) setPrepStatus(statusParts.join(" / ") + " 중...");
 
-      const [pdfResult, imageContents] = await Promise.all([
+      const [pdfResult, imageContents, excelResult, pptxResult] = await Promise.all([
         pdfFiles.length > 0
           ? extractAllPdfTexts(pdfFiles).catch((err) => {
               console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
@@ -117,17 +126,25 @@ export default function AgentsPage() {
               return "";
             })
           : Promise.resolve(""),
+        excelFiles.length > 0
+          ? extractAllExcelTexts(excelFiles).catch((err) => {
+              console.error("[AgentsPage] Excel 텍스트 추출 실패:", err);
+              return { text: "" };
+            })
+          : Promise.resolve({ text: "" }),
+        pptxFiles.length > 0
+          ? extractAllPptxTexts(pptxFiles).catch((err) => {
+              console.error("[AgentsPage] PPTX 텍스트 추출 실패:", err);
+              return { text: "" };
+            })
+          : Promise.resolve({ text: "" }),
       ]);
 
       const pdfContents = pdfResult.text;
 
-      // PDF + 이미지 OCR 결과 합산
-      let fileContents = "";
-      if (pdfContents && imageContents) {
-        fileContents = pdfContents + "\n\n---\n\n" + imageContents;
-      } else {
-        fileContents = pdfContents || imageContents;
-      }
+      // PDF + 이미지 OCR + Excel + PPTX 결과 합산
+      const allExtractions = [pdfContents, imageContents, excelResult.text, pptxResult.text].filter(Boolean);
+      const fileContents = allExtractions.join("\n\n---\n\n");
 
       // OCR로 추출한 파일만 텍스트로 저장 (텍스트 레이어 추출은 저장 안 함)
       const ocrSaveTargets = [

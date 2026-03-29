@@ -88,12 +88,20 @@ export default function RecordPage() {
     if (selected && selected.length > 0) {
       const fileArr = Array.from(selected);
       const hwpFiles = fileArr.filter((f) => /\.(hwp|hwpx|doc|docx)$/i.test(f.name));
-      const otherFiles = fileArr.filter((f) => !/\.(hwp|hwpx|doc|docx)$/i.test(f.name));
+      const legacyPptFiles = fileArr.filter((f) => /\.ppt$/i.test(f.name) && !/\.pptx$/i.test(f.name));
+      const blockedFiles = [...hwpFiles, ...legacyPptFiles];
+      const otherFiles = fileArr.filter((f) => !blockedFiles.includes(f));
 
+      const warnings: string[] = [];
       if (hwpFiles.length > 0) {
         const names = hwpFiles.map((f) => f.name).join(", ");
-        setHwpWarning(`"${names}" 파일은 한글/워드 형식입니다. PDF로 변환 후 업로드하시면 AI가 내용을 분석할 수 있습니다. (한글 → 파일 → 다른 이름으로 저장 → PDF)`);
+        warnings.push(`"${names}" 파일은 한글/워드 형식입니다. PDF로 변환 후 업로드하시면 AI가 내용을 분석할 수 있습니다. (한글 → 파일 → 다른 이름으로 저장 → PDF)`);
       }
+      if (legacyPptFiles.length > 0) {
+        const names = legacyPptFiles.map((f) => f.name).join(", ");
+        warnings.push(`"${names}" 파일은 레거시 PPT 형식입니다. PowerPoint에서 .pptx 형식으로 다시 저장 후 업로드해 주세요.`);
+      }
+      if (warnings.length > 0) setHwpWarning(warnings.join("\n"));
 
       if (otherFiles.length > 0) {
         setFiles((prev) => [...prev, ...otherFiles]);
