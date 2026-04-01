@@ -1,4 +1,7 @@
 // 사업자등록증 OCR + 진위확인 서비스
+// CLOVA OCR로 텍스트 추출 → 구조화 파싱 → 국세청 진위확인
+
+import { callClovaOcr, extractClovaText } from "./clova-ocr";
 
 /** OCR 추출 결과 */
 export interface BusinessOcrResult {
@@ -29,37 +32,26 @@ export interface BusinessVerifyResult {
   reason?: string;
 }
 
-const isDev = import.meta.env.DEV;
-
 /**
- * 사업자등록증 이미지에서 정보를 OCR로 추출합니다.
+ * 사업자등록증 이미지에서 정보를 CLOVA OCR로 추출합니다.
  */
 export async function ocrBusinessLicense(file: File): Promise<BusinessOcrResult> {
   const base64 = await fileToBase64(file);
-  const mediaType = file.type || "image/jpeg";
+  const ext = file.name.lastIndexOf(".") >= 0
+    ? file.name.slice(file.name.lastIndexOf(".") + 1).toLowerCase()
+    : "";
+  const format = ext === "png" ? "png" : ext === "pdf" ? "pdf" : "jpg";
 
-  // dev 환경: 직접 Claude Vision 호출
-  if (isDev) {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (apiKey) {
-      return await ocrDirect(base64, mediaType, apiKey);
-    }
+  // CLOVA OCR로 텍스트 추출
+  const response = await callClovaOcr(base64, format, file.name);
+  const rawText = extractClovaText(response);
+
+  if (!rawText.trim()) {
+    throw new Error("사업자등록증에서 텍스트를 추출할 수 없습니다.");
   }
 
-  // 프록시 경유
-  const response = await fetch("/api/verify-business", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: "ocr", imageBase64: base64, mediaType }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "OCR 실패" }));
-    throw new Error((err as { error?: string }).error || `OCR 실패: HTTP ${response.status}`);
-  }
-
-  const result = (await response.json()) as { success: boolean; data: BusinessOcrResult };
-  return result.data;
+  // 추출된 텍스트에서 사업자등록증 정보 파싱
+  return parseBusinessLicenseText(rawText);
 }
 
 /**
@@ -88,61 +80,100 @@ export async function verifyBusinessNumber(
   return (await response.json()) as BusinessVerifyResult;
 }
 
-/** 개발 환경 직접 Claude Vision 호출 */
-async function ocrDirect(base64: string, mediaType: string, apiKey: string): Promise<BusinessOcrResult> {
-  const response = await fetch(
-    "/api/anthropic/v1/messages",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
-        temperature: 0,
-        system: `당신은 한국 사업자등록증 문서 판독 전문가입니다.
-사업자등록증 이미지에서 모든 정보를 빠짐없이 정확히 추출하세요.
+/**
+ * CLOVA OCR 추출 텍스트에서 사업자등록증 필드를 파싱합니다.
+ */
+function parseBusinessLicenseText(text: string): BusinessOcrResult {
+  const result: BusinessOcrResult = {
+    businessNumber: "",
+    companyName: "",
+    representativeName: "",
+    address: "",
+    startDate: "",
+    businessType: "",
+    businessCategory: "",
+    confidence: "medium",
+  };
 
-반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "businessNumber": "사업자등록번호 (숫자만, 하이픈 제거)",
-  "companyName": "상호(법인명)",
-  "representativeName": "대표자(성명)",
-  "address": "사업장 소재지 (전체 주소)",
-  "startDate": "개업연월일 (YYYYMMDD)",
-  "businessType": "업태",
-  "businessCategory": "종목",
-  "corporateNumber": "법인등록번호 (있으면, 없으면 빈 문자열)",
-  "taxOffice": "관할세무서 (예: ○○세무서)",
-  "taxType": "사업자 유형 (일반과세자, 간이과세자, 면세사업자 등)",
-  "officePhone": "사업장 전화번호 (있으면, 없으면 빈 문자열)",
-  "confidence": "high|medium|low"
-}`,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-              { type: "text", text: "이 사업자등록증의 정보를 추출해주세요." },
-            ],
-          },
-        ],
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error("Claude Vision OCR 호출 실패");
+  // 사업자등록번호 (XXX-XX-XXXXX 또는 연속 10자리)
+  const bizNumMatch = text.match(/(\d{3})-?(\d{2})-?(\d{5})/);
+  if (bizNumMatch) {
+    result.businessNumber = `${bizNumMatch[1]}${bizNumMatch[2]}${bizNumMatch[3]}`;
   }
 
-  const data = (await response.json()) as { content: Array<{ type: string; text: string }> };
-  const text = data.content?.find((b) => b.type === "text")?.text ?? "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("OCR 결과 파싱 실패");
-  return JSON.parse(jsonMatch[0]) as BusinessOcrResult;
+  // 법인등록번호 (XXXXXX-XXXXXXX 13자리)
+  const corpNumMatch = text.match(/(\d{6})-?(\d{7})/);
+  if (corpNumMatch && corpNumMatch[0] !== bizNumMatch?.[0]) {
+    result.corporateNumber = `${corpNumMatch[1]}${corpNumMatch[2]}`;
+  }
+
+  // 상호(법인명) — "상호" 또는 "법인명" 뒤의 텍스트
+  const companyMatch = text.match(/(?:상\s*호|법\s*인\s*명)[^\S\n]*[:(]?\s*([^\n]{2,30})/);
+  if (companyMatch) {
+    result.companyName = companyMatch[1].replace(/[()[\]]/g, "").trim();
+  }
+
+  // 대표자 — "성명" 또는 "대표자" 뒤의 텍스트
+  const nameMatch = text.match(/(?:대\s*표\s*자|성\s*명)[^\S\n]*[:(]?\s*([가-힣]{2,5})/);
+  if (nameMatch) {
+    result.representativeName = nameMatch[1].trim();
+  }
+
+  // 사업장 소재지
+  const addrMatch = text.match(/(?:사\s*업\s*장\s*소\s*재\s*지|소\s*재\s*지)[^\S\n]*[:(]?\s*([^\n]{5,80})/);
+  if (addrMatch) {
+    result.address = addrMatch[1].trim();
+  }
+
+  // 개업연월일
+  const dateMatch = text.match(/(?:개\s*업\s*연\s*월\s*일|개\s*업\s*일)[^\S\n]*[:(]?\s*(\d{4})\s*[년./-]?\s*(\d{1,2})\s*[월./-]?\s*(\d{1,2})/);
+  if (dateMatch) {
+    result.startDate = `${dateMatch[1]}${dateMatch[2].padStart(2, "0")}${dateMatch[3].padStart(2, "0")}`;
+  }
+
+  // 업태
+  const typeMatch = text.match(/업\s*태[^\S\n]*[:(]?\s*([^\n]{1,30})/);
+  if (typeMatch) {
+    result.businessType = typeMatch[1].replace(/종\s*목.*/, "").trim();
+  }
+
+  // 종목
+  const catMatch = text.match(/종\s*목[^\S\n]*[:(]?\s*([^\n]{1,30})/);
+  if (catMatch) {
+    result.businessCategory = catMatch[1].trim();
+  }
+
+  // 관할세무서
+  const taxOfficeMatch = text.match(/([가-힣]+세무서)/);
+  if (taxOfficeMatch) {
+    result.taxOffice = taxOfficeMatch[1];
+  }
+
+  // 과세유형
+  if (text.includes("일반과세자")) result.taxType = "일반과세자";
+  else if (text.includes("간이과세자")) result.taxType = "간이과세자";
+  else if (text.includes("면세")) result.taxType = "면세사업자";
+
+  // 전화번호
+  const phoneMatch = text.match(/(?:전\s*화)[^\S\n]*[:(]?\s*([\d-]{7,15})/);
+  if (phoneMatch) {
+    result.officePhone = phoneMatch[1].trim();
+  }
+
+  // 신뢰도 판단
+  const filledFields = [
+    result.businessNumber,
+    result.companyName,
+    result.representativeName,
+    result.address,
+    result.startDate,
+  ].filter(Boolean).length;
+
+  if (filledFields >= 4) result.confidence = "high";
+  else if (filledFields >= 2) result.confidence = "medium";
+  else result.confidence = "low";
+
+  return result;
 }
 
 /** File → base64 문자열 변환 */
@@ -151,7 +182,6 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // data:image/jpeg;base64, 접두사 제거
       const base64 = result.split(",")[1];
       resolve(base64);
     };

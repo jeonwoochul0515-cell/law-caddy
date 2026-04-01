@@ -1,18 +1,7 @@
-// 사업자등록증 OCR + 국세청 진위확인 Cloudflare Function
-// 1. Claude Vision으로 사업자등록증 이미지에서 정보 추출
-// 2. 국세청 사업자등록 상태조회 API로 진위 확인
+// 사업자등록증 국세청 진위확인 Cloudflare Function
+// OCR은 프론트엔드에서 CLOVA OCR로 직접 처리 → 여기서는 진위확인만 담당
 
 import type { Env } from "./_shared/types";
-
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
-const API_VERSION = "2023-06-01";
-
-interface OcrRequest {
-  mode: "ocr";
-  imageBase64: string;
-  mediaType: string;
-}
 
 interface VerifyRequest {
   mode: "verify";
@@ -21,30 +10,15 @@ interface VerifyRequest {
   representativeName: string;
 }
 
-type RequestBody = OcrRequest | VerifyRequest;
-
-interface OcrResult {
-  businessNumber: string;
-  companyName: string;
-  representativeName: string;
-  address: string;
-  startDate: string;
-  businessType: string;
-  businessCategory: string;
-  confidence: "high" | "medium" | "low";
-}
-
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
-    const body = (await context.request.json()) as RequestBody;
+    const body = (await context.request.json()) as VerifyRequest;
 
-    if (body.mode === "ocr") {
-      return await handleOcr(context, body);
-    } else if (body.mode === "verify") {
+    if (body.mode === "verify") {
       return await handleVerify(context, body);
     }
 
-    return Response.json({ error: "mode는 'ocr' 또는 'verify'여야 합니다." }, { status: 400 });
+    return Response.json({ error: "mode는 'verify'여야 합니다." }, { status: 400 });
   } catch (error) {
     return Response.json(
       { error: "처리 중 오류 발생", detail: error instanceof Error ? error.message : String(error) },
@@ -52,92 +26,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 };
-
-/** Claude Vision으로 사업자등록증 OCR */
-async function handleOcr(context: EventContext<Env, string, unknown>, body: OcrRequest) {
-  const apiKey = context.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return Response.json({ error: "Anthropic API 키가 설정되지 않았습니다." }, { status: 503 });
-  }
-
-  if (!body.imageBase64 || !body.mediaType) {
-    return Response.json({ error: "imageBase64와 mediaType이 필요합니다." }, { status: 400 });
-  }
-
-  const systemPrompt = `당신은 한국 사업자등록증 문서 판독 전문가입니다.
-사업자등록증 이미지에서 다음 정보를 정확히 추출하세요.
-
-반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "businessNumber": "사업자등록번호 (숫자만, 하이픈 제거)",
-  "companyName": "상호(법인명)",
-  "representativeName": "대표자(성명)",
-  "address": "사업장 소재지",
-  "startDate": "개업연월일 (YYYYMMDD)",
-  "businessType": "업태",
-  "businessCategory": "종목",
-  "confidence": "high|medium|low (이미지 품질/판독 확신도)"
-}
-
-주의사항:
-- 사업자등록번호는 반드시 10자리 숫자로 추출 (하이픈 제거)
-- 읽을 수 없는 필드는 빈 문자열 ""로
-- 사업자등록증이 아닌 이미지면 confidence를 "low"로 설정하고 나머지 필드를 빈 문자열로`;
-
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": API_VERSION,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      temperature: 0,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: body.mediaType,
-                data: body.imageBase64,
-              },
-            },
-            {
-              type: "text",
-              text: "이 사업자등록증의 정보를 추출해주세요.",
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json()) as { error?: { message?: string } };
-    return Response.json(
-      { error: "Claude Vision 호출 실패", detail: errorBody?.error?.message ?? `HTTP ${response.status}` },
-      { status: response.status },
-    );
-  }
-
-  const data = (await response.json()) as { content: Array<{ type: string; text: string }> };
-  const text = data.content?.find((b) => b.type === "text")?.text ?? "";
-
-  // JSON 추출
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return Response.json({ error: "OCR 결과를 파싱할 수 없습니다.", raw: text }, { status: 500 });
-  }
-
-  const ocrResult = JSON.parse(jsonMatch[0]) as OcrResult;
-  return Response.json({ success: true, data: ocrResult });
-}
 
 /** 국세청 사업자등록 상태조회 */
 async function handleVerify(_context: EventContext<Env, string, unknown>, body: VerifyRequest) {
