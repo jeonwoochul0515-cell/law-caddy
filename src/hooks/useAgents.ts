@@ -550,12 +550,12 @@ export default function useAgents(): UseAgentsReturn {
       setCurrentStep(hasError ? "error" : "completed");
 
       // 에이전트 완료 후 사건 유형 자동 분류
-      const analysisResult = finalStates.analysis?.result;
+      const classificationInput = finalStates.analysis?.result;
       let caseType: CaseType | null = null;
-      if (analysisResult && !context.caseType) {
+      if (classificationInput && !context.caseType) {
         setIsClassifying(true);
         try {
-          const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, analysisResult);
+          const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, classificationInput);
           const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
           const trimmed = result.trim();
           const matched = CASE_TYPES.find((t) => trimmed.includes(t));
