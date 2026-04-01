@@ -83,42 +83,46 @@ function buildContextBlock(ctx: AgentContext): string {
     lines.push(`문서 유형: ${ctx.docType}`);
   }
 
-  // RAG 컨텍스트를 대화록보다 먼저 배치: Claude가 참고 자료를 먼저 읽은 후 대화록을 처리
-  if (ctx.ragContext) {
+  // ─── 외부 참고 자료 주입 (토큰 예산 관리) ───
+  // Lost in the Middle 방지: 가장 관련도 높은 자료를 시작에 배치
+  // 이중 주입 방지: 법제처 판례가 있으면 RAG의 판례/판결문 섹션은 생략
+  const MAX_EXTERNAL_CONTEXT_CHARS = 12000; // ~6K 토큰
+  let externalChars = 0;
+
+  // 1순위: 법제처 판례 (가장 신뢰도 높음, 프롬프트 시작에 배치)
+  if (ctx.latestPrecedents) {
+    const section = `\n[최신 관련 판례 (법제처 실시간 검색)]\n${ctx.latestPrecedents}\n\n※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
+    lines.push(section);
+    externalChars += section.length;
+  }
+
+  // 2순위: 헌재결정례
+  if (ctx.constitutionalDecisions && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const section = `\n[관련 헌재결정례 (법제처 실시간 검색)]\n${ctx.constitutionalDecisions}\n\n※ 위 헌재결정례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
+    lines.push(section);
+    externalChars += section.length;
+  }
+
+  // 3순위: RAG 컨텍스트 (법제처 판례가 있으면 판례/판결문 중복 제거됨)
+  if (ctx.ragContext && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const remainingBudget = MAX_EXTERNAL_CONTEXT_CHARS - externalChars;
+    let ragText = ctx.ragContext;
+    // 토큰 예산 초과 시 RAG 결과를 잘라냄
+    if (ragText.length > remainingBudget) {
+      ragText = ragText.slice(0, remainingBudget) + "\n... (토큰 예산으로 일부 생략)";
+    }
     lines.push("");
     lines.push("## 참고 법률 자료 (AI 검색 결과)");
-    lines.push("아래 자료는 법률 벡터 DB에서 본 사건과 관련하여 검색된 실제 데이터입니다.");
-    lines.push("- '⚖️ 실제 판례' 섹션의 사건번호는 실제 법원 판결문 DB에서 확인된 데이터로, 그대로 인용하세요 (🟢 확인됨 등급).");
-    lines.push("- '관련 판결문 분석' 섹션도 실제 사건번호가 포함된 분석 자료입니다.");
-    lines.push("- 법령 조문, 법학 해설 등 나머지 자료도 공식 데이터베이스 기반입니다.");
-    lines.push("");
-    lines.push(ctx.ragContext);
+    lines.push(ragText);
     lines.push("");
     lines.push("※ 위 참고 자료에 포함된 판례만 인용하세요. 자료에 없는 사건번호를 직접 작성하지 마세요.");
+    externalChars += ragText.length;
   }
 
-  if (ctx.latestPrecedents) {
-    lines.push("");
-    lines.push("[최신 관련 판례 (법제처 실시간 검색)]");
-    lines.push(ctx.latestPrecedents);
-    lines.push("");
-    lines.push("※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
-  }
-
-  if (ctx.constitutionalDecisions) {
-    lines.push("");
-    lines.push("[관련 헌재결정례 (법제처 실시간 검색)]");
-    lines.push(ctx.constitutionalDecisions);
-    lines.push("");
-    lines.push("※ 위 헌재결정례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.");
-  }
-
-  if (ctx.legalInterpretations) {
-    lines.push("");
-    lines.push("[관련 법령해석례 (법제처 실시간 검색)]");
-    lines.push(ctx.legalInterpretations);
-    lines.push("");
-    lines.push("※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.");
+  // 4순위: 법령해석례 (예산 내에서만)
+  if (ctx.legalInterpretations && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const section = `\n[관련 법령해석례 (법제처 실시간 검색)]\n${ctx.legalInterpretations}\n\n※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.`;
+    lines.push(section);
   }
 
   if (ctx.identifiedIssues && ctx.identifiedIssues.length > 0) {

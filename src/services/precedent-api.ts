@@ -138,23 +138,23 @@ export function formatPrecedentsForPrompt(
     ];
 
     if (p.keyPoints) {
-      parts.push(`   【판시사항】 ${truncate(p.keyPoints, 1500)}`);
+      parts.push(`   【판시사항】 ${truncate(p.keyPoints, 800)}`);
     }
 
     if (p.summary) {
-      parts.push(`   【판결요지】 ${truncate(p.summary, 2000)}`);
+      parts.push(`   【판결요지】 ${truncate(p.summary, 1000)}`);
     }
 
     if (p.content) {
-      parts.push(`   【판례내용(발췌)】 ${truncate(p.content, 2000)}`);
+      parts.push(`   【판례내용(발췌)】 ${truncate(p.content, 1000)}`);
     }
 
     if (p.refStatutes) {
-      parts.push(`   【참조조문】 ${truncate(p.refStatutes, 500)}`);
+      parts.push(`   【참조조문】 ${truncate(p.refStatutes, 300)}`);
     }
 
     if (p.refCases) {
-      parts.push(`   【참조판례】 ${truncate(p.refCases, 500)}`);
+      parts.push(`   【참조판례】 ${truncate(p.refCases, 300)}`);
     }
 
     return parts.join("\n");
@@ -285,15 +285,15 @@ export function formatConstitutionalForPrompt(
     ];
 
     if (d.keyPoints) {
-      parts.push(`   판시사항: ${truncate(d.keyPoints, 500)}`);
+      parts.push(`   판시사항: ${truncate(d.keyPoints, 300)}`);
     }
 
     if (d.summary) {
-      parts.push(`   결정요지: ${truncate(d.summary, 500)}`);
+      parts.push(`   결정요지: ${truncate(d.summary, 400)}`);
     }
 
     if (d.refStatutes) {
-      parts.push(`   참조조문: ${truncate(d.refStatutes, 300)}`);
+      parts.push(`   참조조문: ${truncate(d.refStatutes, 200)}`);
     }
 
     return parts.join("\n");
@@ -381,7 +381,7 @@ export function formatInterpretationsForPrompt(
     ];
 
     if (e.summary) {
-      parts.push(`   결정요지: ${truncate(e.summary, 500)}`);
+      parts.push(`   결정요지: ${truncate(e.summary, 400)}`);
     }
 
     if (e.detailLink) {

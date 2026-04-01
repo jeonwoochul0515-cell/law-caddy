@@ -468,7 +468,7 @@ export function rerankWithDiversity(
 const isDev = import.meta.env.DEV;
 const VOYAGE_RERANK_DIRECT_URL = "https://api.voyageai.com/v1/rerank";
 const VOYAGE_RERANK_PROXY_URL = "/api/rerank";
-const VOYAGE_RERANK_MODEL = "rerank-2";
+const VOYAGE_RERANK_MODEL = "rerank-2.5";
 
 /** Voyage Rerank API 응답 타입 */
 interface VoyageRerankResponse {
@@ -529,6 +529,7 @@ export async function voyageRerank(
         query,
         documents,
         top_k: topK,
+        instruction: "한국 법률 판례 및 법령 중 쿼리와 법적 쟁점이 직접적으로 관련된 문서를 우선 정렬하세요.",
       }),
     });
 

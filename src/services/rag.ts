@@ -367,7 +367,7 @@ export const AGENT_SEARCH_CONFIG: Record<
   // 실제 사건번호가 있는 판결문 검색 가능 = 할루시네이션 해결
   precedent: {
     tables: ["cases", "legal_judgments", "aihub_legal_qa", "statutes", "legal_commentary"],
-    limit: 5,
+    limit: 3,
   },
   // 적법성 검증: statutes + easy_law + legal_knowledge + legal_commentary
   legal: {
@@ -382,7 +382,7 @@ export const AGENT_SEARCH_CONFIG: Record<
   // 문서 작성: legal_forms + statutes + legal_judgments + legal_terms + legal_commentary
   docgen: {
     tables: ["legal_forms", "statutes", "legal_judgments", "legal_terms", "legal_commentary"],
-    limit: 5,
+    limit: 3,
   },
   // 검토: statutes + aihub_legal_qa + cases + legal_judgments + legal_commentary
   review: {
@@ -971,7 +971,7 @@ export async function searchAll(
   });
 
   let context = emptyRAGContext();
-  const threshold = options?.threshold ?? 0.15;
+  const threshold = options?.threshold ?? 0.30;
 
   for (const table of tables) {
     const contextKey = TABLE_CONTEXT_KEY_MAP[table];
@@ -986,6 +986,29 @@ export async function searchAll(
   // 교차 참조 강화 (결과 부족 시에만 발동)
   if (options?.enableCrossReference !== false) {
     context = await enrichWithCrossReferences(context, embedding);
+  }
+
+  // 전체 결과 중 최고 점수 확인 — 너무 낮으면 빈 컨텍스트 반환
+  const allScores: number[] = [];
+  for (const table of tables) {
+    const contextKey = TABLE_CONTEXT_KEY_MAP[table];
+    if (contextKey) {
+      const items = (context as unknown as Record<string, Array<{ combined_score?: number }>>)[contextKey];
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (typeof item.combined_score === "number") {
+            allScores.push(item.combined_score);
+          }
+        }
+      }
+    }
+  }
+  const topScore = allScores.length > 0 ? Math.max(...allScores) : 0;
+  if (topScore < 0.20) {
+    console.warn(
+      `[RAG] 전체 결과 최고 점수(${topScore.toFixed(3)})가 0.20 미만 — 신뢰도 부족으로 빈 컨텍스트 반환`,
+    );
+    return emptyRAGContext();
   }
 
   // 캐시 저장

@@ -436,7 +436,13 @@ export default function useAgents(): UseAgentsReturn {
     }
   }, []);
 
-  /** 6개 에이전트 병렬 실행 */
+  /**
+   * 2단계 파이프라인 에이전트 실행
+   *
+   * [Stage 1] stt + analysis + legal + docgen + review (5개 병렬)
+   *    ↓ analysis 완료 후
+   * [Stage 2] precedent (analysis 결과의 정제된 쟁점으로 타겟 검색)
+   */
   const runAllAgents = useCallback(
     async (
       context: RunAgentsContext,
@@ -451,57 +457,88 @@ export default function useAgents(): UseAgentsReturn {
       }
       setAgents(runningStates);
 
-      // SearchPool 생성: 1회 검색 → 에이전트 간 공유 (쿼리 중복 제거)
+      // SearchPool 생성: Stage 1 에이전트들만 RAG 검색 공유 (precedent 제외)
       const searchPool = new SearchPool(context.caseDesc, context.caseType as string | undefined);
 
-      // 쟁점 분석 1회 → 모든 에이전트에서 공유
+      // 초벌 쟁점 분석 (Stage 1 에이전트들에 공유)
       const identifiedIssues = await analyzeIssuesWithAI(context.caseDesc, context.caseType, context.fileContents);
       const searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
-      console.log("[runAllAgents] 쟁점 분석 완료:", identifiedIssues.length, "건, 키워드:", searchKeywords);
+      console.log("[runAllAgents] 초벌 쟁점 분석 완료:", identifiedIssues.length, "건, 키워드:", searchKeywords);
       const contextWithKeywords = { ...context, searchKeywords, identifiedIssues };
 
-      // 병렬 실행
-      const promises = AGENT_IDS.map(async (agentId) => {
+      // ─── Stage 1: precedent 제외 5개 에이전트 병렬 실행 ───
+      const STAGE1_AGENTS: AgentId[] = ["stt", "analysis", "legal", "docgen", "review"];
+      console.log("[Stage 1] 5개 에이전트 병렬 실행:", STAGE1_AGENTS.join(", "));
+
+      const runAgent = async (agentId: AgentId, ctx: RunAgentsContext): Promise<AgentState> => {
         try {
-          const result = await runSingleAgent(agentId, contextWithKeywords, searchPool);
-          const successState: AgentState = {
-            id: agentId,
-            status: "completed",
-            result,
-          };
-          updateAgent(agentId, successState);
-          return successState;
+          const result = await runSingleAgent(agentId, ctx, searchPool);
+          const state: AgentState = { id: agentId, status: "completed", result };
+          updateAgent(agentId, state);
+          return state;
         } catch (err: unknown) {
-          const errorMessage =
-            err instanceof Error ? err.message : "알 수 없는 오류";
-          const errorState: AgentState = {
-            id: agentId,
-            status: "error",
-            result: "",
-            error: errorMessage,
-          };
-          updateAgent(agentId, errorState);
-          return errorState;
+          const errorMessage = err instanceof Error ? err.message : "알 수 없는 오류";
+          const state: AgentState = { id: agentId, status: "error", result: "", error: errorMessage };
+          updateAgent(agentId, state);
+          return state;
         }
-      });
+      };
 
-      const results = await Promise.allSettled(promises);
+      const stage1Results = await Promise.allSettled(
+        STAGE1_AGENTS.map((id) => runAgent(id, contextWithKeywords)),
+      );
 
-      // 최종 상태 구성
+      // ─── Stage 2: analysis 결과에서 정제된 쟁점 추출 → precedent 실행 ───
+      const analysisState = stage1Results.find(
+        (r, i) => STAGE1_AGENTS[i] === "analysis" && r.status === "fulfilled",
+      );
+      const analysisResult = analysisState?.status === "fulfilled" ? analysisState.value.result : "";
+
+      // analysis가 성공했으면 그 결과에서 쟁점을 재추출하여 더 정확한 키워드 생성
+      let refinedIssues = identifiedIssues;
+      if (analysisResult) {
+        try {
+          const refined = await analyzeIssuesWithAI(
+            `${context.caseDesc}\n\n[쟁점 분석 결과]\n${analysisResult}`,
+            context.caseType,
+            context.fileContents,
+          );
+          if (refined.length > 0) {
+            refinedIssues = refined;
+            console.log("[Stage 2] 정제된 쟁점:", refined.map((i) => `${i.issue} → ${i.keywords.join(", ")}`));
+          }
+        } catch (err) {
+          console.warn("[Stage 2] 쟁점 재추출 실패, 초벌 쟁점 사용:", err);
+        }
+      }
+
+      const refinedKeywords = refinedIssues.flatMap((i) => i.keywords);
+      const precedentContext: RunAgentsContext = {
+        ...contextWithKeywords,
+        searchKeywords: refinedKeywords,
+        identifiedIssues: refinedIssues,
+      };
+
+      console.log("[Stage 2] precedent 에이전트 실행 (정제된 키워드:", refinedKeywords.join(", "), ")");
+      const precedentState = await runAgent("precedent", precedentContext);
+
+      // ─── 최종 상태 구성 ───
       const finalStates = { ...runningStates };
-      results.forEach((result, index) => {
-        const agentId = AGENT_IDS[index];
+
+      // Stage 1 결과 반영
+      stage1Results.forEach((result, index) => {
+        const agentId = STAGE1_AGENTS[index];
         if (result.status === "fulfilled") {
           finalStates[agentId] = result.value;
         } else {
           finalStates[agentId] = {
-            id: agentId,
-            status: "error",
-            result: "",
-            error: String(result.reason),
+            id: agentId, status: "error", result: "", error: String(result.reason),
           };
         }
       });
+
+      // Stage 2 결과 반영
+      finalStates.precedent = precedentState;
 
       setAgents(finalStates);
       setIsRunning(false);
