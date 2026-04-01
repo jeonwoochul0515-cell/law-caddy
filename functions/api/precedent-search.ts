@@ -9,7 +9,7 @@ import type { Env } from "./_shared/types";
 const LAW_API_OC = "jeonwoochul0515";
 
 /** 법제처 API 요청 타임아웃 (ms) */
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 15000;
 
 /** 재시도 횟수 */
 const MAX_RETRIES = 2;

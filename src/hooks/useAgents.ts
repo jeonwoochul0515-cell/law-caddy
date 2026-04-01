@@ -276,6 +276,7 @@ async function runSingleAgent(
 
   if (agentId === "precedent") {
     // 쟁점별 판례 검색 (쟁점은 runAllAgents에서 1회 분석하여 공유)
+    // 법제처 API는 동시 요청에 취약 → 순차 처리 + 요청 간 딜레이
     const issues = context.identifiedIssues ?? [];
     console.log("[precedent] 쟁점", issues.length, "건으로 판례 검색");
 
@@ -284,44 +285,40 @@ async function runSingleAgent(
     const seen = new Set<string>();
     let totalPrecedents = 0;
 
-    // 쟁점별 검색 (쟁점당 키워드 2개를 병렬 처리)
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    // 쟁점별 순차 검색 (법제처 API 과부하 방지)
     for (const issue of issues) {
       const issuePrecedents: Awaited<ReturnType<typeof searchLatestPrecedents>> = [];
 
-      await Promise.allSettled(
-        issue.keywords.map(async (kw) => {
-          try {
-            const [precs, detcs] = await Promise.allSettled([
-              searchLatestPrecedents(kw, 3),
-              searchConstitutionalDecisions(kw, 2),
-            ]);
-            if (precs.status === "fulfilled") {
-              for (const p of precs.value) {
-                if (!seen.has(p.caseNumber)) { seen.add(p.caseNumber); issuePrecedents.push(p); }
-              }
-            }
-            if (detcs.status === "fulfilled") {
-              for (const d of detcs.value) {
-                if (!seen.has(d.caseNumber)) { seen.add(d.caseNumber); allDetc.push(d); }
-              }
-            }
-          } catch (err) {
-            console.warn(`[precedent] "${kw}" 검색 실패:`, err);
+      // 키워드도 순차 처리 (동시 요청 최소화)
+      for (const kw of issue.keywords) {
+        try {
+          const precs = await searchLatestPrecedents(kw, 3);
+          for (const p of precs) {
+            if (!seen.has(p.caseNumber)) { seen.add(p.caseNumber); issuePrecedents.push(p); }
           }
-        }),
-      );
+          await delay(300); // 법제처 서버 부하 방지
+          const detcs = await searchConstitutionalDecisions(kw, 2);
+          for (const d of detcs) {
+            if (!seen.has(d.caseNumber)) { seen.add(d.caseNumber); allDetc.push(d); }
+          }
+          await delay(300);
+        } catch (err) {
+          console.warn(`[precedent] "${kw}" 검색 실패:`, err);
+        }
+      }
 
-      // 쟁점당 상위 3건 상세 조회
+      // 쟁점당 상위 3건 상세 조회 (순차)
       const topForIssue = issuePrecedents.slice(0, 3);
-      if (topForIssue.length > 0) {
-        const details = await Promise.allSettled(
-          topForIssue.map((p) => p.serialNumber ? getPrecedentDetail(p.serialNumber) : Promise.resolve(null)),
-        );
-        for (let j = 0; j < details.length; j++) {
-          const r = details[j];
-          if (r.status === "fulfilled" && r.value) {
-            topForIssue[j] = { ...topForIssue[j], ...r.value };
-          }
+      for (let j = 0; j < topForIssue.length; j++) {
+        if (!topForIssue[j].serialNumber) continue;
+        try {
+          const detail = await getPrecedentDetail(topForIssue[j].serialNumber);
+          if (detail) topForIssue[j] = { ...topForIssue[j], ...detail };
+          await delay(300);
+        } catch {
+          console.warn(`[precedent] 상세 조회 실패: ${topForIssue[j].caseNumber}`);
         }
       }
 
