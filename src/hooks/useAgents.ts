@@ -64,15 +64,10 @@ function extractFallbackKeywords(text: string, caseType?: string): IssueWithKeyw
     matched.push({ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" });
   }
 
-  // 그래도 없으면 텍스트에서 4자 이상 명사구 추출 시도
+  // 그래도 없으면 사건유형 또는 기본 키워드 사용
+  // (텍스트에서 임의 명사 추출은 "김서규의", "소송대리인" 같은 쓰레기 키워드가 나오므로 제거)
   if (matched.length === 0) {
-    const nouns = text.match(/[가-힣]{4,8}/g);
-    const unique = [...new Set(nouns)].slice(0, 2);
-    if (unique.length > 0) {
-      matched.push({ id: 1, issue: unique[0], description: "텍스트 추출 기반 검색", keywords: unique, priority: "high" });
-    } else {
-      matched.push({ id: 1, issue: "손해배상", description: "기본 검색", keywords: ["손해배상"], priority: "high" });
-    }
+    matched.push({ id: 1, issue: "민사분쟁", description: "기본 검색", keywords: ["손해배상", "채무불이행"], priority: "high" });
   }
 
   console.log("[쟁점 분석] 폴백 키워드:", matched.map((m) => `${m.issue} → ${m.keywords.join(", ")}`));
@@ -486,8 +481,14 @@ export default function useAgents(): UseAgentsReturn {
       // Stage 2 결과 반영
       finalStates.precedent = precedentState;
 
-      // 감수(review)는 Stage 3에서만 실행 — 여기서는 대기 상태로 표시
-      finalStates.review = { id: "review", status: "idle", result: "" };
+      // ─── Stage 3: 감수 실행 (모든 에이전트 결과를 받아 3중 검증) ───
+      console.log("[Stage 3] 감수 에이전트 실행");
+      const reviewContext: RunAgentsContext = {
+        ...contextForStage1,
+        searchKeywords,
+        identifiedIssues,
+      };
+      finalStates.review = await runAgent("review", reviewContext);
 
       setAgents(finalStates);
       setIsRunning(false);
