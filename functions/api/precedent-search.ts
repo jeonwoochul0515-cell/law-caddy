@@ -366,7 +366,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("query", body.query);
       url.searchParams.set("display", String(count));
       url.searchParams.set("sort", "ddes"); // 최신순
-      url.searchParams.set("search", "3"); // 판시사항 한정 검색
 
       const response = await fetchWithRetry(url.toString());
 
@@ -423,7 +422,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       url.searchParams.set("query", body.query);
       url.searchParams.set("display", String(count));
       url.searchParams.set("sort", "ddes"); // 최신순
-      url.searchParams.set("search", "3"); // 판시사항 한정 검색
 
       const response = await fetchWithRetry(url.toString());
 
@@ -479,14 +477,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     url.searchParams.set("query", body.query);
     url.searchParams.set("display", String(count));
     url.searchParams.set("sort", "ddes"); // 최신순
-    url.searchParams.set("search", "3"); // 판시사항 한정 검색
-
-    // 최근 5년 판례로 날짜 범위 제한
-    const now = new Date();
-    const fiveYearsAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
-    const fromDate = `${fiveYearsAgo.getFullYear()}${String(fiveYearsAgo.getMonth() + 1).padStart(2, "0")}${String(fiveYearsAgo.getDate()).padStart(2, "0")}`;
-    const toDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    url.searchParams.set("prncYd", `${fromDate}~${toDate}`);
 
     const response = await fetchWithRetry(url.toString());
 

@@ -79,74 +79,6 @@ function extractFallbackKeywords(text: string, caseType?: string): IssueWithKeyw
   return matched;
 }
 
-/**
- * AI로 사건 텍스트를 분석하여 쟁점을 파악하고, 각 쟁점별 검색 키워드를 생성합니다.
- * 1회 호출로 쟁점 분석 + 키워드 추출을 동시에 수행합니다.
- */
-async function analyzeIssuesWithAI(
-  caseDesc: string,
-  caseType?: string,
-  fileContents?: string,
-): Promise<IssueWithKeywords[]> {
-  const allText = [caseDesc, fileContents].filter(Boolean).join("\n\n");
-  if (!allText.trim()) {
-    return caseType
-      ? [{ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" }]
-      : [];
-  }
-
-  const truncated = allText.slice(0, 6000);
-
-  try {
-    const result = await callClaude(
-      `당신은 한국 법률 사건 분석 전문가입니다.
-주어진 사건 내용(판결문, 준비서면, 상담 내용 등)을 분석하여:
-1. 핵심 법적 쟁점 3~5개를 우선순위순으로 파악하고
-2. 각 쟁점별로 법제처(law.go.kr) 판례 검색에 최적화된 키워드 2개를 추출하세요.
-
-규칙:
-- 반드시 JSON 배열로만 응답 (다른 텍스트 없이)
-- 각 쟁점의 키워드는 1~3단어 (법제처 API는 짧은 키워드가 검색률 높음)
-- priority: "high"(승패를 좌우하는 핵심 쟁점), "medium"(보강 필요), "low"(방어적 검토)
-- 쟁점이 구체적이고 명확해야 함 (예: "손해배상" 아닌 "석방 후 가족의 손해배상청구권")
-
-예시 응답:
-[
-  {"id":1,"issue":"석방 후 혼인·출생 가족의 손해배상청구권","description":"석방 후 결혼·출생한 가족에게 별도의 손해배상청구권이 인정되는지","keywords":["가족 손해배상","석방 후 위자료"],"priority":"high"},
-  {"id":2,"issue":"보안처분의 불법행위 해당 여부","description":"보안처분 자체가 국가의 불법행위에 해당하는지","keywords":["보안처분 국가배상","보안처분 불법행위"],"priority":"high"},
-  {"id":3,"issue":"위자료 산정 기준","description":"국가배상 사건에서 위자료 금액 산정의 고려 요소","keywords":["위자료 산정기준","국가배상 위자료"],"priority":"medium"}
-]`,
-      `${caseType ? `[사건 유형: ${caseType}]\n` : ""}${truncated}`,
-    );
-
-    const jsonMatch = result.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      // Claude가 가끔 넣는 제어문자/trailing comma 정리
-      // eslint-disable-next-line no-control-regex
-      const ctrlRegex = /[\x00-\x1F\x7F]/g;
-      const cleaned = jsonMatch[0]
-        .replace(ctrlRegex, " ")              // 제어문자 → 공백
-        .replace(/,\s*([}\]])/g, "$1")        // trailing comma 제거
-        .replace(/([{,])\s*}/g, "$1}")        // 빈 마지막 항목 제거
-        .replace(/'/g, '"')                   // 작은따옴표 → 큰따옴표
-        .trim();
-
-      const issues = JSON.parse(cleaned) as IssueWithKeywords[];
-      const valid = issues
-        .filter((i) => i.issue && i.keywords?.length > 0)
-        .slice(0, 5);
-      console.log("[쟁점 분석] 결과:", valid.map((i) => `${i.id}. ${i.issue} [${i.priority}] → ${i.keywords.join(", ")}`));
-      return valid;
-    }
-  } catch (err) {
-    console.warn("[쟁점 분석] JSON 파싱 실패, 폴백:", err);
-  }
-
-  // AI 실패 시 사건 설명에서 핵심 키워드 추출하여 폴백
-  const fallbackKeywords = extractFallbackKeywords(allText, caseType);
-  return fallbackKeywords;
-}
-
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
 interface RunAgentsContext extends AgentContext {
   transcribeId?: string;
@@ -294,7 +226,7 @@ async function runSingleAgent(
       // 키워드도 순차 처리 (동시 요청 최소화)
       for (const kw of issue.keywords) {
         try {
-          const precs = await searchLatestPrecedents(kw, 3);
+          const precs = await searchLatestPrecedents(kw, 15);
           for (const p of precs) {
             if (!seen.has(p.caseNumber)) { seen.add(p.caseNumber); issuePrecedents.push(p); }
           }
@@ -460,15 +392,12 @@ export default function useAgents(): UseAgentsReturn {
       // SearchPool 생성: Stage 1 에이전트들만 RAG 검색 공유 (precedent 제외)
       const searchPool = new SearchPool(context.caseDesc, context.caseType as string | undefined);
 
-      // 초벌 쟁점 분석 (Stage 1 에이전트들에 공유)
-      const identifiedIssues = await analyzeIssuesWithAI(context.caseDesc, context.caseType, context.fileContents);
-      const searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
-      console.log("[runAllAgents] 초벌 쟁점 분석 완료:", identifiedIssues.length, "건, 키워드:", searchKeywords);
-      const contextWithKeywords = { ...context, searchKeywords, identifiedIssues };
+      // Stage 1 컨텍스트 (analyzeIssuesWithAI 호출 없이 혜안에 통합)
+      const contextForStage1 = { ...context };
 
-      // ─── Stage 1: precedent 제외 5개 에이전트 병렬 실행 ───
-      const STAGE1_AGENTS: AgentId[] = ["stt", "analysis", "legal", "docgen", "review"];
-      console.log("[Stage 1] 5개 에이전트 병렬 실행:", STAGE1_AGENTS.join(", "));
+      // ─── Stage 1: precedent 제외 4개 에이전트 병렬 실행 (감수는 Stage 3으로 이동) ───
+      const STAGE1_AGENTS: AgentId[] = ["stt", "analysis", "legal", "docgen"];
+      console.log("[Stage 1] 4개 에이전트 병렬 실행:", STAGE1_AGENTS.join(", "));
 
       const runAgent = async (agentId: AgentId, ctx: RunAgentsContext): Promise<AgentState> => {
         try {
@@ -485,41 +414,58 @@ export default function useAgents(): UseAgentsReturn {
       };
 
       const stage1Results = await Promise.allSettled(
-        STAGE1_AGENTS.map((id) => runAgent(id, contextWithKeywords)),
+        STAGE1_AGENTS.map((id) => runAgent(id, contextForStage1)),
       );
 
-      // ─── Stage 2: analysis 결과에서 정제된 쟁점 추출 → precedent 실행 ───
+      // ─── Stage 1 완료 후: 혜안(analysis) 결과에서 쟁점 + 검색 키워드 파싱 ───
       const analysisState = stage1Results.find(
-        (r, i) => STAGE1_AGENTS[i] === "analysis" && r.status === "fulfilled",
+        (r, i) => STAGE1_AGENTS[i] === "analysis" && r.status === "fulfilled" && r.value.status === "completed",
       );
       const analysisResult = analysisState?.status === "fulfilled" ? analysisState.value.result : "";
 
-      // analysis가 성공했으면 그 결과에서 쟁점을 재추출하여 더 정확한 키워드 생성
-      let refinedIssues = identifiedIssues;
+      let identifiedIssues: IssueWithKeywords[] = [];
+      let searchKeywords: string[] = [];
+
       if (analysisResult) {
-        try {
-          const refined = await analyzeIssuesWithAI(
-            `${context.caseDesc}\n\n[쟁점 분석 결과]\n${analysisResult}`,
-            context.caseType,
-            context.fileContents,
-          );
-          if (refined.length > 0) {
-            refinedIssues = refined;
-            console.log("[Stage 2] 정제된 쟁점:", refined.map((i) => `${i.issue} → ${i.keywords.join(", ")}`));
+        // 혜안 결과에서 JSON 배열 파싱 (쟁점 + 키워드)
+        const issuesMatch = analysisResult.match(/\[[\s\S]*?\]/);
+        if (issuesMatch) {
+          try {
+            // eslint-disable-next-line no-control-regex
+            const ctrlRegex = /[\x00-\x1F\x7F]/g;
+            const cleaned = issuesMatch[0]
+              .replace(ctrlRegex, " ")
+              .replace(/,\s*([}\]])/g, "$1")
+              .replace(/'/g, '"')
+              .trim();
+            const parsed = JSON.parse(cleaned) as IssueWithKeywords[];
+            const valid = parsed.filter((i) => i.issue && i.keywords?.length > 0);
+            if (valid.length > 0) {
+              identifiedIssues = valid;
+              searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
+              console.log("[Stage 1] 혜안 결과에서 쟁점 파싱 성공:", identifiedIssues.map((i) => `${i.issue} → ${i.keywords.join(", ")}`));
+            }
+          } catch (err) {
+            console.warn("[Stage 1] 혜안 결과 JSON 파싱 실패, 폴백 사용:", err);
           }
-        } catch (err) {
-          console.warn("[Stage 2] 쟁점 재추출 실패, 초벌 쟁점 사용:", err);
         }
       }
 
-      const refinedKeywords = refinedIssues.flatMap((i) => i.keywords);
+      // 파싱 실패 시 폴백 키워드 사용
+      if (identifiedIssues.length === 0) {
+        identifiedIssues = extractFallbackKeywords(context.caseDesc, context.caseType);
+        searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
+        console.log("[Stage 1] 폴백 키워드 사용:", searchKeywords);
+      }
+
+      // ─── Stage 2: 혜안 결과의 쟁점으로 precedent 실행 ───
       const precedentContext: RunAgentsContext = {
-        ...contextWithKeywords,
-        searchKeywords: refinedKeywords,
-        identifiedIssues: refinedIssues,
+        ...context,
+        searchKeywords,
+        identifiedIssues,
       };
 
-      console.log("[Stage 2] precedent 에이전트 실행 (정제된 키워드:", refinedKeywords.join(", "), ")");
+      console.log("[Stage 2] precedent 에이전트 실행 (키워드:", searchKeywords.join(", "), ")");
       const precedentState = await runAgent("precedent", precedentContext);
 
       // ─── 최종 상태 구성 ───
@@ -539,6 +485,9 @@ export default function useAgents(): UseAgentsReturn {
 
       // Stage 2 결과 반영
       finalStates.precedent = precedentState;
+
+      // 감수(review)는 Stage 3에서만 실행 — 여기서는 대기 상태로 표시
+      finalStates.review = { id: "review", status: "idle", result: "" };
 
       setAgents(finalStates);
       setIsRunning(false);

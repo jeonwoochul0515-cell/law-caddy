@@ -970,15 +970,25 @@ export async function searchAll(
     resultMap[key] = values[i];
   });
 
-  let context = emptyRAGContext();
-  const threshold = options?.threshold ?? 0.30;
+  // 동적 임계값: topScore의 40% 이하 제거 (고정 임계값 대신)
+  const allRawScores: number[] = [];
+  for (const table of tables) {
+    const items = resultMap[table] as Array<{ combined_score?: number }> | undefined;
+    if (items) {
+      for (const item of items) {
+        if (typeof item.combined_score === "number") allRawScores.push(item.combined_score);
+      }
+    }
+  }
+  const rawTopScore = allRawScores.length > 0 ? Math.max(...allRawScores) : 0;
+  const dynamicThreshold = Math.max(rawTopScore * 0.4, 0.08); // 최소 0.08
 
+  let context = emptyRAGContext();
   for (const table of tables) {
     const contextKey = TABLE_CONTEXT_KEY_MAP[table];
     if (contextKey && resultMap[table]) {
-      // combined_score 임계값 이하 결과 필터링
       const filtered = (resultMap[table] as Array<{ combined_score?: number }>)
-        .filter((r) => (r.combined_score ?? 0) >= threshold);
+        .filter((r) => (r.combined_score ?? 0) >= dynamicThreshold);
       (context as unknown as Record<string, unknown>)[contextKey] = filtered;
     }
   }
@@ -988,7 +998,7 @@ export async function searchAll(
     context = await enrichWithCrossReferences(context, embedding);
   }
 
-  // 전체 결과 중 최고 점수 확인 — 너무 낮으면 빈 컨텍스트 반환
+  // 3단계 RAG 주입
   const allScores: number[] = [];
   for (const table of tables) {
     const contextKey = TABLE_CONTEXT_KEY_MAP[table];
@@ -996,19 +1006,29 @@ export async function searchAll(
       const items = (context as unknown as Record<string, Array<{ combined_score?: number }>>)[contextKey];
       if (Array.isArray(items)) {
         for (const item of items) {
-          if (typeof item.combined_score === "number") {
-            allScores.push(item.combined_score);
-          }
+          if (typeof item.combined_score === "number") allScores.push(item.combined_score);
         }
       }
     }
   }
   const topScore = allScores.length > 0 ? Math.max(...allScores) : 0;
-  if (topScore < 0.20) {
-    console.warn(
-      `[RAG] 전체 결과 최고 점수(${topScore.toFixed(3)})가 0.20 미만 — 신뢰도 부족으로 빈 컨텍스트 반환`,
-    );
+
+  if (topScore < 0.08) {
+    console.warn(`[RAG] topScore ${topScore.toFixed(3)} < 0.08 — RAG 완전 스킵`);
     return emptyRAGContext();
+  }
+
+  if (topScore < 0.15) {
+    console.warn(`[RAG] topScore ${topScore.toFixed(3)} — 저신뢰 모드, 상위 2건만 유지`);
+    for (const table of tables) {
+      const contextKey = TABLE_CONTEXT_KEY_MAP[table];
+      if (contextKey) {
+        const items = (context as unknown as Record<string, unknown[]>)[contextKey];
+        if (Array.isArray(items) && items.length > 2) {
+          (context as unknown as Record<string, unknown[]>)[contextKey] = items.slice(0, 2);
+        }
+      }
+    }
   }
 
   // 캐시 저장
