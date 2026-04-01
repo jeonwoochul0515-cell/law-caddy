@@ -7,6 +7,7 @@ import Header from "./Header";
 import BugReportButton from "../ui/BugReportButton";
 import ApiStatusMonitor from "../ui/ApiStatusMonitor";
 import useAuth from "../../hooks/useAuth";
+import useSidebarCollapse from "../../hooks/useSidebarCollapse";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -17,11 +18,15 @@ interface AppLayoutProps {
 export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const user = useAuth((state) => state.user);
   const logout = useAuth((state) => state.logout);
+  const { isCollapsed } = useSidebarCollapse();
 
   // Sidebar에 전달할 사용자 정보
   const sidebarUser = user
     ? { name: user.name, role: user.role }
     : null;
+
+  // 사이드바 너비에 맞춘 좌측 여백
+  const marginClass = isCollapsed ? "ml-16" : "ml-16 lg:ml-60";
 
   return (
     <div className="flex min-h-screen bg-[#faf9f5]">
@@ -29,7 +34,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
       <Sidebar user={sidebarUser} onLogout={logout} />
 
       {/* 메인 콘텐츠 영역: 사이드바 너비만큼 좌측 여백 */}
-      <div className="ml-16 flex flex-1 flex-col lg:ml-60">
+      <div className={`${marginClass} flex flex-1 flex-col transition-all duration-300`}>
         {/* 헤더 */}
         <Header title={title} subtitle={subtitle} />
 

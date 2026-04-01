@@ -367,10 +367,10 @@ export default function DocumentPage() {
 
       {/* 문서 탭 — 2컬럼 (데스크탑) */}
       {tab === "document" && (
-        <div className="flex gap-4 h-[calc(100vh-220px)]">
+        <div className="flex gap-4 h-[calc(100vh-140px)]">
           {/* 왼쪽: 문서 뷰어 */}
-          <div className="flex-1 min-w-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <div className="w-full lg:w-[60%] min-w-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
               <h3 className="font-semibold text-text-primary text-sm">{state.docType} 초안</h3>
               <div className="flex items-center gap-2">
                 {finalDocument && (
@@ -500,7 +500,7 @@ export default function DocumentPage() {
                   </button>
                 </div>
               ) : finalDocument ? (
-                <div className="whitespace-pre-wrap text-sm text-text-primary leading-relaxed font-mono">
+                <div className="whitespace-pre-wrap text-base text-text-primary leading-loose font-sans">
                   {finalDocument}
                 </div>
               ) : (
@@ -510,22 +510,22 @@ export default function DocumentPage() {
           </div>
 
           {/* 오른쪽: 채팅 패널 (데스크탑) */}
-          <div className="hidden lg:flex w-[380px] shrink-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex-col overflow-hidden">
+          <div className="hidden lg:flex w-[40%] shrink-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex-col overflow-hidden">
             {/* 채팅 헤더 */}
-            <div className="p-4 border-b border-border shrink-0">
+            <div className="px-4 py-2.5 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-gold" />
                 <h3 className="font-semibold text-text-primary text-sm">AI 법률 비서</h3>
               </div>
-              <p className="text-[11px] text-text-dim mt-1">문서에 대해 질문하거나 수정을 요청하세요</p>
+              <p className="text-xs text-text-dim mt-1">문서에 대해 질문하거나 수정을 요청하세요</p>
             </div>
 
             {/* 채팅 메시지 영역 */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {chatMessages.length === 0 && !chatLoading && (
                 <div className="text-center py-8 space-y-2">
                   <Bot className="w-8 h-8 text-gold/40 mx-auto" />
-                  <p className="text-xs text-text-dim">
+                  <p className="text-sm text-text-dim">
                     {finalDocument ? "문서를 분석하고 있습니다..." : "문서가 생성되면 자동으로 검토를 시작합니다"}
                   </p>
                 </div>
@@ -555,7 +555,7 @@ export default function DocumentPage() {
             </div>
 
             {/* 채팅 입력 */}
-            <div className="p-3 border-t border-border shrink-0">
+            <div className="p-4 border-t border-border shrink-0 bg-navy-light/30">
               <input
                 ref={chatFileInputRef}
                 type="file"
@@ -591,13 +591,13 @@ export default function DocumentPage() {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="질문 또는 수정 요청..."
-                  rows={1}
-                  className="flex-1 bg-navy-light border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
+                  rows={2}
+                  className="flex-1 bg-navy-light border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
                 />
                 <button
                   onClick={handleSendChat}
                   disabled={(!chatInput.trim() && chatFiles.length === 0) || chatLoading}
-                  className="px-3 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  className="px-3.5 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed shrink-0 self-end"
                 >
                   <Send className="w-4 h-4" />
                 </button>

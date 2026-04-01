@@ -1,5 +1,5 @@
 // 사이드바 네비게이션 — 프리미엄 라이트 테마
-// 모바일: 64px (아이콘 전용), 데스크톱: 240px (아이콘 + 텍스트)
+// 접기/펼치기 토글 지원: 접힘 시 w-16 (아이콘 전용), 펼침 시 w-60 (아이콘 + 텍스트)
 
 import { NavLink } from "react-router-dom";
 import {
@@ -11,8 +11,11 @@ import {
   Shield,
   LogOut,
   Crown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import useSidebarCollapse from "../../hooks/useSidebarCollapse";
 
 interface SidebarUser {
   name: string;
@@ -51,6 +54,7 @@ function getInitials(name: string): string {
 
 export default function Sidebar({ user, onLogout }: SidebarProps) {
   const [showPremiumToast, setShowPremiumToast] = useState(false);
+  const { isCollapsed, toggleSidebar } = useSidebarCollapse();
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.adminOnly || user?.role === "admin",
@@ -62,18 +66,48 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
     setTimeout(() => setShowPremiumToast(false), 2500);
   };
 
+  // 접힘 상태에 따른 너비 클래스
+  const widthClass = isCollapsed ? "w-16" : "w-16 lg:w-60";
+
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-16 flex-col border-r border-[#01261f]/8 bg-[#faf9f5] lg:w-60">
-      {/* 로고 — 클릭 시 대시보드 */}
-      <NavLink to="/dashboard" className="flex h-16 items-center justify-center border-b border-[#01261f]/5 lg:justify-start lg:px-6 hover:bg-[#01261f]/3 transition-colors">
-        <span className="text-2xl font-black italic font-serif text-[#01261f]">LC</span>
-        <span className="ml-2 hidden text-base font-bold font-serif italic text-[#01261f] lg:inline">
-          Law-Caddy
-        </span>
-      </NavLink>
+    <aside
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[#01261f]/8 bg-[#faf9f5] transition-all duration-300 ${widthClass}`}
+    >
+      {/* 로고 + 토글 버튼 */}
+      <div className="relative flex h-16 items-center border-b border-[#01261f]/5">
+        <NavLink
+          to="/dashboard"
+          className={`flex h-full flex-1 items-center hover:bg-[#01261f]/3 transition-colors ${
+            isCollapsed
+              ? "justify-center"
+              : "justify-center lg:justify-start lg:px-6"
+          }`}
+        >
+          <span className="text-2xl font-black italic font-serif text-[#01261f]">LC</span>
+          {!isCollapsed && (
+            <span className="ml-2 hidden text-base font-bold font-serif italic text-[#01261f] lg:inline">
+              Law-Caddy
+            </span>
+          )}
+        </NavLink>
+
+        {/* 토글 버튼 — 데스크톱 전용 */}
+        <button
+          onClick={toggleSidebar}
+          aria-label={isCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center justify-center w-6 h-6 rounded-full border border-[#01261f]/10 bg-[#faf9f5] text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f] transition-colors shadow-sm"
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+      </div>
 
       {/* 네비게이션 */}
-      <nav aria-label="메인 네비게이션" className="flex-1 overflow-y-auto px-2 py-4 lg:px-3">
+      <nav
+        aria-label="메인 네비게이션"
+        className={`flex-1 overflow-y-auto py-4 ${
+          isCollapsed ? "px-2" : "px-2 lg:px-3"
+        }`}
+      >
         <ul className="flex flex-col gap-1">
           {visibleItems.map((item) =>
             item.premium ? (
@@ -81,11 +115,26 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <button
                   onClick={handlePremiumClick}
                   aria-label={item.label}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium justify-center lg:justify-start text-[#01261f]/25 cursor-not-allowed transition-colors"
+                  title={isCollapsed ? item.label : undefined}
+                  className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#01261f]/25 cursor-not-allowed transition-colors ${
+                    isCollapsed
+                      ? "justify-center"
+                      : "justify-center lg:justify-start"
+                  }`}
                 >
                   {item.icon}
-                  <span className="hidden lg:inline">{item.label}</span>
-                  <Crown size={14} className="hidden lg:inline text-[#735c00]/40" />
+                  {!isCollapsed && (
+                    <span className="hidden lg:inline">{item.label}</span>
+                  )}
+                  {!isCollapsed && (
+                    <Crown size={14} className="hidden lg:inline text-[#735c00]/40" />
+                  )}
+                  {/* 접힘 상태 툴팁 */}
+                  {isCollapsed && (
+                    <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
+                      {item.label}
+                    </span>
+                  )}
                 </button>
               </li>
             ) : (
@@ -93,10 +142,13 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 <NavLink
                   to={item.to}
                   aria-label={item.label}
+                  title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     [
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
-                      "justify-center lg:justify-start",
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
+                      isCollapsed
+                        ? "justify-center"
+                        : "justify-center lg:justify-start",
                       isActive
                         ? "bg-[#01261f] text-[#faf9f5]"
                         : "text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f]",
@@ -104,14 +156,22 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                   }
                 >
                   {item.icon}
-                  <span className="hidden lg:inline">{item.label}</span>
+                  {!isCollapsed && (
+                    <span className="hidden lg:inline">{item.label}</span>
+                  )}
+                  {/* 접힘 상태 툴팁 */}
+                  {isCollapsed && (
+                    <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
+                      {item.label}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ),
           )}
         </ul>
 
-        {showPremiumToast && (
+        {showPremiumToast && !isCollapsed && (
           <div className="mx-1 mt-3 rounded-lg bg-[#735c00]/8 border border-[#735c00]/15 p-3 text-xs text-[#735c00]">
             <div className="flex items-center gap-2 mb-1">
               <Crown size={12} />
@@ -131,15 +191,17 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 {getInitials(user.name)}
               </span>
             </div>
-            <div className="hidden min-w-0 flex-1 lg:block">
-              <p className="truncate text-sm font-medium text-[#1b1c1a]">
-                {user.name}
-              </p>
-              <p className="text-xs text-[#414846]">
-                {user.role === "admin" ? "관리자" : "변호사"}
-              </p>
-            </div>
-            {onLogout && (
+            {!isCollapsed && (
+              <div className="hidden min-w-0 flex-1 lg:block">
+                <p className="truncate text-sm font-medium text-[#1b1c1a]">
+                  {user.name}
+                </p>
+                <p className="text-xs text-[#414846]">
+                  {user.role === "admin" ? "관리자" : "변호사"}
+                </p>
+              </div>
+            )}
+            {!isCollapsed && onLogout && (
               <button
                 onClick={onLogout}
                 aria-label="로그아웃"
@@ -153,7 +215,9 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
             <button
               onClick={onLogout}
               aria-label="로그아웃"
-              className="mt-2 flex w-full items-center justify-center rounded-lg py-2 text-[#414846] hover:text-[#ba1a1a] hover:bg-[#ba1a1a]/8 transition-colors lg:hidden"
+              className={`mt-2 flex w-full items-center justify-center rounded-lg py-2 text-[#414846] hover:text-[#ba1a1a] hover:bg-[#ba1a1a]/8 transition-colors ${
+                isCollapsed ? "" : "lg:hidden"
+              }`}
             >
               <LogOut size={18} />
             </button>
