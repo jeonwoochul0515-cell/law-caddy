@@ -50,3 +50,13 @@ export interface CheckpointAnswer {
   files: File[];
   audioBlob: Blob | null;
 }
+
+/** 판서가 검증한 판례 참조 ID */
+export interface CaseRef {
+  id: string;           // "CaseRef-1"
+  court: string;        // "대법원"
+  date: string;         // "2017. 11. 29."
+  caseNumber: string;   // "2017다241819"
+  group: "A" | "B" | "C";
+  keyHolding: string;   // 핵심 판시사항
+}

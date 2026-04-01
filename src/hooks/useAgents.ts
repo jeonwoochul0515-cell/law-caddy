@@ -18,6 +18,7 @@ import {
 } from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType, IssueWithKeywords } from "../types/agent";
+import type { CaseRef } from "../types/document";
 import { CASE_TYPES } from "../config/constants";
 
 /** 법률 키워드 사전 — AI 실패 시 텍스트에서 매칭하여 폴백 키워드 생성 */
@@ -81,6 +82,8 @@ interface RunAgentsContext extends AgentContext {
   searchKeywords?: string[];
   /** 쟁점 분석 결과 (runAllAgents에서 1회 분석 → 에이전트 간 공유) */
   identifiedIssues?: IssueWithKeywords[];
+  /** 판서가 검증한 판례 참조 목록 (Stage 2 → Stage 3/docgen에 전달) */
+  caseRefs?: CaseRef[];
 }
 
 /** 에이전트 실행 단계 */
@@ -463,6 +466,19 @@ export default function useAgents(): UseAgentsReturn {
       console.log("[Stage 2] precedent 에이전트 실행 (키워드:", searchKeywords.join(", "), ")");
       const precedentState = await runAgent("precedent", precedentContext);
 
+      // 판서 결과에서 CaseRef JSON 파싱
+      let caseRefs: CaseRef[] = [];
+      try {
+        const caseRefMatch = precedentState.result.match(/\{"caseRefs"\s*:\s*\[[\s\S]*?\]\}/);
+        if (caseRefMatch) {
+          const parsed = JSON.parse(caseRefMatch[0]) as { caseRefs: CaseRef[] };
+          caseRefs = parsed.caseRefs ?? [];
+          console.log("[Stage 2] CaseRef 파싱 완료:", caseRefs.length, "건");
+        }
+      } catch (err) {
+        console.warn("[Stage 2] CaseRef 파싱 실패:", err);
+      }
+
       // ─── 최종 상태 구성 ───
       const finalStates = { ...runningStates };
 
@@ -487,6 +503,7 @@ export default function useAgents(): UseAgentsReturn {
         ...contextForStage1,
         searchKeywords,
         identifiedIssues,
+        caseRefs,
       };
       finalStates.review = await runAgent("review", reviewContext);
 
