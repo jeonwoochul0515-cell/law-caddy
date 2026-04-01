@@ -1,16 +1,8 @@
 // 이미지 OCR 서비스
-// Claude Vision API를 사용하여 이미지에서 텍스트를 추출하고 문서 유형을 분류
+// CLOVA OCR을 사용하여 이미지에서 텍스트를 추출하고 문서 유형을 분류
 
 import * as Sentry from "@sentry/react";
-import { authHeaders } from "./api-auth";
-import { withRetry } from "./retry";
-
-const isDev = import.meta.env.DEV;
-const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
-const DEV_PROXY_URL = "/api/anthropic/v1/messages";
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const API_VERSION = "2023-06-01";
-const MODEL = "claude-haiku-4-5-20251001";
+import { callClovaOcr, extractClovaText } from "./clova-ocr";
 
 /** 이미지 확장자 판별 */
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
@@ -35,23 +27,17 @@ const MAX_CHARS_PER_FILE = 15_000;
 /** 전체 합산 최대 문자 수 */
 const MAX_TOTAL_CHARS = 30_000;
 
-const OCR_SYSTEM_PROMPT = `당신은 한국 법률 문서 판독 전문가입니다.
-이미지에서 텍스트를 추출하고, 이 문서가 어떤 종류인지 분류하세요.
-
-반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{
-  "documentType": "문서 유형 (예: 계약서, 내용증명, 소장, 답변서, 판결문, 등기부등본, 영수증, 진단서, 차용증, 각서, 합의서, 고소장, 신분증, 사진/증거자료, 통화내역, 문자메시지, 기타)",
-  "extractedText": "이미지에서 읽은 전체 텍스트 내용. 줄바꿈과 구조를 최대한 유지하세요. 읽을 수 없는 부분은 [판독불가]로 표시."
+/** CLOVA OCR에서 지원하는 이미지 포맷 매핑 */
+function getOcrFormat(file: File): string {
+  const ext = file.name.lastIndexOf(".") >= 0
+    ? file.name.slice(file.name.lastIndexOf(".") + 1).toLowerCase()
+    : "";
+  if (ext === "jpg" || ext === "jpeg") return "jpg";
+  if (ext === "png") return "png";
+  if (ext === "tif" || ext === "tiff") return "tiff";
+  // CLOVA는 gif, webp, bmp를 직접 지원하지 않으므로 jpg로 변환
+  return "jpg";
 }
-
-주의사항:
-- 법률 관련 용어와 고유명사를 정확히 판독하세요.
-- 날짜, 금액, 이름 등 핵심 정보를 빠뜨리지 마세요.
-- 도장/서명 부분은 [도장] 또는 [서명]으로 표시하세요.
-- 표가 있으면 | 구분자로 구조를 유지하세요.
-- 사진이나 증거 자료(현장 사진, 상해 사진 등)인 경우 보이는 내용을 상세히 묘사하세요.`;
-
-const OCR_USER_MESSAGE = "이 이미지의 문서 유형을 분류하고, 텍스트를 모두 추출해 주세요.";
 
 /** File → base64 문자열 변환 */
 function fileToBase64(file: File): Promise<string> {
@@ -67,116 +53,48 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** Vision messages 구성 */
-function buildVisionMessages(base64: string, mediaType: string) {
-  return [
-    {
-      role: "user" as const,
-      content: [
-        {
-          type: "image" as const,
-          source: { type: "base64" as const, media_type: mediaType, data: base64 },
-        },
-        {
-          type: "text" as const,
-          text: OCR_USER_MESSAGE,
-        },
-      ],
-    },
-  ];
+/** 키워드 기반 문서 유형 분류 */
+const DOC_TYPE_KEYWORDS: Array<[string, string[]]> = [
+  ["소장", ["소장", "원고", "피고", "청구취지", "청구원인"]],
+  ["답변서", ["답변서", "피고", "청구취지에 대한"]],
+  ["판결문", ["판결", "선고", "주문", "이유"]],
+  ["내용증명", ["내용증명", "통고", "통지"]],
+  ["계약서", ["계약서", "계약", "갑", "을", "계약기간"]],
+  ["등기부등본", ["등기", "등기부", "갑구", "을구", "표제부"]],
+  ["고소장", ["고소장", "고소인", "피고소인"]],
+  ["합의서", ["합의서", "합의"]],
+  ["진단서", ["진단서", "진단", "상병명", "환자"]],
+  ["차용증", ["차용증", "차용", "대여"]],
+  ["각서", ["각서", "이행"]],
+  ["영수증", ["영수증", "금액", "합계"]],
+  ["문자메시지", ["카카오톡", "문자", "메시지"]],
+  ["통화내역", ["통화", "발신", "수신", "통화시간"]],
+];
+
+function classifyDocumentType(text: string): string {
+  for (const [docType, keywords] of DOC_TYPE_KEYWORDS) {
+    const matchCount = keywords.filter((kw) => text.includes(kw)).length;
+    if (matchCount >= 2) return docType;
+  }
+  return "기타";
 }
 
 /**
- * 단일 이미지 파일에서 OCR로 텍스트를 추출하고 문서 유형을 분류합니다.
+ * 단일 이미지 파일에서 CLOVA OCR로 텍스트를 추출하고 문서 유형을 분류합니다.
  */
 export async function extractImageText(file: File): Promise<OcrResult> {
   const base64 = await fileToBase64(file);
-  const mediaType = file.type || "image/jpeg";
-  const messages = buildVisionMessages(base64, mediaType);
+  const format = getOcrFormat(file);
 
-  let response: Response;
+  const response = await callClovaOcr(base64, format, file.name);
+  const extractedText = extractClovaText(response);
+  const documentType = classifyDocumentType(extractedText);
 
-  if (DIRECT_API_KEY) {
-    // 로컬 개발 또는 프론트엔드 직접 호출
-    const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "x-api-key": DIRECT_API_KEY,
-      "anthropic-version": API_VERSION,
-    };
-    if (!isDev) {
-      headers["anthropic-dangerous-direct-browser-access"] = "true";
-    }
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 4096,
-        temperature: 0,
-        system: OCR_SYSTEM_PROMPT,
-        messages,
-      }),
-    });
-  } else {
-    // 프로덕션: /api/claude 프록시 사용 (커스텀 도메인은 pages.dev 경유)
-    const apiBase = typeof window !== "undefined" && window.location.hostname !== "law-caddy.pages.dev"
-      ? "https://law-caddy.pages.dev"
-      : "";
-    response = await withRetry(async () => {
-      const headers = await authHeaders({ "Content-Type": "application/json" });
-      return fetch(`${apiBase}/api/claude`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          systemPrompt: OCR_SYSTEM_PROMPT,
-          messages,
-        }),
-      });
-    });
-  }
-
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorBody = (await response.json()) as { error?: { message?: string }; detail?: string };
-      errorMessage = errorBody?.error?.message ?? errorBody?.detail ?? errorMessage;
-    } catch { /* non-JSON */ }
-    throw new Error(`이미지 OCR 실패 (${file.name}): ${errorMessage}`);
-  }
-
-  const data = (await response.json()) as {
-    content: Array<{ type: string; text: string }>;
+  return {
+    fileName: file.name,
+    documentType,
+    extractedText: extractedText || "(텍스트를 추출할 수 없습니다)",
   };
-
-  const text = data.content?.find((b) => b.type === "text")?.text ?? "";
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-
-  if (!jsonMatch) {
-    return {
-      fileName: file.name,
-      documentType: "기타",
-      extractedText: text || "(텍스트를 추출할 수 없습니다)",
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      documentType: string;
-      extractedText: string;
-    };
-    return {
-      fileName: file.name,
-      documentType: parsed.documentType || "기타",
-      extractedText: parsed.extractedText || "(텍스트 없음)",
-    };
-  } catch {
-    return {
-      fileName: file.name,
-      documentType: "기타",
-      extractedText: text,
-    };
-  }
 }
 
 /**

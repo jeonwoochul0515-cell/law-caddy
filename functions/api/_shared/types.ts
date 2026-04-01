@@ -7,4 +7,6 @@ export interface Env {
   CODEF_CLIENT_SECRET: string;
   CODEF_PUBLIC_KEY: string;
   DATA_GO_KR_API_KEY: string;
+  CLOVA_OCR_INVOKE_URL: string;
+  CLOVA_OCR_SECRET: string;
 }
