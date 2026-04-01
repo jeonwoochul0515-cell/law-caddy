@@ -401,6 +401,11 @@ export const AGENT_SEARCH_CONFIG: Record<
  * - 프로덕션: Cloudflare Functions 프록시(/api/voyage) 경유
  */
 export async function embedQuery(text: string): Promise<number[]> {
+  // 빈 문자열 방어 (preprocessForSemantic이 빈 문자열 반환 가능)
+  if (!text.trim()) {
+    throw new Error("임베딩 입력이 비어있습니다.");
+  }
+
   // 캐시 확인
   const cacheKey = text.trim().toLowerCase();
   const cached = embeddingCache.get(cacheKey);
@@ -882,8 +887,14 @@ export async function searchAll(
 
   // 한국어 쿼리 전처리 (조사 제거, 복합명사 분해, 도메인별 동의어 확장)
   const caseType = options?.caseType;
-  const semanticQuery = preprocessForSemantic(query, caseType);
+  let semanticQuery = preprocessForSemantic(query, caseType);
   const ftsQuery = preprocessKoreanQuery(query, caseType);
+
+  // 전처리 결과가 빈 문자열이면 원본 쿼리를 그대로 사용
+  if (!semanticQuery.trim()) {
+    console.warn("[RAG] 시맨틱 전처리 결과 빈 문자열, 원본 쿼리 사용:", query.slice(0, 50));
+    semanticQuery = query;
+  }
 
   // 임베딩을 한 번만 생성하여 재사용 (시맨틱용 전처리 쿼리 사용)
   let embedding: number[];

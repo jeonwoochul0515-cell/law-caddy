@@ -50,7 +50,7 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
 const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
 
 /** 법제처 API — 상세 조회용 URL (lawService.do) */
-const LAW_API_DETAIL = "http://www.law.go.kr/DRF/lawService.do";
+const LAW_API_DETAIL = "https://www.law.go.kr/DRF/lawService.do";
 
 /** 검색 대상 타입 */
 type SearchTarget = "prec" | "detc" | "expc";
@@ -278,7 +278,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return Response.json({ decision: null });
       }
 
-      const data = JSON.parse(text) as LawApiDetcDetailResponse;
+      let data: LawApiDetcDetailResponse;
+      try {
+        data = JSON.parse(text) as LawApiDetcDetailResponse;
+      } catch {
+        return Response.json(
+          { error: "법제처 헌재결정례 상세 응답 파싱 실패", detail: text.slice(0, 200) },
+          { status: 502 },
+        );
+      }
 
       if (!data.DetcService) {
         return Response.json({ decision: null });
@@ -316,7 +324,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return Response.json({ precedent: null });
       }
 
-      const data = JSON.parse(text) as LawApiDetailResponse;
+      let data: LawApiDetailResponse;
+      try {
+        data = JSON.parse(text) as LawApiDetailResponse;
+      } catch {
+        return Response.json(
+          { error: "법제처 판례 상세 응답 파싱 실패", detail: text.slice(0, 200) },
+          { status: 502 },
+        );
+      }
 
       if (!data.PrecService) {
         return Response.json({ precedent: null });
@@ -368,7 +384,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return Response.json({ totalCount: 0, decisions: [] });
       }
 
-      const data = JSON.parse(text) as LawApiDetcSearchResponse;
+      let data: LawApiDetcSearchResponse;
+      try {
+        data = JSON.parse(text) as LawApiDetcSearchResponse;
+      } catch {
+        return Response.json(
+          { error: "법제처 헌재결정례 검색 응답 파싱 실패", detail: text.slice(0, 200) },
+          { status: 502 },
+        );
+      }
 
       if (!data.DetcSearch) {
         return Response.json({ totalCount: 0, decisions: [] });
@@ -416,7 +440,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return Response.json({ totalCount: 0, interpretations: [] });
       }
 
-      const data = JSON.parse(text) as LawApiExpcSearchResponse;
+      let data: LawApiExpcSearchResponse;
+      try {
+        data = JSON.parse(text) as LawApiExpcSearchResponse;
+      } catch {
+        return Response.json(
+          { error: "법제처 법령해석례 응답 파싱 실패", detail: text.slice(0, 200) },
+          { status: 502 },
+        );
+      }
 
       if (!data.Expc) {
         return Response.json({ totalCount: 0, interpretations: [] });
@@ -463,7 +495,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return Response.json({ totalCount: 0, precedents: [] });
     }
 
-    const data = JSON.parse(text) as LawApiPrecSearchResponse;
+    let data: LawApiPrecSearchResponse;
+    try {
+      data = JSON.parse(text) as LawApiPrecSearchResponse;
+    } catch {
+      return Response.json(
+        { error: "법제처 판례 검색 응답 파싱 실패", detail: text.slice(0, 200) },
+        { status: 502 },
+      );
+    }
 
     if (!data.PrecSearch) {
       return Response.json({ totalCount: 0, precedents: [] });

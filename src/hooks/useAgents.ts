@@ -20,6 +20,65 @@ import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType, IssueWithKeywords } from "../types/agent";
 import { CASE_TYPES } from "../config/constants";
 
+/** 법률 키워드 사전 — AI 실패 시 텍스트에서 매칭하여 폴백 키워드 생성 */
+const LEGAL_KEYWORD_PATTERNS: Array<[string, string[]]> = [
+  ["손해배상", ["손해배상", "불법행위"]],
+  ["부당공동행위", ["부당공동행위", "공정거래"]],
+  ["부당해고", ["부당해고", "해고무효"]],
+  ["이혼", ["이혼", "재산분할"]],
+  ["임대차", ["임대차", "보증금반환"]],
+  ["사기", ["사기", "기망행위"]],
+  ["횡령", ["횡령", "배임"]],
+  ["명예훼손", ["명예훼손", "손해배상"]],
+  ["채무불이행", ["채무불이행", "계약해제"]],
+  ["근로계약", ["근로계약", "임금청구"]],
+  ["상속", ["상속", "유류분"]],
+  ["가압류", ["가압류", "보전처분"]],
+  ["특허", ["특허침해", "지식재산"]],
+  ["교통사고", ["교통사고", "과실비율"]],
+  ["의료", ["의료과실", "의료소송"]],
+];
+
+/**
+ * AI 실패 시 텍스트에서 법률 키워드를 매칭하여 폴백 쟁점을 생성합니다.
+ */
+function extractFallbackKeywords(text: string, caseType?: string): IssueWithKeywords[] {
+  const matched: IssueWithKeywords[] = [];
+  let id = 1;
+
+  for (const [keyword, searchTerms] of LEGAL_KEYWORD_PATTERNS) {
+    if (text.includes(keyword)) {
+      matched.push({
+        id: id++,
+        issue: keyword,
+        description: "텍스트 키워드 기반 검색",
+        keywords: searchTerms,
+        priority: id <= 2 ? "high" : "medium",
+      });
+      if (matched.length >= 3) break;
+    }
+  }
+
+  // 매칭 없으면 사건 유형이라도 사용
+  if (matched.length === 0 && caseType) {
+    matched.push({ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" });
+  }
+
+  // 그래도 없으면 텍스트에서 4자 이상 명사구 추출 시도
+  if (matched.length === 0) {
+    const nouns = text.match(/[가-힣]{4,8}/g);
+    const unique = [...new Set(nouns)].slice(0, 2);
+    if (unique.length > 0) {
+      matched.push({ id: 1, issue: unique[0], description: "텍스트 추출 기반 검색", keywords: unique, priority: "high" });
+    } else {
+      matched.push({ id: 1, issue: "손해배상", description: "기본 검색", keywords: ["손해배상"], priority: "high" });
+    }
+  }
+
+  console.log("[쟁점 분석] 폴백 키워드:", matched.map((m) => `${m.issue} → ${m.keywords.join(", ")}`));
+  return matched;
+}
+
 /**
  * AI로 사건 텍스트를 분석하여 쟁점을 파악하고, 각 쟁점별 검색 키워드를 생성합니다.
  * 1회 호출로 쟁점 분석 + 키워드 추출을 동시에 수행합니다.
@@ -60,9 +119,19 @@ async function analyzeIssuesWithAI(
       `${caseType ? `[사건 유형: ${caseType}]\n` : ""}${truncated}`,
     );
 
-    const jsonMatch = result.match(/\[[\s\S]*?\]/);
+    const jsonMatch = result.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const issues = JSON.parse(jsonMatch[0]) as IssueWithKeywords[];
+      // Claude가 가끔 넣는 제어문자/trailing comma 정리
+      // eslint-disable-next-line no-control-regex
+      const ctrlRegex = /[\x00-\x1F\x7F]/g;
+      const cleaned = jsonMatch[0]
+        .replace(ctrlRegex, " ")              // 제어문자 → 공백
+        .replace(/,\s*([}\]])/g, "$1")        // trailing comma 제거
+        .replace(/([{,])\s*}/g, "$1}")        // 빈 마지막 항목 제거
+        .replace(/'/g, '"')                   // 작은따옴표 → 큰따옴표
+        .trim();
+
+      const issues = JSON.parse(cleaned) as IssueWithKeywords[];
       const valid = issues
         .filter((i) => i.issue && i.keywords?.length > 0)
         .slice(0, 5);
@@ -70,13 +139,12 @@ async function analyzeIssuesWithAI(
       return valid;
     }
   } catch (err) {
-    console.warn("[쟁점 분석] 실패, 폴백:", err);
+    console.warn("[쟁점 분석] JSON 파싱 실패, 폴백:", err);
   }
 
-  // AI 실패 시 기본 폴백
-  return caseType
-    ? [{ id: 1, issue: caseType, description: "사건 유형 기반 검색", keywords: [caseType], priority: "high" }]
-    : [{ id: 1, issue: "손해배상", description: "기본 검색", keywords: ["손해배상"], priority: "high" }];
+  // AI 실패 시 사건 설명에서 핵심 키워드 추출하여 폴백
+  const fallbackKeywords = extractFallbackKeywords(allText, caseType);
+  return fallbackKeywords;
 }
 
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
