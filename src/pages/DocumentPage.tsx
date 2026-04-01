@@ -770,7 +770,7 @@ export default function DocumentPage() {
   );
 }
 
-/** 제안 카드 컴포넌트 */
+/** 제안 카드 컴포넌트 — 클릭 없이 내용이 바로 보이도록 */
 function SuggestionCard({
   suggestion,
   checked,
@@ -782,58 +782,45 @@ function SuggestionCard({
   onToggle: () => void;
   disabled: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <div
-      className={`border rounded-lg p-2.5 transition-colors cursor-pointer ${
+      className={`border rounded-xl p-3.5 transition-colors cursor-pointer ${
         checked
           ? "border-gold/40 bg-gold-dim/30"
           : "border-border hover:border-border-hover bg-navy-light/50"
       }`}
       onClick={() => !disabled && onToggle()}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
         <div
-          className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+          className={`w-5 h-5 rounded border shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
             checked ? "bg-gold border-gold" : "border-text-dim/40"
           }`}
         >
-          {checked && <Check className="w-3 h-3 text-navy" />}
+          {checked && <Check className="w-3.5 h-3.5 text-navy" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-text-primary">
-            [제안{suggestion.id}] {suggestion.title}
+          <p className="text-sm font-semibold text-text-primary">
+            제안 {suggestion.id}. {suggestion.title}
           </p>
           {suggestion.description && (
-            <p className="text-[11px] text-text-dim mt-0.5 line-clamp-2">{suggestion.description}</p>
+            <p className="text-[13px] text-text-dim mt-1 leading-relaxed">{suggestion.description}</p>
           )}
           {(suggestion.current || suggestion.revised) && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="text-[10px] text-gold/70 hover:text-gold mt-1 flex items-center gap-0.5"
-              >
-                <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
-                {expanded ? "접기" : "상세 보기"}
-              </button>
-              {expanded && (
-                <div className="mt-1.5 space-y-1.5 text-[11px]">
-                  {suggestion.current && (
-                    <div className="bg-red/5 border border-red/10 rounded px-2 py-1.5">
-                      <span className="text-red/70 font-medium">현재: </span>
-                      <span className="text-text-dim">{suggestion.current}</span>
-                    </div>
-                  )}
-                  {suggestion.revised && (
-                    <div className="bg-success/5 border border-success/10 rounded px-2 py-1.5">
-                      <span className="text-success/70 font-medium">수정안: </span>
-                      <span className="text-text-dim">{suggestion.revised}</span>
-                    </div>
-                  )}
+            <div className="mt-2 space-y-2 text-[13px]">
+              {suggestion.current && (
+                <div className="bg-red/5 border border-red/10 rounded-lg px-3 py-2">
+                  <span className="text-red/80 font-semibold text-xs">현재 </span>
+                  <span className="text-text-dim leading-relaxed">{suggestion.current}</span>
                 </div>
               )}
-            </>
+              {suggestion.revised && (
+                <div className="bg-success/5 border border-success/10 rounded-lg px-3 py-2">
+                  <span className="text-success/80 font-semibold text-xs">수정안 </span>
+                  <span className="text-text-primary leading-relaxed">{suggestion.revised}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
