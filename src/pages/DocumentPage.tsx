@@ -371,7 +371,7 @@ export default function DocumentPage() {
           {/* 왼쪽: 문서 뷰어 */}
           <div className="w-full lg:w-[60%] min-w-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
-              <h3 className="font-semibold text-text-primary text-sm">{state.docType} 초안</h3>
+              <h3 className="font-semibold text-text-primary text-base">{state.docType} 초안</h3>
               <div className="flex items-center gap-2">
                 {finalDocument && (
                   <>
@@ -500,7 +500,7 @@ export default function DocumentPage() {
                   </button>
                 </div>
               ) : finalDocument ? (
-                <div className="whitespace-pre-wrap text-base text-text-primary leading-loose font-sans">
+                <div className="whitespace-pre-wrap text-[17px] text-text-primary leading-[1.9] font-sans">
                   {finalDocument}
                 </div>
               ) : (
@@ -515,9 +515,9 @@ export default function DocumentPage() {
             <div className="px-4 py-2.5 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-gold" />
-                <h3 className="font-semibold text-text-primary text-sm">AI 법률 비서</h3>
+                <h3 className="font-semibold text-text-primary text-base">AI 법률 비서</h3>
               </div>
-              <p className="text-xs text-text-dim mt-1">문서에 대해 질문하거나 수정을 요청하세요</p>
+              <p className="text-sm text-text-dim mt-1">문서에 대해 질문하거나 수정을 요청하세요</p>
             </div>
 
             {/* 채팅 메시지 영역 */}
@@ -592,7 +592,7 @@ export default function DocumentPage() {
                   onKeyDown={handleKeyDown}
                   placeholder="질문 또는 수정 요청..."
                   rows={2}
-                  className="flex-1 bg-navy-light border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
+                  className="flex-1 bg-navy-light border border-border rounded-lg px-3 py-2.5 text-[15px] text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
                 />
                 <button
                   onClick={handleSendChat}
@@ -698,7 +698,7 @@ export default function DocumentPage() {
                     onKeyDown={handleKeyDown}
                     placeholder="질문 또는 수정 요청..."
                     rows={1}
-                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
+                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-[15px] text-text-primary placeholder:text-text-dim/50 focus:border-gold/40 focus:outline-none resize-none"
                   />
                   <button
                     onClick={handleSendChat}
@@ -738,7 +738,7 @@ export default function DocumentPage() {
                 </div>
               ) : clientMessage ? (
                 <div className="bg-[#FEE500]/10 border border-[#FEE500]/20 rounded-xl p-4">
-                  <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+                  <p className="text-[15px] text-text-primary whitespace-pre-wrap leading-relaxed">
                     {clientMessage}
                   </p>
                 </div>
@@ -862,7 +862,7 @@ function ChatBubble({
     return (
       <div className="flex items-start gap-2 justify-end">
         <div className="bg-gold-dim rounded-xl rounded-tr-none px-3 py-2 max-w-[85%]">
-          <p className="text-sm text-text-primary whitespace-pre-wrap">{message.content}</p>
+          <p className="text-[15px] text-text-primary whitespace-pre-wrap">{message.content}</p>
         </div>
         <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center shrink-0">
           <User className="w-3.5 h-3.5 text-text-dim" />
@@ -909,7 +909,7 @@ function ChatBubble({
         {/* 본문 텍스트 */}
         {displayContent && (
           <div className="bg-navy-light rounded-xl rounded-tl-none px-3 py-2">
-            <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+            <p className="text-[15px] text-text-primary whitespace-pre-wrap leading-relaxed">
               {displayContent}
             </p>
           </div>
