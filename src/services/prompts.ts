@@ -43,6 +43,11 @@ export interface AgentContext {
   analysisResult?: string;   // 혜안의 쟁점 분석 결과
   legalResult?: string;      // 율무의 적법성/관할 검증 결과
   reviewResult?: string;     // 감수의 검토 결과
+  // Phase 1-3 추가 컨텍스트
+  claimCalculation?: string;   // 청구취지 자동 계산 결과
+  evidenceRegistry?: string;   // 증거번호-파일 매핑 텍스트
+  statuteCheckResults?: string; // 법령 현행 여부 검증 결과
+  relevantTextbooks?: string;  // 참고 문헌 서지정보
 }
 
 /** 의뢰인 메시지 전용 컨텍스트 */
@@ -132,6 +137,27 @@ function buildContextBlock(ctx: AgentContext): string {
       lines.push(`${issue.id}. [${issue.priority.toUpperCase()}] ${issue.issue}: ${issue.description}`);
     }
     lines.push("※ 위 쟁점은 AI가 사건 내용을 분석하여 사전 식별한 것입니다. 분석 시 참고하세요.");
+  }
+
+  // Phase 1-3 추가 컨텍스트 주입
+  if (ctx.claimCalculation) {
+    lines.push("");
+    lines.push(ctx.claimCalculation);
+  }
+
+  if (ctx.evidenceRegistry) {
+    lines.push("");
+    lines.push(ctx.evidenceRegistry);
+  }
+
+  if (ctx.statuteCheckResults) {
+    lines.push("");
+    lines.push(ctx.statuteCheckResults);
+  }
+
+  if (ctx.relevantTextbooks) {
+    lines.push("");
+    lines.push(ctx.relevantTextbooks);
   }
 
   if (ctx.fileContents) {

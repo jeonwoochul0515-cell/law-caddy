@@ -10,6 +10,10 @@ import {
   type ClientMessageContext,
 } from "../services/prompts";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
+import { calculateClaim, type FactMasterAmount } from "../services/claim-calculator";
+import { postProcessDocument } from "../services/post-processor";
+import { findRelevantTextbooks, formatTextbooksForPrompt } from "../config/textbook-citations";
+import { createEvidenceRegistry, formatEvidenceForPrompt } from "../services/evidence-registry";
 
 /** 문서 생성 단계 */
 type DocumentStatus =
@@ -120,17 +124,75 @@ export default function useDocument(): UseDocumentReturn {
       setError(null);
 
       try {
-        // 체크포인트 상세 응답을 컨텍스트에 포함
+        // ─── Phase 1-3 서비스 연동: 추가 컨텍스트 생성 (Claude API 0회) ───
+
+        // 1. 청구취지 자동 계산 (FactMaster amounts가 있으면)
+        let claimCalculation: string | undefined;
+        try {
+          const amountsMatch = context.analysisResult?.match(/"amounts"\s*:\s*\[([\s\S]*?)\]/);
+          if (amountsMatch) {
+            const amounts = JSON.parse(`[${amountsMatch[1]}]`) as FactMasterAmount[];
+            if (amounts.length > 0) {
+              const calc = calculateClaim(context.caseType ?? "", amounts, context.docType);
+              claimCalculation = calc.contextText;
+            }
+          }
+        } catch { /* FactMaster 파싱 실패 시 무시 */ }
+
+        // 2. 증거 레지스트리 (체크포인트 첨부 파일이 있으면)
+        let evidenceRegistry: string | undefined;
+        try {
+          const allFiles = answers
+            .filter((a) => a.files && a.files.length > 0)
+            .flatMap((a) => a.files ?? []);
+          if (allFiles.length > 0) {
+            const items = createEvidenceRegistry(
+              allFiles.map((f) => ({ name: typeof f === "string" ? f : f.name })),
+            );
+            evidenceRegistry = formatEvidenceForPrompt(items);
+          }
+        } catch { /* 무시 */ }
+
+        // 3. 교과서 서지정보 (쟁점 키워드가 있으면)
+        let relevantTextbooks: string | undefined;
+        try {
+          const issueKeywords = context.identifiedIssues?.map((i) => i.issue) ?? [];
+          if (issueKeywords.length > 0) {
+            const books = findRelevantTextbooks(issueKeywords);
+            if (books.length > 0) {
+              relevantTextbooks = formatTextbooksForPrompt(books);
+            }
+          }
+        } catch { /* 무시 */ }
+
+        // 체크포인트 상세 응답 + 추가 컨텍스트를 포함
         const contextWithAnswers: AgentContext = {
           ...context,
           checkQuestions: questions,
           checkpointAnswers: answers,
+          claimCalculation,
+          evidenceRegistry,
+          relevantTextbooks,
         };
 
         const prompt = buildPrompt("docgen", contextWithAnswers);
         const userMessage = `체크포인트 응답을 반영하여 "${context.docType}" 초안을 작성해 주세요.`;
 
-        const document = await callClaude(prompt, userMessage);
+        let document = await callClaude(prompt, userMessage);
+
+        // ─── 후처리: 플레이스홀더 검증 (Claude API 0회) ───
+        try {
+          const partiesMatch = context.analysisResult?.match(/"parties"\s*:\s*\[([\s\S]*?)\]/);
+          const factMaster = partiesMatch
+            ? { parties: JSON.parse(`[${partiesMatch[1]}]`) }
+            : undefined;
+          const processed = postProcessDocument(document, factMaster);
+          document = processed.document;
+          if (processed.warnings.length > 0) {
+            console.warn("[후처리] 잔존 플레이스홀더:", processed.warnings.length, "건");
+          }
+        } catch { /* 후처리 실패 시 원본 유지 */ }
+
         setFinalDocument(document);
         setStatus("completed");
       } catch (err: unknown) {
