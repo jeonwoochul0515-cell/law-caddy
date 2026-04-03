@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, FileSignature, Banknote, Trophy, CreditCard, Wallet, Building2, ReceiptText } from "lucide-react";
+import { CheckCircle2, XCircle, FileSignature, Banknote, Trophy, CreditCard, Wallet, Building2, ReceiptText, ScrollText } from "lucide-react";
 import { useState } from "react";
 import type { ContractPayment, PaymentMethod } from "../../types/case";
 
@@ -11,9 +11,10 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.Elemen
 interface ContractPaymentSectionProps {
   data: ContractPayment;
   onUpdate: (data: ContractPayment) => Promise<void>;
+  onCreateContract?: () => void;
 }
 
-export default function ContractPaymentSection({ data, onUpdate }: ContractPaymentSectionProps) {
+export default function ContractPaymentSection({ data, onUpdate, onCreateContract }: ContractPaymentSectionProps) {
   const [editingSuccessFee, setEditingSuccessFee] = useState(false);
   const [successFeeInput, setSuccessFeeInput] = useState(
     data.successFeeType === "fixed"
@@ -67,7 +68,18 @@ export default function ContractPaymentSection({ data, onUpdate }: ContractPayme
 
   return (
     <div className="bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-text-primary mb-4">계약 · 수임료 현황</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-text-primary">계약 · 수임료 현황</h3>
+        {onCreateContract && (
+          <button
+            onClick={onCreateContract}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-[11px] hover:opacity-90 transition-opacity"
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            수임계약서 작성
+          </button>
+        )}
+      </div>
       <div className="space-y-3">
 
         {/* 계약 체결 */}

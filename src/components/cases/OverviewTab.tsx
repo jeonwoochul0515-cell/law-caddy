@@ -35,6 +35,7 @@ interface OverviewTabProps {
   onUpdateCostItem: (id: string, data: Partial<CostItem>) => Promise<void>;
   onRemoveCostItem: (id: string) => Promise<void>;
   onNavigateToDocument?: (doc: LegalDocument) => void;
+  onCreateContract?: () => void;
 }
 
 /** 파일 카테고리별 아이콘 매핑 */
@@ -58,6 +59,7 @@ export default function OverviewTab({
   onUpdateCostItem,
   onRemoveCostItem,
   onNavigateToDocument,
+  onCreateContract,
 }: OverviewTabProps) {
   const timeline = caseData.timeline ?? [];
   const createdDate = caseData.createdAt?.toDate?.()
@@ -151,6 +153,7 @@ export default function OverviewTab({
         <ContractPaymentSection
           data={contractPayment}
           onUpdate={onUpdateContractPayment}
+          onCreateContract={onCreateContract}
         />
         <CostsSection
           costs={caseData.costs ?? []}

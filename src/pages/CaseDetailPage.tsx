@@ -375,6 +375,32 @@ export default function CaseDetailPage() {
     });
   }, [caseData, user, navigate]);
 
+  const handleCreateContract = useCallback(() => {
+    if (!caseData || !user) return;
+    const isCriminal = caseData.caseType === "형사";
+    const docType = isCriminal ? "사건위임계약서(형사)" : "사건위임계약서";
+    navigate("/record/document", {
+      state: {
+        existingDocument: false,
+        documentId: undefined,
+        caseId: caseData.id,
+        clientName: caseData.clientName,
+        caseType: caseData.caseType,
+        caseDesc: caseData.description,
+        docType,
+        ownerId: user.uid,
+        firmName: user.firmName ?? "",
+        lawyerName: user.name ?? "",
+        barLicenseNumber: user.barLicenseNumber ?? "",
+        businessAddress: user.businessAddress ?? "",
+        lawyerPhone: user.phone ?? "",
+        agentResults: { precedent: "", legal: "", stt: "", analysis: "", docgen: "", review: "" },
+        checkQuestions: [],
+        checkpointAnswers: [],
+      },
+    });
+  }, [caseData, user, navigate]);
+
   const handleNavigateToRecord = () => {
     if (!caseData) return;
     navigate("/record", {
@@ -495,6 +521,7 @@ export default function CaseDetailPage() {
           onUpdateCostItem={updateCostItem}
           onRemoveCostItem={removeCostItem}
           onNavigateToDocument={handleNavigateToDocument}
+          onCreateContract={handleCreateContract}
         />
       )}
 
