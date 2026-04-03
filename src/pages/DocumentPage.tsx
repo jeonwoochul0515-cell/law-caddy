@@ -44,6 +44,8 @@ interface DocumentState {
   checkpointAnswers: CheckpointAnswer[];
   caseId?: string;
   documentId?: string;
+  existingDocument?: boolean;       // true when opening existing doc from 서류철
+  existingFinalDocument?: string;   // the already-generated document text
 }
 
 export default function DocumentPage() {
@@ -77,6 +79,7 @@ export default function DocumentPage() {
     generateDocument,
     generateClientMessage,
     updateFinalDocument,
+    setExternalDocument,
     status,
     error: docError,
   } = useDocument();
@@ -117,6 +120,12 @@ export default function DocumentPage() {
     if (!state || initialized) return;
     setInitialized(true);
 
+    // 기존 문서 모드: 생성 스킵, 바로 문서 설정
+    if (state.existingDocument && state.existingFinalDocument) {
+      setExternalDocument(state.existingFinalDocument);
+      return;
+    }
+
     // 체크포인트 데이터를 Firestore에 저장
     if (state.documentId && state.checkQuestions?.length) {
       updateDocument(state.documentId, {
@@ -143,12 +152,13 @@ export default function DocumentPage() {
       state.checkQuestions ?? [],
       state.checkpointAnswers ?? [],
     );
-  }, [state, initialized, generateDocument]);
+  }, [state, initialized, generateDocument, setExternalDocument]);
 
   // 문서 생성 완료 시 Firestore 저장
   useEffect(() => {
     if (!finalDocument || !state?.documentId || docSaved) return;
     if (status !== "completed") return;
+    if (state.existingDocument) return; // 기존 문서는 자동저장 스킵
     setDocSaved(true);
 
     updateDocument(state.documentId, {
@@ -313,14 +323,20 @@ export default function DocumentPage() {
   }
 
   return (
-    <AppLayout title="문서 생성" subtitle={`${state.clientName} - ${state.docType}`}>
+    <AppLayout title={state.existingDocument ? "문서 수정" : "문서 생성"} subtitle={`${state.clientName} - ${state.docType}`}>
       {/* 이전 단계 */}
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (state.existingDocument && state.caseId) {
+            navigate(`/cases/${state.caseId}`);
+          } else {
+            navigate(-1);
+          }
+        }}
         className="flex items-center gap-1.5 mb-4 text-sm text-text-dim hover:text-text-primary transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
-        이전 단계
+        {state.existingDocument ? "사건 상세" : "이전 단계"}
       </button>
 
       {/* 탭 */}

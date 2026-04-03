@@ -12,6 +12,7 @@ import FeeManagementTab from "../components/accounting/FeeManagementTab";
 import CaseExpenseTab from "../components/accounting/CaseExpenseTab";
 import DepositManagementTab from "../components/accounting/DepositManagementTab";
 import ScheduleTab from "../components/cases/ScheduleTab";
+import type { LegalDocument } from "../types/document";
 import type { Fee, Installment, CaseExpense, Deposit } from "../types/accounting";
 import {
   getFeesByCase,
@@ -347,6 +348,30 @@ export default function CaseDetailPage() {
     }
   };
 
+  const handleNavigateToDocument = (doc: LegalDocument) => {
+    if (!caseData || !user) return;
+    navigate("/record/document", {
+      state: {
+        existingDocument: true,
+        existingFinalDocument: doc.finalDocument,
+        documentId: doc.id,
+        caseId: caseData.id,
+        clientName: caseData.clientName,
+        caseType: caseData.caseType,
+        caseDesc: caseData.description,
+        docType: doc.docType,
+        ownerId: user.uid,
+        firmName: user.firmName ?? "",
+        lawyerName: user.name ?? "",
+        agentResults: doc.agentResults ?? {
+          precedent: "", legal: "", stt: "", analysis: "", docgen: "", review: "",
+        },
+        checkQuestions: doc.checkQuestions ?? [],
+        checkpointAnswers: [],
+      },
+    });
+  };
+
   const handleNavigateToRecord = () => {
     if (!caseData) return;
     navigate("/record", {
@@ -466,6 +491,7 @@ export default function CaseDetailPage() {
           onAddCostItem={addCostItem}
           onUpdateCostItem={updateCostItem}
           onRemoveCostItem={removeCostItem}
+          onNavigateToDocument={handleNavigateToDocument}
         />
       )}
 

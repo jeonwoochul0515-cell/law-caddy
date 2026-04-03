@@ -2,12 +2,14 @@ import { useState } from "react";
 import {
   FileText, Mic, Clock, Calendar, StickyNote, FileWarning, Heart,
   MessageSquareText, ChevronDown, ChevronUp, Copy, Check, Download,
-  Image, FileIcon, File, Paperclip,
+  Image, FileIcon, File, Paperclip, Bot, Loader2,
 } from "lucide-react";
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
 import { getFileTypeInfo, isAudioFile } from "../../utils/fileType";
+import { exportToDocx } from "../../services/docxExport";
+import { exportToHwpx } from "../../services/hwpxExport";
 import ContractPaymentSection from "./ContractPaymentSection";
 import CostsSection from "./CostsSection";
 
@@ -31,6 +33,7 @@ interface OverviewTabProps {
   onAddCostItem: (item: Omit<CostItem, "id">) => Promise<void>;
   onUpdateCostItem: (id: string, data: Partial<CostItem>) => Promise<void>;
   onRemoveCostItem: (id: string) => Promise<void>;
+  onNavigateToDocument?: (doc: LegalDocument) => void;
 }
 
 /** 파일 카테고리별 아이콘 매핑 */
@@ -53,6 +56,7 @@ export default function OverviewTab({
   onAddCostItem,
   onUpdateCostItem,
   onRemoveCostItem,
+  onNavigateToDocument,
 }: OverviewTabProps) {
   const timeline = caseData.timeline ?? [];
   const createdDate = caseData.createdAt?.toDate?.()
@@ -218,7 +222,12 @@ export default function OverviewTab({
         {openFolder === "legal_doc" && documents.length > 0 && (
           <FolderContents title="법률문서" colorClass="text-gold" borderClass="border-gold/20">
             {documents.map((d) => (
-              <DocumentItem key={d.id} doc={d} />
+              <DocumentItem
+                key={d.id}
+                doc={d}
+                clientName={caseData.clientName}
+                onNavigateToDocument={onNavigateToDocument}
+              />
             ))}
           </FolderContents>
         )}
@@ -375,9 +384,15 @@ const STATUS_COLORS: Record<string, string> = {
   generating: "bg-warning/15 text-warning",
 };
 
-function DocumentItem({ doc }: { doc: LegalDocument }) {
+function DocumentItem({ doc, clientName, onNavigateToDocument }: {
+  doc: LegalDocument;
+  clientName?: string;
+  onNavigateToDocument?: (doc: LegalDocument) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDownload, setShowDownload] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const statusClass = STATUS_COLORS[doc.status] ?? "bg-surface text-text-dim";
   const statusLabel = doc.status === "completed" ? "완료" : doc.status === "processing" ? "진행중" : doc.status;
   const hasContent = doc.finalDocument?.trim();
@@ -437,6 +452,76 @@ function DocumentItem({ doc }: { doc: LegalDocument }) {
             <pre className="whitespace-pre-wrap text-xs text-text-primary leading-relaxed font-sans">
               {doc.finalDocument}
             </pre>
+          </div>
+
+          {/* 액션 버튼 */}
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+            {/* 다운로드 드롭다운 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDownload(!showDownload)}
+                disabled={exporting}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-[11px] text-text-dim hover:border-gold/30 hover:text-gold transition-colors disabled:opacity-40"
+              >
+                {exporting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Download className="w-3 h-3" />
+                )}
+                {exporting ? "변환 중..." : "다운로드"}
+              </button>
+              {showDownload && (
+                <div className="absolute left-0 bottom-full mb-1 w-36 bg-navy-light border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                  <button
+                    onClick={async () => {
+                      setShowDownload(false);
+                      setExporting(true);
+                      try {
+                        await exportToDocx(doc.finalDocument, {
+                          docType: doc.docType,
+                          clientName: clientName ?? "문서",
+                          date: doc.createdAt?.toDate?.()?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+                        });
+                      } catch (err) { console.error("DOCX 내보내기 실패:", err); }
+                      finally { setExporting(false); }
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] text-text-dim hover:bg-surface hover:text-text-primary transition-colors"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Word (DOCX)
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowDownload(false);
+                      setExporting(true);
+                      try {
+                        await exportToHwpx(doc.finalDocument, {
+                          docType: doc.docType,
+                          clientName: clientName ?? "문서",
+                          date: doc.createdAt?.toDate?.()?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+                        });
+                      } catch (err) { console.error("HWPX 내보내기 실패:", err); }
+                      finally { setExporting(false); }
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] text-text-dim hover:bg-surface hover:text-text-primary transition-colors"
+                  >
+                    <FileText className="w-3 h-3" />
+                    한글 (HWPX)
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* AI 수정 버튼 */}
+            {onNavigateToDocument && (
+              <button
+                onClick={() => onNavigateToDocument(doc)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gold-dim text-gold rounded-lg text-[11px] font-medium hover:bg-gold/20 transition-colors"
+              >
+                <Bot className="w-3 h-3" />
+                AI 수정
+              </button>
+            )}
           </div>
         </div>
       )}

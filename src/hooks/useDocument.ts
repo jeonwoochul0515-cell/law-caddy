@@ -44,6 +44,8 @@ interface UseDocumentReturn {
   generateClientMessage: (context: ClientMessageContext) => Promise<void>;
   /** 채팅에서 수정안 적용 시 문서 업데이트 */
   updateFinalDocument: (doc: string) => void;
+  /** 외부 문서(기존 서류철) 직접 설정 */
+  setExternalDocument: (doc: string) => void;
   /** 상태 초기화 */
   reset: () => void;
 }
@@ -240,6 +242,12 @@ export default function useDocument(): UseDocumentReturn {
     setFinalDocument(doc);
   }, []);
 
+  /** 외부 문서(기존 서류철) 직접 설정 — 생성 과정 없이 완료 상태로 전환 */
+  const setExternalDocument = useCallback((doc: string) => {
+    setFinalDocument(doc);
+    setStatus("completed");
+  }, []);
+
   /** 상태 초기화 */
   const reset = useCallback(() => {
     setFinalDocument("");
@@ -256,6 +264,7 @@ export default function useDocument(): UseDocumentReturn {
     generateDocument,
     generateClientMessage,
     updateFinalDocument,
+    setExternalDocument,
     reset,
   };
 }
