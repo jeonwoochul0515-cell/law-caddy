@@ -185,9 +185,11 @@ export default function DocumentPage() {
     }).catch(console.error);
   }, [clientMessage, state, msgSaved]);
 
-  // 문서 생성 완료 시 AI 자동 검토 시작
+  // 문서 생성 완료 시 AI 자동 검토 시작 (1회만)
+  const autoReviewDone = useRef(false);
   useEffect(() => {
-    if (finalDocument && status === "completed") {
+    if (finalDocument && status === "completed" && !autoReviewDone.current) {
+      autoReviewDone.current = true;
       startAutoReview();
     }
   }, [finalDocument, status, startAutoReview]);
