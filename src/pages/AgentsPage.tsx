@@ -14,6 +14,8 @@ import { extractAllPdfTexts } from "../services/pdf";
 import { isImageFile, extractAllImageTexts } from "../services/ocr";
 import { extractAllExcelTexts } from "../services/excel";
 import { extractAllPptxTexts } from "../services/pptx";
+import { isDocxFile, extractDocxText } from "../services/docx";
+import { isHwpxFile, isHwpFile, extractHwpxText, extractHwpText } from "../services/hwpx";
 import { isExcelFile, isPptxFile } from "../utils/fileType";
 import { saveExtractedText } from "../services/file-save";
 import type { AgentId, CaseType, DocType } from "../types/agent";
@@ -102,6 +104,9 @@ export default function AgentsPage() {
     const imageFiles = allFiles.filter((f: File) => isImageFile(f));
     const excelFiles = allFiles.filter((f: File) => isExcelFile(f));
     const pptxFiles = allFiles.filter((f: File) => isPptxFile(f));
+    const docxFiles = allFiles.filter((f: File) => isDocxFile(f));
+    const hwpxFiles = allFiles.filter((f: File) => isHwpxFile(f));
+    const hwpFiles = allFiles.filter((f: File) => isHwpFile(f));
 
     // PDF 텍스트 추출 + 이미지 OCR + Excel/PPT 추출 + STT 요청을 병렬로 진행
     const startAgents = async () => {
@@ -111,9 +116,12 @@ export default function AgentsPage() {
       if (imageFiles.length > 0) statusParts.push(`이미지 ${imageFiles.length}개 OCR`);
       if (excelFiles.length > 0) statusParts.push(`Excel ${excelFiles.length}개 추출`);
       if (pptxFiles.length > 0) statusParts.push(`PPT ${pptxFiles.length}개 추출`);
+      if (docxFiles.length > 0) statusParts.push(`DOCX ${docxFiles.length}개 추출`);
+      if (hwpxFiles.length > 0) statusParts.push(`HWPX ${hwpxFiles.length}개 추출`);
+      if (hwpFiles.length > 0) statusParts.push(`HWP ${hwpFiles.length}개 추출`);
       if (statusParts.length > 0) setPrepStatus(statusParts.join(" / ") + " 중...");
 
-      const [pdfResult, imageContents, excelResult, pptxResult] = await Promise.all([
+      const [pdfResult, imageContents, excelResult, pptxResult, docxResult, hwpxResult, hwpResult] = await Promise.all([
         pdfFiles.length > 0
           ? extractAllPdfTexts(pdfFiles).catch((err) => {
               console.error("[AgentsPage] PDF 텍스트 추출 실패:", err);
@@ -138,12 +146,24 @@ export default function AgentsPage() {
               return { text: "" };
             })
           : Promise.resolve({ text: "" }),
+        // DOCX 텍스트 추출
+        docxFiles.length > 0
+          ? Promise.all(docxFiles.map((f) => extractDocxText(f).catch(() => ""))).then((texts) => texts.filter(Boolean).join("\n\n---\n\n")).catch(() => "")
+          : Promise.resolve(""),
+        // HWPX 텍스트 추출
+        hwpxFiles.length > 0
+          ? Promise.all(hwpxFiles.map((f) => extractHwpxText(f).catch(() => ""))).then((texts) => texts.filter(Boolean).join("\n\n---\n\n")).catch(() => "")
+          : Promise.resolve(""),
+        // HWP 바이너리 텍스트 추출
+        hwpFiles.length > 0
+          ? Promise.all(hwpFiles.map((f) => extractHwpText(f).catch(() => ""))).then((texts) => texts.filter(Boolean).join("\n\n---\n\n")).catch(() => "")
+          : Promise.resolve(""),
       ]);
 
       const pdfContents = pdfResult.text;
 
-      // PDF + 이미지 OCR + Excel + PPTX 결과 합산
-      const allExtractions = [pdfContents, imageContents, excelResult.text, pptxResult.text].filter(Boolean);
+      // PDF + 이미지 OCR + Excel + PPTX + DOCX + HWPX + HWP 결과 합산
+      const allExtractions = [pdfContents, imageContents, excelResult.text, pptxResult.text, docxResult, hwpxResult, hwpResult].filter(Boolean);
       const fileContents = allExtractions.join("\n\n---\n\n");
 
       // OCR로 추출한 파일만 텍스트로 저장 (텍스트 레이어 추출은 저장 안 함)

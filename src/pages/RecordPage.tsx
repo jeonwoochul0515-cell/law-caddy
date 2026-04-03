@@ -87,15 +87,17 @@ export default function RecordPage() {
     const selected = e.target.files;
     if (selected && selected.length > 0) {
       const fileArr = Array.from(selected);
-      const hwpFiles = fileArr.filter((f) => /\.(hwp|hwpx|doc|docx)$/i.test(f.name));
+      // DOCX/HWPX는 자동 텍스트 추출 지원 → 허용
+      // HWP 바이너리는 ZIP 시도 후 HWPX인지 확인 → 허용 (내부에서 폴백 처리)
+      const legacyDocFiles = fileArr.filter((f) => /\.doc$/i.test(f.name) && !/\.docx$/i.test(f.name));
       const legacyPptFiles = fileArr.filter((f) => /\.ppt$/i.test(f.name) && !/\.pptx$/i.test(f.name));
-      const blockedFiles = [...hwpFiles, ...legacyPptFiles];
+      const blockedFiles = [...legacyDocFiles, ...legacyPptFiles];
       const otherFiles = fileArr.filter((f) => !blockedFiles.includes(f));
 
       const warnings: string[] = [];
-      if (hwpFiles.length > 0) {
-        const names = hwpFiles.map((f) => f.name).join(", ");
-        warnings.push(`"${names}" 파일은 한글/워드 형식입니다. PDF로 변환 후 업로드하시면 AI가 내용을 분석할 수 있습니다. (한글 → 파일 → 다른 이름으로 저장 → PDF)`);
+      if (legacyDocFiles.length > 0) {
+        const names = legacyDocFiles.map((f) => f.name).join(", ");
+        warnings.push(`"${names}" 파일은 레거시 DOC 형식입니다. 워드에서 .docx 형식으로 다시 저장 후 업로드해 주세요.`);
       }
       if (legacyPptFiles.length > 0) {
         const names = legacyPptFiles.map((f) => f.name).join(", ");
