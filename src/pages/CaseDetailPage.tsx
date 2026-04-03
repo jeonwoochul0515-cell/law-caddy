@@ -363,6 +363,9 @@ export default function CaseDetailPage() {
         ownerId: user.uid,
         firmName: user.firmName ?? "",
         lawyerName: user.name ?? "",
+        barLicenseNumber: user.barLicenseNumber ?? "",
+        businessAddress: user.businessAddress ?? "",
+        lawyerPhone: user.phone ?? "",
         agentResults: doc.agentResults ?? {
           precedent: "", legal: "", stt: "", analysis: "", docgen: "", review: "",
         },

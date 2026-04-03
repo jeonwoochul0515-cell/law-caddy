@@ -39,6 +39,9 @@ interface DocumentState {
   ownerId: string;
   firmName: string;
   lawyerName: string;
+  barLicenseNumber?: string;
+  businessAddress?: string;
+  lawyerPhone?: string;
   agentResults: Record<string, string>;
   checkQuestions: CheckQuestion[];
   checkpointAnswers: CheckpointAnswer[];
@@ -143,6 +146,9 @@ export default function DocumentPage() {
         transcript: state.agentResults.stt ?? "",
         lawyerName: state.lawyerName,
         firmName: state.firmName,
+        barLicenseNumber: state.barLicenseNumber,
+        businessAddress: state.businessAddress,
+        lawyerPhone: state.lawyerPhone,
         // 다른 에이전트 분석 결과를 필묵에게 전달
         precedentResult: state.agentResults.precedent ?? "",
         analysisResult: state.agentResults.analysis ?? "",

@@ -23,6 +23,8 @@ export const DOC_TYPES: DocType[] = [
   "부당해고구제신청서", "체불임금진정서",
   // 기타
   "합의서", "상담 요약 리포트",
+  // 수임계약
+  "사건위임계약서", "사건위임계약서(형사)",
 ];
 
 export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string; role: string; personality: string }[] = [
