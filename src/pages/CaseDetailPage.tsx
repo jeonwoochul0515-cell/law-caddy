@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator, CalendarClock } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
@@ -348,7 +348,7 @@ export default function CaseDetailPage() {
     }
   };
 
-  const handleNavigateToDocument = (doc: LegalDocument) => {
+  const handleNavigateToDocument = useCallback((doc: LegalDocument) => {
     if (!caseData || !user) return;
     navigate("/record/document", {
       state: {
@@ -370,7 +370,7 @@ export default function CaseDetailPage() {
         checkpointAnswers: [],
       },
     });
-  };
+  }, [caseData, user, navigate]);
 
   const handleNavigateToRecord = () => {
     if (!caseData) return;

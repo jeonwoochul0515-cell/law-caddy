@@ -8,8 +8,9 @@ import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
 import { getFileTypeInfo, isAudioFile } from "../../utils/fileType";
-import { exportToDocx } from "../../services/docxExport";
-import { exportToHwpx } from "../../services/hwpxExport";
+// 동적 import로 변경 — CaseDetailPage 청크 비대화 방지
+const loadDocxExport = () => import("../../services/docxExport");
+const loadHwpxExport = () => import("../../services/hwpxExport");
 import ContractPaymentSection from "./ContractPaymentSection";
 import CostsSection from "./CostsSection";
 
@@ -477,6 +478,7 @@ function DocumentItem({ doc, clientName, onNavigateToDocument }: {
                       setShowDownload(false);
                       setExporting(true);
                       try {
+                        const { exportToDocx } = await loadDocxExport();
                         await exportToDocx(doc.finalDocument, {
                           docType: doc.docType,
                           clientName: clientName ?? "문서",
@@ -495,6 +497,7 @@ function DocumentItem({ doc, clientName, onNavigateToDocument }: {
                       setShowDownload(false);
                       setExporting(true);
                       try {
+                        const { exportToHwpx } = await loadHwpxExport();
                         await exportToHwpx(doc.finalDocument, {
                           docType: doc.docType,
                           clientName: clientName ?? "문서",
