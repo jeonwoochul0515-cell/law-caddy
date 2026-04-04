@@ -449,14 +449,15 @@ export async function createClientCareMessage(
 
 export async function getClientCareMessages(
   caseId: string,
-  ownerId: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _ownerId: string
 ): Promise<ClientCareMessage[]> {
   try {
-    const q = query(
-      collection(doc(db!, "cases", caseId), "clientCareMessages"),
-      where("ownerId", "==", ownerId),
-    );
-    const snapshot = await getDocs(q);
+    // 서브컬렉션 경로: /cases/{caseId}/clientCareMessages
+    // ownerId 쿼리 제거 — 서브컬렉션이 이미 caseId로 격리되어 있고,
+    // firestore.rules에서 사건 소유자만 접근 가능하므로 별도 필터 불필요
+    const colRef = collection(doc(db!, "cases", caseId), "clientCareMessages");
+    const snapshot = await getDocs(colRef);
     const results = snapshot.docs.map((docSnap) => ({
       ...docSnap.data(),
       id: docSnap.id,
@@ -474,10 +475,10 @@ export async function getClientCareMessages(
   }
 }
 
-export async function deleteClientCareMessage(id: string): Promise<void> {
+export async function deleteClientCareMessage(caseId: string, id: string): Promise<void> {
   try {
     const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
-    await firestoreDeleteDoc(doc(db!, "clientCareMessages", id));
+    await firestoreDeleteDoc(doc(db!, "cases", caseId, "clientCareMessages", id));
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`의뢰인 케어 메시지 삭제 실패: ${error.message}`);

@@ -192,14 +192,15 @@ export default function useClientCare({
 
   // 메시지 삭제
   const removeMessage = useCallback(async (messageId: string) => {
+    if (!caseData) return;
     try {
-      await deleteClientCareMessage(messageId);
+      await deleteClientCareMessage(caseData.id, messageId);
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } catch (err) {
       console.error("의뢰인 케어 메시지 삭제 실패:", err);
       throw err;
     }
-  }, []);
+  }, [caseData]);
 
   return {
     messages,
