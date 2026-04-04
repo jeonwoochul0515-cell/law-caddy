@@ -46,7 +46,7 @@ export interface ContractFees {
   successFeePercent?: number;                // 비율 (%)
   successFeeAmount?: number;                 // 정액 (원)
   depositAmount?: number;                    // 예치금
-  criminalAcquittalAmount?: number;          // 형사 무죄 시 추가 보수
-  criminalFineAmount?: number;               // 형사 벌금형 시 추가 보수
+  /** 형사 조건부 성과보수 항목들 (무죄, 집행유예, 벌금형, 감형 등) */
+  criminalConditions?: { condition: string; amount: number }[];
   specialTerms?: string;                     // 특약사항
 }

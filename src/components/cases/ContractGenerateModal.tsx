@@ -42,8 +42,11 @@ export default function ContractGenerateModal({
   const [successFeeMode, setSuccessFeeMode] = useState<SuccessFeeMode>("none");
   const [percentInput, setPercentInput] = useState("");
   const [fixedAmountDisplay, setFixedAmountDisplay] = useState("");
-  const [criminalAcquittalDisplay, setCriminalAcquittalDisplay] = useState("700");  // 무죄 시 700만원 기본
-  const [criminalFineDisplay, setCriminalFineDisplay] = useState("500");             // 벌금형 시 500만원 기본
+  const [criminalConditions, setCriminalConditions] = useState([
+    { condition: "무죄 선고", amount: "700" },
+    { condition: "집행유예 선고", amount: "500" },
+    { condition: "벌금형 선고", amount: "500" },
+  ]);
   const [specialTerms, setSpecialTerms] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,12 +74,18 @@ export default function ContractGenerateModal({
     setPercentInput(val);
   };
 
-  const handleCriminalAcquittalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCriminalAcquittalDisplay(formatWithCommas(e.target.value));
+  const updateCondition = (index: number, field: "condition" | "amount", value: string) => {
+    setCriminalConditions((prev) =>
+      prev.map((item, i) => i === index ? { ...item, [field]: field === "amount" ? formatWithCommas(value) : value } : item),
+    );
   };
 
-  const handleCriminalFineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCriminalFineDisplay(formatWithCommas(e.target.value));
+  const addCondition = () => {
+    setCriminalConditions((prev) => [...prev, { condition: "", amount: "" }]);
+  };
+
+  const removeCondition = (index: number) => {
+    setCriminalConditions((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
@@ -93,8 +102,9 @@ export default function ContractGenerateModal({
 
       if (isCriminal && successFeeMode !== "none") {
         fees.successFeeType = "fixed";
-        fees.criminalAcquittalAmount = parseDigits(criminalAcquittalDisplay) * 10000;
-        fees.criminalFineAmount = parseDigits(criminalFineDisplay) * 10000;
+        fees.criminalConditions = criminalConditions
+          .filter((c) => c.condition.trim() && parseDigits(c.amount) > 0)
+          .map((c) => ({ condition: c.condition.trim(), amount: parseDigits(c.amount) * 10000 }));
       } else if (successFeeMode === "percent") {
         fees.successFeePercent = parseFloat(percentInput) || 0;
       } else if (successFeeMode === "fixed") {
@@ -278,45 +288,48 @@ export default function ContractGenerateModal({
             </div>
           )}
 
-          {/* 형사 성과보수 입력 */}
+          {/* 형사 조건부 성과보수 입력 */}
           {isCriminal && successFeeMode !== "none" && (
-            <div className="mb-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  무죄 시 추가 보수
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={criminalAcquittalDisplay}
-                    onChange={handleCriminalAcquittalChange}
-                    placeholder="700"
-                    className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
+            <div className="mb-5 space-y-3">
+              {criminalConditions.map((item, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={item.condition}
+                      onChange={(e) => updateCondition(idx, "condition", e.target.value)}
+                      placeholder="예: 무죄 선고, 집행유예, 벌금형 등"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:border-gold focus:outline-none transition-colors"
+                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={item.amount}
+                        onChange={(e) => updateCondition(idx, "amount", e.target.value)}
+                        placeholder="금액"
+                        className="w-full px-3 py-2 pr-16 bg-surface border border-border rounded-lg text-sm text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-dim">만원</span>
+                    </div>
+                    {parseDigits(item.amount) > 0 && (
+                      <p className="text-[10px] text-text-dim text-right">{(parseDigits(item.amount) * 10000).toLocaleString("ko-KR")}원</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeCondition(idx)}
+                    className="mt-1 p-1.5 text-text-dim hover:text-error transition-colors shrink-0"
+                    title="삭제"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                {parseDigits(criminalAcquittalDisplay) > 0 && (
-                  <p className="text-[11px] text-text-dim mt-1 text-right">{(parseDigits(criminalAcquittalDisplay) * 10000).toLocaleString("ko-KR")}원</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  벌금형 시 추가 보수
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={criminalFineDisplay}
-                    onChange={handleCriminalFineChange}
-                    placeholder="500"
-                    className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
-                </div>
-                {parseDigits(criminalFineDisplay) > 0 && (
-                  <p className="text-[11px] text-text-dim mt-1 text-right">{(parseDigits(criminalFineDisplay) * 10000).toLocaleString("ko-KR")}원</p>
-                )}
-              </div>
+              ))}
+              <button
+                onClick={addCondition}
+                className="w-full py-2 border border-dashed border-border rounded-lg text-xs text-text-dim hover:border-gold hover:text-gold transition-colors"
+              >
+                + 조건 추가
+              </button>
             </div>
           )}
 

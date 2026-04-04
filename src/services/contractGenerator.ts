@@ -226,14 +226,12 @@ function buildCriminalContract(
   // 제4조 변호사보수 항목 구성
   const feeItems: string[] = [];
   feeItems.push(`① 착수금 금 ${retainer}원(부가가치세 별도)`);
-  let subIdx = 2;
-  if (fees.criminalAcquittalAmount) {
-    feeItems.push(`② 무죄 선고 시 추가 보수 금 ${formatAmount(fees.criminalAcquittalAmount)}원(부가가치세 별도), 선고일로부터 7일 이내 지급`);
-    subIdx = 3;
-  }
-  if (fees.criminalFineAmount) {
-    const marker = subIdx === 2 ? "②" : "③";
-    feeItems.push(`${marker} 벌금형 선고 시 추가 보수 금 ${formatAmount(fees.criminalFineAmount)}원(부가가치세 별도), 선고일로부터 7일 이내 지급`);
+  const markers = ["②", "③", "④", "⑤", "⑥", "⑦", "⑧"];
+  if (fees.criminalConditions && fees.criminalConditions.length > 0) {
+    fees.criminalConditions.forEach((cond, i) => {
+      const m = markers[i] ?? `(${i + 2})`;
+      feeItems.push(`${m} ${cond.condition} 시, 추가 보수 금 ${formatAmount(cond.amount)}원(부가가치세 별도)을 선고일로부터 7일 이내에 지급한다.`);
+    });
   }
 
   // 특약사항
