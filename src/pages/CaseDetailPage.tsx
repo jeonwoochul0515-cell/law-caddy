@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator, CalendarClock } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator, CalendarClock, X, FileDown } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
@@ -12,6 +12,7 @@ import FeeManagementTab from "../components/accounting/FeeManagementTab";
 import CaseExpenseTab from "../components/accounting/CaseExpenseTab";
 import DepositManagementTab from "../components/accounting/DepositManagementTab";
 import ScheduleTab from "../components/cases/ScheduleTab";
+import ContractGenerateModal from "../components/cases/ContractGenerateModal";
 import type { LegalDocument } from "../types/document";
 import type { Fee, Installment, CaseExpense, Deposit } from "../types/accounting";
 import {
@@ -70,6 +71,12 @@ export default function CaseDetailPage() {
   const [caseExpenses, setCaseExpenses] = useState<CaseExpense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractResult, setContractResult] = useState<{
+    contractText: string;
+    signingToken: string;
+    documentText: string;
+  } | null>(null);
 
   const uid = user?.uid ?? "";
 
@@ -376,30 +383,17 @@ export default function CaseDetailPage() {
   }, [caseData, user, navigate]);
 
   const handleCreateContract = useCallback(() => {
-    if (!caseData || !user) return;
-    const isCriminal = caseData.caseType === "형사";
-    const docType = isCriminal ? "사건위임계약서(형사)" : "사건위임계약서";
-    navigate("/record/document", {
-      state: {
-        existingDocument: false,
-        documentId: undefined,
-        caseId: caseData.id,
-        clientName: caseData.clientName,
-        caseType: caseData.caseType,
-        caseDesc: caseData.description,
-        docType,
-        ownerId: user.uid,
-        firmName: user.firmName ?? "",
-        lawyerName: user.name ?? "",
-        barLicenseNumber: user.barLicenseNumber ?? "",
-        businessAddress: user.businessAddress ?? "",
-        lawyerPhone: user.phone ?? "",
-        agentResults: { precedent: "", legal: "", stt: "", analysis: "", docgen: "", review: "" },
-        checkQuestions: [],
-        checkpointAnswers: [],
-      },
-    });
-  }, [caseData, user, navigate]);
+    setContractModalOpen(true);
+  }, []);
+
+  const handleContractComplete = useCallback(async (result: {
+    contractText: string;
+    signingToken: string;
+    documentText: string;
+  }) => {
+    setContractModalOpen(false);
+    setContractResult(result);
+  }, []);
 
   const handleNavigateToRecord = () => {
     if (!caseData) return;
@@ -588,6 +582,87 @@ export default function CaseDetailPage() {
           lawyerName={user?.name ?? ""}
         />
       )}
+      {/* 수임계약서 생성 모달 */}
+      <ContractGenerateModal
+        isOpen={contractModalOpen}
+        onClose={() => setContractModalOpen(false)}
+        caseData={caseData}
+        user={user}
+        onComplete={handleContractComplete}
+      />
+
+      {/* 계약서 생성 완료 패널 */}
+      {contractResult && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-navy-light border border-border rounded-2xl p-6 max-w-md w-full space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-text-primary">수임계약서 완성</h3>
+              <button onClick={() => setContractResult(null)} className="text-text-dim hover:text-text-primary">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-text-dim">
+              카카오톡으로 아래 2가지를 의뢰인에게 보내주세요.
+            </p>
+
+            {/* 1. 계약서 다운로드 */}
+            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-text-primary">1️⃣ 계약서 파일 (의뢰인이 읽어볼 용도)</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const { exportToDocx } = await import("../services/docxExport");
+                      await exportToDocx(contractResult.documentText, {
+                        docType: caseData.caseType === "형사" ? "사건위임계약서(형사)" : "사건위임계약서",
+                        clientName: caseData.clientName,
+                        date: new Date().toISOString().slice(0, 10),
+                      });
+                    } catch (err) { console.error("DOCX 내보내기 실패:", err); }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-text-primary hover:border-gold transition-colors"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Word 다운로드
+                </button>
+              </div>
+            </div>
+
+            {/* 2. 서명 링크 복사 */}
+            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+              <p className="text-sm font-medium text-text-primary">2️⃣ 서명 링크 (의뢰인이 서명할 페이지)</p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={`${window.location.origin}/sign/${contractResult.signingToken}`}
+                  className="flex-1 px-3 py-2 bg-navy-light border border-border rounded-lg text-xs text-text-dim font-mono truncate"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/sign/${contractResult.signingToken}`);
+                    setToast("서명 링크가 복사되었습니다");
+                    setTimeout(() => setToast(null), 2000);
+                  }}
+                  className="px-3 py-2 bg-gold-dim text-gold rounded-lg text-sm font-medium hover:bg-gold/20 transition-colors whitespace-nowrap"
+                >
+                  복사
+                </button>
+              </div>
+              <p className="text-[11px] text-text-dim">⏰ 서명 링크는 24시간 유효합니다</p>
+            </div>
+
+            {/* 닫기 */}
+            <button
+              onClick={() => setContractResult(null)}
+              className="w-full py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"
+            >
+              완료
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 토스트 알림 */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-info/90 text-white text-sm font-medium rounded-xl shadow-lg backdrop-blur-sm animate-fade-in">

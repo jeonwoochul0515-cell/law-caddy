@@ -53,6 +53,7 @@ const CaseDetailPage = lazyWithRetry(() => import("./pages/CaseDetailPage"));
 const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
 const AdminPage = lazyWithRetry(() => import("./pages/AdminPage"));
 const FinancePage = lazyWithRetry(() => import("./pages/FinancePage"));
+const SigningPage = lazyWithRetry(() => import("./pages/SigningPage"));
 
 function LazyFallback() {
   return (
@@ -192,6 +193,9 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<LazyFallback />}>
         <Routes>
+          {/* 완전 공개 라우트 (인증 불요) */}
+          <Route path="/sign/:token" element={<SigningPage />} />
+
           {/* 공개 라우트 */}
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/profile-setup" element={<RequireProfileSetup><ProfileSetupPage /></RequireProfileSetup>} />
