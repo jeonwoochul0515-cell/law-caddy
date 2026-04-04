@@ -1,6 +1,7 @@
-import { CheckCircle2, XCircle, FileSignature, Banknote, Trophy, CreditCard, Wallet, Building2, ReceiptText, ScrollText } from "lucide-react";
+import { CheckCircle2, XCircle, FileSignature, Banknote, Trophy, CreditCard, Wallet, Building2, ReceiptText, ScrollText, Clock, Copy, Check, FileDown, Eye } from "lucide-react";
 import { useState } from "react";
 import type { ContractPayment, PaymentMethod } from "../../types/case";
+import type { SigningRequest } from "../../types/signing";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.ElementType }[] = [
   { value: "카드", label: "카드", icon: CreditCard },
@@ -12,9 +13,10 @@ interface ContractPaymentSectionProps {
   data: ContractPayment;
   onUpdate: (data: ContractPayment) => Promise<void>;
   onCreateContract?: () => void;
+  signingRequests?: SigningRequest[];
 }
 
-export default function ContractPaymentSection({ data, onUpdate, onCreateContract }: ContractPaymentSectionProps) {
+export default function ContractPaymentSection({ data, onUpdate, onCreateContract, signingRequests = [] }: ContractPaymentSectionProps) {
   const [editingSuccessFee, setEditingSuccessFee] = useState(false);
   const [successFeeInput, setSuccessFeeInput] = useState(
     data.successFeeType === "fixed"
@@ -294,7 +296,111 @@ export default function ContractPaymentSection({ data, onUpdate, onCreateContrac
           )}
         </div>
 
+        {/* 서명 요청 내역 */}
+        {signingRequests.length > 0 && (
+          <div className="pt-3 mt-3 border-t border-border">
+            <p className="text-xs font-semibold text-text-dim mb-2">서명 요청 내역</p>
+            <div className="space-y-2">
+              {signingRequests.map((req) => (
+                <SigningRequestItem key={req.id} request={req} />
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
+    </div>
+  );
+}
+
+function SigningRequestItem({ request }: { request: SigningRequest }) {
+  const [copied, setCopied] = useState(false);
+  const [showContract, setShowContract] = useState(false);
+
+  const createdDate = request.createdAt?.toDate?.()
+    ? request.createdAt.toDate().toLocaleDateString("ko-KR")
+    : "";
+  const signedDate = request.signedAt?.toDate?.()
+    ? request.signedAt.toDate().toLocaleDateString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "";
+
+  const statusInfo = {
+    pending: { label: "서명 대기", className: "bg-warning/15 text-warning", icon: Clock },
+    signed: { label: "서명 완료", className: "bg-success/15 text-success", icon: CheckCircle2 },
+    expired: { label: "만료", className: "bg-error/15 text-error", icon: XCircle },
+  }[request.status];
+
+  const StatusIcon = statusInfo.icon;
+
+  const handleCopyLink = async () => {
+    const link = `${window.location.origin}/sign/${request.token}`;
+    await navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = async () => {
+    try {
+      const { exportToDocx } = await import("../../services/docxExport");
+      await exportToDocx(request.contractText, {
+        docType: "사건위임계약서",
+        clientName: request.clientName,
+        date: createdDate,
+      });
+    } catch (err) { console.error("다운로드 실패:", err); }
+  };
+
+  return (
+    <div className="bg-navy-light rounded-xl overflow-hidden">
+      <div className="p-3 flex items-center gap-3">
+        <StatusIcon className={`w-4 h-4 shrink-0 ${request.status === "signed" ? "text-success" : request.status === "pending" ? "text-warning" : "text-error"}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-text-primary font-medium">{request.clientName}</p>
+          <p className="text-[11px] text-text-dim">
+            {createdDate}
+            {signedDate && ` · 서명: ${signedDate}`}
+          </p>
+        </div>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${statusInfo.className}`}>
+          {statusInfo.label}
+        </span>
+      </div>
+
+      <div className="px-3 pb-3 flex gap-1.5">
+        {request.status === "pending" && (
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-1 px-2.5 py-1 border border-border rounded-lg text-[11px] text-text-dim hover:border-gold hover:text-gold transition-colors"
+          >
+            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            {copied ? "복사됨" : "서명 링크"}
+          </button>
+        )}
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1 px-2.5 py-1 border border-border rounded-lg text-[11px] text-text-dim hover:border-gold hover:text-gold transition-colors"
+        >
+          <FileDown className="w-3 h-3" />
+          다운로드
+        </button>
+        <button
+          onClick={() => setShowContract(!showContract)}
+          className="flex items-center gap-1 px-2.5 py-1 border border-border rounded-lg text-[11px] text-text-dim hover:border-gold hover:text-gold transition-colors"
+        >
+          <Eye className="w-3 h-3" />
+          {showContract ? "닫기" : "계약서"}
+        </button>
+      </div>
+
+      {showContract && (
+        <div className="border-t border-border p-3">
+          <div className="bg-surface rounded-lg p-3 max-h-60 overflow-y-auto">
+            <pre className="whitespace-pre-wrap text-xs text-text-primary leading-relaxed font-sans">
+              {request.contractText}
+            </pre>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

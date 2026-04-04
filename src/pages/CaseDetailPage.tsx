@@ -77,6 +77,7 @@ export default function CaseDetailPage() {
     signingToken: string;
     documentText: string;
   } | null>(null);
+  const [signingRequests, setSigningRequests] = useState<import("../types/signing").SigningRequest[]>([]);
 
   const uid = user?.uid ?? "";
 
@@ -104,6 +105,14 @@ export default function CaseDetailPage() {
     };
     loadFinance();
   }, [id, uid]);
+
+  // 서명 요청 로딩
+  useEffect(() => {
+    if (!id || !uid) return;
+    import("../services/firebase/signing").then(({ getSigningRequestsByCase }) => {
+      getSigningRequestsByCase(id, uid).then(setSigningRequests).catch(console.error);
+    });
+  }, [id, uid, contractResult]); // contractResult 변경 시 재조회
 
   // 재무 핸들러
   const handleCreateFee = async (data: Omit<Fee, "id" | "createdAt" | "updatedAt">) => {
@@ -532,6 +541,7 @@ export default function CaseDetailPage() {
           onRemoveCostItem={removeCostItem}
           onNavigateToDocument={handleNavigateToDocument}
           onCreateContract={handleCreateContract}
+          signingRequests={signingRequests}
         />
       )}
 

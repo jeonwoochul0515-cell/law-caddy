@@ -7,6 +7,7 @@ import {
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
+import type { SigningRequest } from "../../types/signing";
 import { getFileTypeInfo, isAudioFile } from "../../utils/fileType";
 // 동적 import로 변경 — CaseDetailPage 청크 비대화 방지
 const loadDocxExport = () => import("../../services/docxExport");
@@ -36,6 +37,7 @@ interface OverviewTabProps {
   onRemoveCostItem: (id: string) => Promise<void>;
   onNavigateToDocument?: (doc: LegalDocument) => void;
   onCreateContract?: () => void;
+  signingRequests?: SigningRequest[];
 }
 
 /** 파일 카테고리별 아이콘 매핑 */
@@ -60,6 +62,7 @@ export default function OverviewTab({
   onRemoveCostItem,
   onNavigateToDocument,
   onCreateContract,
+  signingRequests,
 }: OverviewTabProps) {
   const timeline = caseData.timeline ?? [];
   const createdDate = caseData.createdAt?.toDate?.()
@@ -154,6 +157,7 @@ export default function OverviewTab({
           data={contractPayment}
           onUpdate={onUpdateContractPayment}
           onCreateContract={onCreateContract}
+          signingRequests={signingRequests}
         />
         <CostsSection
           costs={caseData.costs ?? []}
