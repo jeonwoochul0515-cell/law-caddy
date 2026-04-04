@@ -101,7 +101,27 @@ export default function ContractGenerateModal({
         fees.successFeeAmount = parseDigits(fixedAmountDisplay) * 10000; // 만원 → 원
       }
 
-      fees.specialTerms = specialTerms || undefined;
+      // 특약사항이 있으면 AI로 법률 용어 변환
+      if (specialTerms.trim()) {
+        try {
+          const { callClaude } = await import("../../services/claude");
+          const refined = await callClaude(
+            `당신은 변호사 수임계약서의 특약사항을 작성하는 법률 전문가입니다.
+의뢰인이 간단히 적은 내용을 법률 계약서에 적합한 정식 문구로 변환하세요.
+
+규칙:
+1. 법률 용어와 계약서 문체를 사용하세요 (예: "~한다", "~하여야 한다")
+2. 원래 의미를 정확히 유지하되, 법적 구속력이 있는 표현으로 변환하세요
+3. 각 항목은 번호를 붙이세요 (1. 2. 3. ...)
+4. 불필요한 설명 없이 특약 조항만 출력하세요
+5. 짧고 명확하게 작성하세요`,
+            `다음 내용을 수임계약서 특약사항으로 변환해 주세요:\n\n${specialTerms.trim()}`,
+          );
+          fees.specialTerms = refined.trim();
+        } catch {
+          fees.specialTerms = specialTerms.trim();
+        }
+      }
 
       // 계약서 텍스트 생성
       const contractText = generateContractText({ caseData, user, fees });
