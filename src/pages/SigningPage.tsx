@@ -382,6 +382,18 @@ export default function SigningPage() {
           </pre>
         </div>
 
+        {/* 개인정보 수집·이용 및 제공 동의서 */}
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-2">개인정보 수집·이용 및 제공 동의서</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+            <img
+              src="/privacy-consent.jpg"
+              alt="개인정보 수집·이용 및 제공 동의서"
+              className="w-full h-auto"
+            />
+          </div>
+        </div>
+
         {/* 구분선 */}
         <hr className="border-gray-200" />
 
@@ -394,7 +406,7 @@ export default function SigningPage() {
             className="mt-0.5 w-5 h-5 rounded border-gray-300 text-[#0B1120] focus:ring-[#0B1120] cursor-pointer"
           />
           <span className="text-sm text-gray-700 leading-relaxed">
-            위 계약 내용을 확인하였으며 이에 동의합니다
+            위 계약 내용 및 개인정보 수집·이용·제공에 동의합니다
           </span>
         </label>
 

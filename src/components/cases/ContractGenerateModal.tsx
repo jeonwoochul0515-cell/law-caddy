@@ -39,9 +39,12 @@ export default function ContractGenerateModal({
   const isCriminal = caseData.caseType === "형사";
 
   const [retainerDisplay, setRetainerDisplay] = useState("330");
-  const [successFeeMode, setSuccessFeeMode] = useState<SuccessFeeMode>(isCriminal ? "none" : "none");
+  const [successFeeMode, setSuccessFeeMode] = useState<SuccessFeeMode>("none");
   const [percentInput, setPercentInput] = useState("");
   const [fixedAmountDisplay, setFixedAmountDisplay] = useState("");
+  const [criminalAcquittalDisplay, setCriminalAcquittalDisplay] = useState("700");  // 무죄 시 700만원 기본
+  const [criminalFineDisplay, setCriminalFineDisplay] = useState("500");             // 벌금형 시 500만원 기본
+  const [specialTerms, setSpecialTerms] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +71,14 @@ export default function ContractGenerateModal({
     setPercentInput(val);
   };
 
+  const handleCriminalAcquittalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCriminalAcquittalDisplay(formatWithCommas(e.target.value));
+  };
+
+  const handleCriminalFineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCriminalFineDisplay(formatWithCommas(e.target.value));
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setIsGenerating(true);
@@ -80,11 +91,17 @@ export default function ContractGenerateModal({
         successFeeType: successFeeMode,
       };
 
-      if (successFeeMode === "percent") {
+      if (isCriminal && successFeeMode !== "none") {
+        fees.successFeeType = "fixed";
+        fees.criminalAcquittalAmount = parseDigits(criminalAcquittalDisplay) * 10000;
+        fees.criminalFineAmount = parseDigits(criminalFineDisplay) * 10000;
+      } else if (successFeeMode === "percent") {
         fees.successFeePercent = parseFloat(percentInput) || 0;
       } else if (successFeeMode === "fixed") {
         fees.successFeeAmount = parseDigits(fixedAmountDisplay) * 10000; // 만원 → 원
       }
+
+      fees.specialTerms = specialTerms || undefined;
 
       // 계약서 텍스트 생성
       const contractText = generateContractText({ caseData, user, fees });
@@ -182,19 +199,15 @@ export default function ContractGenerateModal({
                   fixed: "정액",
                 };
                 const isActive = successFeeMode === mode;
-                const isDisabled = isCriminal && mode !== "none";
 
                 return (
                   <button
                     key={mode}
-                    onClick={() => !isDisabled && setSuccessFeeMode(mode)}
-                    disabled={isDisabled}
+                    onClick={() => setSuccessFeeMode(mode)}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                       isActive
                         ? "border-gold/40 bg-gold-dim text-gold"
-                        : isDisabled
-                          ? "border-border/50 text-text-dim/30 cursor-not-allowed"
-                          : "border-border text-text-dim hover:border-border-hover"
+                        : "border-border text-text-dim hover:border-border-hover"
                     }`}
                   >
                     {labels[mode]}
@@ -204,8 +217,8 @@ export default function ContractGenerateModal({
             </div>
           </div>
 
-          {/* 퍼센트 입력 */}
-          {successFeeMode === "percent" && (
+          {/* 퍼센트 입력 (민사 등) */}
+          {!isCriminal && successFeeMode === "percent" && (
             <div className="mb-5">
               <label className="block text-sm font-medium text-text-primary mb-2">
                 승소 경제적 이익의
@@ -223,8 +236,8 @@ export default function ContractGenerateModal({
             </div>
           )}
 
-          {/* 정액 입력 */}
-          {successFeeMode === "fixed" && (
+          {/* 정액 입력 (민사 등) */}
+          {!isCriminal && successFeeMode === "fixed" && (
             <div className="mb-5">
               <label className="block text-sm font-medium text-text-primary mb-2">
                 성과보수 금액
@@ -245,6 +258,48 @@ export default function ContractGenerateModal({
             </div>
           )}
 
+          {/* 형사 성과보수 입력 */}
+          {isCriminal && successFeeMode !== "none" && (
+            <div className="mb-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  무죄 시 추가 보수
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={criminalAcquittalDisplay}
+                    onChange={handleCriminalAcquittalChange}
+                    placeholder="700"
+                    className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
+                </div>
+                {parseDigits(criminalAcquittalDisplay) > 0 && (
+                  <p className="text-[11px] text-text-dim mt-1 text-right">{(parseDigits(criminalAcquittalDisplay) * 10000).toLocaleString("ko-KR")}원</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  벌금형 시 추가 보수
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={criminalFineDisplay}
+                    onChange={handleCriminalFineChange}
+                    placeholder="500"
+                    className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
+                </div>
+                {parseDigits(criminalFineDisplay) > 0 && (
+                  <p className="text-[11px] text-text-dim mt-1 text-right">{(parseDigits(criminalFineDisplay) * 10000).toLocaleString("ko-KR")}원</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="border-t border-border mb-5" />
 
           {/* 형사 사건 안내 */}
@@ -254,10 +309,24 @@ export default function ContractGenerateModal({
               <p className="text-xs text-text-dim leading-relaxed">
                 <span className="text-gold font-medium">사건유형: 형사</span> → 형사 양식 자동 적용
                 <br />
-                <span className="text-text-dim/70">(성과보수 비활성, 변호사법 제33조)</span>
+                <span className="text-text-dim/70">대법원 전원합의체 판결(2015다200111)에 따라 형사 사건도 조건부 성과보수 약정이 가능합니다.</span>
               </p>
             </div>
           )}
+
+          {/* 특약사항 */}
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              특약사항 <span className="text-text-dim text-xs">(선택)</span>
+            </label>
+            <textarea
+              value={specialTerms}
+              onChange={(e) => setSpecialTerms(e.target.value)}
+              placeholder="추가 특약사항을 입력하세요"
+              rows={3}
+              className="w-full px-3 py-2.5 bg-surface border border-border rounded-lg text-sm text-text-primary focus:border-gold focus:outline-none transition-colors resize-none"
+            />
+          </div>
 
           {/* 에러 메시지 */}
           {error && (

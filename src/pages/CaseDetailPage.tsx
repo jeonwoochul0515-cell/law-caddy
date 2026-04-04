@@ -626,6 +626,31 @@ export default function CaseDetailPage() {
                   <FileDown className="w-4 h-4" />
                   Word 다운로드
                 </button>
+                <button
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html><head>
+                        <title>사건위임계약서</title>
+                        <style>
+                          body { font-family: '맑은 고딕', 'Malgun Gothic', sans-serif; font-size: 12pt; line-height: 1.8; padding: 40px; max-width: 800px; margin: 0 auto; color: #000; }
+                          pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: inherit; line-height: inherit; }
+                          @media print { body { padding: 20px; } }
+                        </style>
+                      </head><body>
+                        <pre>${contractResult.documentText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                      </body></html>
+                    `);
+                    printWindow.document.close();
+                    printWindow.onload = () => { printWindow.print(); };
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-surface border border-border rounded-lg text-sm text-text-primary hover:border-gold transition-colors"
+                >
+                  <FileDown className="w-4 h-4" />
+                  PDF 다운로드
+                </button>
               </div>
             </div>
 
