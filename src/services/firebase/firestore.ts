@@ -434,7 +434,7 @@ export async function createClientCareMessage(
   data: CreateClientCareData
 ): Promise<string> {
   try {
-    const docRef = await addDoc(collection(db!, "clientCareMessages"), {
+    const docRef = await addDoc(collection(doc(db!, "cases", data.caseId), "clientCareMessages"), {
       ...data,
       createdAt: serverTimestamp(),
     });
@@ -453,8 +453,7 @@ export async function getClientCareMessages(
 ): Promise<ClientCareMessage[]> {
   try {
     const q = query(
-      collection(db!, "clientCareMessages"),
-      where("caseId", "==", caseId),
+      collection(doc(db!, "cases", caseId), "clientCareMessages"),
       where("ownerId", "==", ownerId),
     );
     const snapshot = await getDocs(q);

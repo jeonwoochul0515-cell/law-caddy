@@ -2033,6 +2033,10 @@ export function buildClientMessagePrompt(context: ClientMessageContext): string 
 7. 존댓말 + 따뜻한 톤
 8. "궁금하신 점 있으시면 편하게 연락 주세요 😊" 포함
 9. ${context.firmName} ${context.lawyerName} 변호사 서명
+10. 현재 상태는 "서류 작성 완료" 또는 "검토 중" 단계임을 정확히 반영하세요
+11. "소장을 접수했습니다", "법원에 제출했습니다" 같은 완료 표현은 절대 사용하지 마세요 — 아직 제출 전입니다
+12. 대신 "소장 초안을 작성했습니다", "변호사가 검토 후 법원에 제출할 예정입니다" 등 현재 단계를 정확히 표현하세요
+13. 의뢰인에게 "서류 작업이 진행 중"이며 "변호사 검토 후 다음 단계를 안내드리겠습니다"라는 톤으로 작성하세요
 
 사건 개요: ${context.caseDesc}${docSummary}`;
 }
