@@ -390,10 +390,26 @@ export default function CaseDetailPage() {
     contractText: string;
     signingToken: string;
     documentText: string;
+    fees: import("../types/signing").ContractFees;
   }) => {
     setContractModalOpen(false);
     setContractResult(result);
-  }, []);
+
+    // 계약·수임료 현황 자동 업데이트
+    if (caseData) {
+      const { fees } = result;
+      const updatedPayment = {
+        ...(caseData.contractPayment ?? { contractSigned: false, retainerPaid: false, successFeeAgreed: false }),
+        contractSigned: true,
+        retainerAmount: fees.retainerAmount,
+        successFeeAgreed: fees.successFeeType !== "none",
+        successFeeType: fees.successFeeType === "percent" ? "percent" as const : fees.successFeeType === "fixed" ? "fixed" as const : undefined,
+        successFeePercent: fees.successFeePercent,
+        successFeeAmount: fees.successFeeAmount,
+      };
+      updateContractPayment(updatedPayment).catch(console.error);
+    }
+  }, [caseData, updateContractPayment]);
 
   const handleNavigateToRecord = () => {
     if (!caseData) return;

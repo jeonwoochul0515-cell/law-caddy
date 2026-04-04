@@ -12,7 +12,7 @@ interface ContractGenerateModalProps {
   onClose: () => void;
   caseData: Case;
   user: User;
-  onComplete: (result: { contractText: string; signingToken: string; documentText: string }) => void;
+  onComplete: (result: { contractText: string; signingToken: string; documentText: string; fees: ContractFees }) => void;
 }
 
 type SuccessFeeMode = "none" | "percent" | "fixed";
@@ -160,6 +160,7 @@ export default function ContractGenerateModal({
         contractText,
         signingToken,
         documentText: contractText,
+        fees,
       });
     } catch (err: unknown) {
       if (err instanceof Error) {
