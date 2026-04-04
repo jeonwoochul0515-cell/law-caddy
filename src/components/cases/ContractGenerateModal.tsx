@@ -38,7 +38,7 @@ export default function ContractGenerateModal({
 }: ContractGenerateModalProps) {
   const isCriminal = caseData.caseType === "형사";
 
-  const [retainerDisplay, setRetainerDisplay] = useState("");
+  const [retainerDisplay, setRetainerDisplay] = useState("330");
   const [successFeeMode, setSuccessFeeMode] = useState<SuccessFeeMode>(isCriminal ? "none" : "none");
   const [percentInput, setPercentInput] = useState("");
   const [fixedAmountDisplay, setFixedAmountDisplay] = useState("");
@@ -47,7 +47,7 @@ export default function ContractGenerateModal({
 
   if (!isOpen) return null;
 
-  const retainerAmount = parseDigits(retainerDisplay);
+  const retainerAmount = parseDigits(retainerDisplay) * 10000; // 만원 단위 → 원
   const canSubmit = retainerAmount > 0 && !isGenerating;
 
   const handleRetainerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +83,7 @@ export default function ContractGenerateModal({
       if (successFeeMode === "percent") {
         fees.successFeePercent = parseFloat(percentInput) || 0;
       } else if (successFeeMode === "fixed") {
-        fees.successFeeAmount = parseDigits(fixedAmountDisplay);
+        fees.successFeeAmount = parseDigits(fixedAmountDisplay) * 10000; // 만원 → 원
       }
 
       // 계약서 텍스트 생성
@@ -161,11 +161,14 @@ export default function ContractGenerateModal({
                 type="text"
                 value={retainerDisplay}
                 onChange={handleRetainerChange}
-                placeholder="3,000,000"
-                className="w-full px-3 py-2.5 pr-10 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
+                placeholder="330"
+                className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">원</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
             </div>
+            {retainerAmount > 0 && (
+              <p className="text-[11px] text-text-dim mt-1 text-right">{retainerAmount.toLocaleString("ko-KR")}원</p>
+            )}
           </div>
 
           {/* 성과보수 유형 선택 */}
@@ -231,11 +234,14 @@ export default function ContractGenerateModal({
                   type="text"
                   value={fixedAmountDisplay}
                   onChange={handleFixedAmountChange}
-                  placeholder="5,000,000"
-                  className="w-full px-3 py-2.5 pr-10 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
+                  placeholder="500"
+                  className="w-full px-3 py-2.5 pr-16 bg-surface border border-border rounded-lg text-text-primary text-right focus:border-gold focus:outline-none transition-colors"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">원</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-text-dim">만원</span>
               </div>
+              {parseDigits(fixedAmountDisplay) > 0 && (
+                <p className="text-[11px] text-text-dim mt-1 text-right">{(parseDigits(fixedAmountDisplay) * 10000).toLocaleString("ko-KR")}원</p>
+              )}
             </div>
           )}
 
