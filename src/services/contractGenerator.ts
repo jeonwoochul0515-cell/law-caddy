@@ -55,6 +55,15 @@ function formatDate(): string {
   return `${y}. ${m}. ${d}.`;
 }
 
+/** 사건 개요에서 짧은 사건명 추출 (최대 20자) */
+function shortCaseName(description: string, caseType: string): string {
+  // 첫 문장 또는 쉼표 전까지만
+  const first = description.split(/[.,\n]/)[0].trim();
+  if (first.length <= 20) return first;
+  // 너무 길면 사건유형만
+  return `${caseType} 사건`;
+}
+
 /** 빈 줄 구분자 */
 const BLANK = "";
 
@@ -141,7 +150,7 @@ function buildCivilContract(
     "사건의 표시",
     `1. 사건`,
     `사건번호 :`,
-    `사 건 명 : ${caseData.description}`,
+    `사 건 명 : ${shortCaseName(caseData.description, caseData.caseType)}`,
     `당 사 자 : ${caseData.clientName}`,
     `상 대 방 :`,
     BLANK,
