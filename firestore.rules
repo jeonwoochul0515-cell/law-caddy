@@ -177,6 +177,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── 서명 요청 (전자계약) ──
+    match /signing_requests/{requestId} {
+      // 변호사: 본인 사건 서명 요청 생성/조회
+      allow create: if isOwnerOnCreate();
+      allow read, update: if isOwner();
+      // 의뢰인: 토큰으로 서명 요청 조회/서명 완료 (인증 불필요)
+      allow read, update: if true;
+      allow read: if isAdmin();
+    }
+
     // ── 버그 리포트 (베타 테스트) ──
     match /bug_reports/{reportId} {
       allow create: if isAuthenticated();
