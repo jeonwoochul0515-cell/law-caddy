@@ -20,7 +20,6 @@ import {
   Building2,
   CreditCard,
   Calculator,
-  Bell,
   Play,
   Users,
   TrendingUp,
@@ -285,84 +284,85 @@ function WorkflowDemo() {
 const AGENTS = [
   {
     icon: <Search className="w-5 h-5" />,
-    nickname: "판서",
-    name: "판례 검색",
-    desc: "30년 경력의 판례 전문가. 유사 판례 3~5건을 즉시 검색하고 시사점을 분석합니다",
+    fullName: "한판서",
+    role: "판례 검색 에이전트",
+    desc: "30년 경력의 판례 전문가. 대법원·하급심 유사 판례 3~5건을 즉시 찾아내고 유리·불리 시사점까지 분석합니다.",
     color: "text-[#1a3c34]",
   },
   {
     icon: <Shield className="w-5 h-5" />,
-    nickname: "율무",
-    name: "적법성 검증",
-    desc: "윤리위원회 출신 감사관. 통비법·변호사법·개보법 준수 여부를 빈틈없이 확인합니다",
+    fullName: "윤율무",
+    role: "적법성 검증 에이전트",
+    desc: "변호사윤리위원회 출신 감사관. 통비법·변호사법·개보법 준수 여부를 매 건마다 빈틈없이 검증합니다.",
     color: "text-[#1a3c34]",
   },
   {
     icon: <Mic className="w-5 h-5" />,
-    nickname: "소리",
-    name: "음성 변환",
-    desc: "법정 속기사 출신 청각 전문가. RTZR STT로 화자를 구분한 정확한 대화록을 생성합니다",
+    fullName: "정소리",
+    role: "음성 변환 에이전트",
+    desc: "법정 속기사 출신 청각 전문가. 상담 녹음에서 변호사·의뢰인을 자동 구분하고 법률 전문용어까지 정확하게 받아적습니다.",
     color: "text-[#735c00]",
   },
   {
     icon: <Brain className="w-5 h-5" />,
-    nickname: "혜안",
-    name: "쟁점 분석",
-    desc: "로스쿨 교수 출신 전략가. 핵심 쟁점 3가지를 꿰뚫어보고 법조문을 매칭합니다",
+    fullName: "서혜안",
+    role: "쟁점 분석 에이전트",
+    desc: "로스쿨 교수 출신 전략가. 핵심 쟁점 3가지를 꿰뚫어보고 관련 법조문·판례를 매칭하여 승소 전략을 제시합니다.",
     color: "text-[#01261f]",
   },
   {
     icon: <FileText className="w-5 h-5" />,
-    nickname: "필묵",
-    name: "문서 작성",
-    desc: "대형 로펌 15년차 문서 장인. 판사를 설득하는 완성도 높은 법률 문서를 작성합니다",
+    fullName: "조필묵",
+    role: "문서 작성 에이전트",
+    desc: "대형 로펌 15년차 문서 장인. 소장부터 합의서까지 36종 법률 문서를 판사를 설득하는 완성도로 작성합니다.",
     color: "text-[#735c00]",
   },
   {
     icon: <Award className="w-5 h-5" />,
-    nickname: "감수",
-    name: "검토·감수",
-    desc: "대법원 재판연구관 출신. 5점 척도 품질 평가와 수정 제안으로 문서를 한 단계 끌어올립니다",
+    fullName: "최감수",
+    role: "검토·감수 에이전트",
+    desc: "대법원 재판연구관 출신. 형식·정확성·논리·설득력·완성도 5점 척도 평가와 수정 제안으로 문서 품질을 끌어올립니다.",
     color: "text-[#1a3c34]",
   },
 ];
 
 const PLATFORM_FEATURES = [
   {
-    icon: <Wallet className="w-6 h-6" />,
-    title: "수임료·회계 관리",
-    desc: "착수금, 분할납부, 성공보수를 자동 추적하고 연체 알림까지. 사무장 없이도 빈틈없는 재무관리.",
-    tag: "자동화",
+    icon: <PenTool className="w-6 h-6" />,
+    title: "수임계약서 자동 생성 & 전자서명",
+    desc: "민사 14조·형사 16조 표준 계약서를 자동 생성. 링크 하나로 의뢰인 서명까지. 24시간 토큰 + IP·기기 감사추적 자동 기록.",
+    tag: "계약서",
   },
   {
-    icon: <CreditCard className="w-6 h-6" />,
-    title: "은행·카드 자동 연동",
-    desc: "CODEF API로 입출금 내역을 자동 수집하고, AI가 사건별 매출·경비를 자동 분류합니다.",
-    tag: "AI 매칭",
+    icon: <TrendingUp className="w-6 h-6" />,
+    title: "성공보수 4가지 모드 관리",
+    desc: "정률형·정액형·구간별·형사 조건부(무죄/집행유예/벌금형) 성공보수를 미확정→청구→입금까지 전 과정 추적.",
+    tag: "성공보수",
   },
   {
     icon: <Calculator className="w-6 h-6" />,
-    title: "인지대·송달료 자동 계산",
-    desc: "소가, 법원, 심급을 입력하면 소인지·송달료를 즉시 계산. 직접 검색할 필요 없습니다.",
-    tag: "계산기",
+    title: "착수금·분할납부 자동 추적",
+    desc: "착수금, 잔금, 분할납부 일정을 사건별로 관리. 연체일 자동 감지 + AI가 독촉 메시지까지 작성합니다.",
+    tag: "수임료",
   },
   {
-    icon: <PenTool className="w-6 h-6" />,
-    title: "전자서명 수임계약",
-    desc: "의뢰인에게 링크 하나로 수임계약서 서명을 받으세요. 민사·형사 템플릿 자동 생성.",
-    tag: "비대면",
+    icon: <Calculator className="w-6 h-6" />,
+    title: "소송비용 자동 계산 & 12종 경비 관리",
+    desc: "소가·심급별 인지대·송달료를 즉시 계산. 감정료·출장비·공증비 등 12종 사건비용을 영수증과 함께 정산 추적.",
+    tag: "비용관리",
   },
   {
     icon: <BarChart3 className="w-6 h-6" />,
-    title: "세무·부가세 리포트",
-    desc: "월별 매출·매입·부가세를 자동 집계. 세무사에게 보낼 자료가 클릭 한 번으로.",
-    tag: "세무",
+    icon: <CreditCard className="w-6 h-6" />,
+    title: "은행·카드 자동 연동 & AI 매칭",
+    desc: "CODEF로 입출금·카드 내역을 자동 수집. 신뢰도 85% 이상이면 사건별 매출·경비에 자동 분류됩니다.",
+    tag: "AI 매칭",
   },
   {
-    icon: <Bell className="w-6 h-6" />,
-    title: "연체 감지 & 알림",
-    desc: "미수금을 자동 감지하고, 의뢰인에게 보낼 독촉 메시지까지 AI가 작성합니다.",
-    tag: "미수금",
+    icon: <BarChart3 className="w-6 h-6" />,
+    title: "월별 손익 & 세무 리포트",
+    desc: "매출·경비·부가세·미수금을 월별로 자동 집계. 세무사에게 제출할 자료가 클릭 한 번으로 완성됩니다.",
+    tag: "세무",
   },
 ];
 
@@ -385,13 +385,13 @@ const PLANS = [
     period: "/월",
     badge: "Most Popular",
     features: [
-      "무제한 녹음",
-      "6개 에이전트 전체",
-      "무제한 문서 생성",
-      "의뢰인 메시지 자동 생성",
-      "회계·세무 관리",
-      "전자서명 수임계약",
-      "은행·카드 연동",
+      "무제한 녹음 & 36종 문서 생성",
+      "6명 AI 에이전트 전체",
+      "수임계약서 자동 생성 & 전자서명",
+      "성공보수 4모드 + 분할납부 추적",
+      "소송비용 자동 계산 & 경비 관리",
+      "은행·카드 AI 자동 매칭",
+      "의뢰인 4단계 케어 메시지",
       "우선 지원",
     ],
     highlighted: true,
@@ -443,7 +443,7 @@ const FAQS = [
    ──────────────────────────────────────────── */
 export default function LandingPage() {
   const typewriterText = useTypewriter(
-    ["판례 검색", "문서 작성", "수임료 관리", "세무 정리", "의뢰인 소통"],
+    ["판례 검색", "문서 작성", "계약서 생성", "성공보수 관리", "소송비용 계산", "의뢰인 ���어"],
     80,
     1800
   );
@@ -467,7 +467,7 @@ export default function LandingPage() {
               AI 에이전트
             </a>
             <a href="#platform" className="hover:text-[#01261f] transition-colors">
-              사무소 관리
+              업무 자동화
             </a>
             <a href="#pricing" className="hover:text-[#01261f] transition-colors">
               요금제
@@ -508,7 +508,7 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/10 mb-8">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#fed65b] animate-pulse" />
                 <span className="text-xs tracking-widest uppercase text-[#fed65b] font-medium">
-                  변호사 전용 올인원 플랫폼
+                  변호사 업무의 모든 것, 하나로
                 </span>
               </div>
             </FadeIn>
@@ -535,9 +535,9 @@ export default function LandingPage() {
                 까지.
               </p>
               <p className="text-sm text-white/40 max-w-xl mx-auto mb-10 leading-relaxed">
-                6개 AI 에이전트가 판례를 검색하고, 문서를 작성하고, 의뢰인 메시지를 만듭니다.
+                한판서, 윤율무, 정소리, 서혜안, 조필묵, 최감수 — 6명의 AI 전문가가
                 <br className="hidden sm:block" />
-                수임료 관리, 은행 연동, 전자서명까지 — 사무소 운영의 모든 것.
+                판례 검색부터 계약서 작성, 성공보수 관리, 의뢰인 케어까지 함께합니다.
               </p>
             </FadeIn>
 
@@ -625,9 +625,9 @@ export default function LandingPage() {
                 변호사님, 하루가 부족하시죠?
               </h2>
               <p className="text-[#414846] text-lg max-w-2xl mx-auto">
-                상담 30분, 판례 검색 2시간, 문서 작성 3시간, 수임료 정리 1시간.
+                상담, 판례 검색, 문서 작성, 계약서, 성공보수, 인지대 계산, 경비 정리...
                 <br />
-                <span className="font-semibold text-[#01261f]">그 6시간을 10분으로 줄여드립니다.</span>
+                <span className="font-semibold text-[#01261f]">그 8시간을 10분으로 줄여드립니다.</span>
               </p>
             </div>
           </FadeIn>
@@ -648,9 +648,9 @@ export default function LandingPage() {
               },
               {
                 icon: <Wallet className="w-6 h-6" />,
-                pain: "엑셀로 관리하는 수임료",
-                solution: "사건별 자동 추적 + 연체 알림 + 세무 리포트",
-                metric: "미수금 회수율 향상",
+                pain: "계약서·수임료·경비 따로따로",
+                solution: "계약 → 수임료 → 성공보수 → 경비 → 세무까지 한 곳에서",
+                metric: "행정 업무 90% 자동화",
               },
             ].map((item, i) => (
               <FadeIn key={item.pain} delay={i * 100}>
@@ -735,9 +735,9 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-[#1b1c1a] mb-1">
-                      {agent.nickname}{" "}
+                      {agent.fullName}{" "}
                       <span className="text-[#414846] font-normal text-sm">
-                        · {agent.name}
+                        · {agent.role}
                       </span>
                     </h4>
                     <p className="text-sm text-[#414846] leading-relaxed">
@@ -761,15 +761,15 @@ export default function LandingPage() {
             <div className="text-center mb-16">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#735c00]/10 text-[#735c00] text-xs font-medium mb-4">
                 <TrendingUp className="w-3.5 h-3.5" />
-                사무소 경영
+                변호사 업무의 모든 것
               </div>
               <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
-                문서 생성만? 사무소 경영까지.
+                계약부터 정산까지, 빠짐없이.
               </h2>
               <p className="text-[#414846] text-lg max-w-2xl mx-auto">
-                수임료 관리, 은행 연동, 세무 리포트, 전자서명 —
+                수임계약서 자동 생성, 성공보수 추적, 소송비용 계산, 은행 연동 —
                 <br className="hidden sm:block" />
-                사무장 없이도 빈틈없는 사무소 운영.
+                변호사님의 업무 전 과정을 하나의 플랫폼에서.
               </p>
             </div>
           </FadeIn>
@@ -825,10 +825,11 @@ export default function LandingPage() {
                     "상담 후 수기 메모 정리 — 30분",
                     "판례 검색 — 2시간",
                     "문서 초안 작성 — 3시간",
+                    "수임계약서 작성 & 서명 받기 — 40분",
                     "의뢰인에게 설명 메시지 — 20분",
-                    "수임료 엑셀 정리 — 30분",
-                    "은행 입금 확인 — 15분",
-                    "총 소요: 약 7시간",
+                    "수임료·성공보수 엑셀 정리 — 30분",
+                    "인지대·송달료 계산 — 15분",
+                    "총 소요: 약 8시간",
                   ].map((item) => (
                     <li
                       key={item}
@@ -849,11 +850,12 @@ export default function LandingPage() {
                 <ul className="space-y-4">
                   {[
                     "상담 녹음 → 자동 대화록 — 0분",
-                    "6개 에이전트 병렬 분석 — 2분",
+                    "6명 에이전트 병렬 분석 — 2분",
                     "체크포인트 확인 후 문서 생성 — 5분",
-                    "의뢰인 메시지 자동 생성 — 0분",
-                    "수임료 자동 추적 + 연체 알림 — 0분",
-                    "은행·카드 자동 연동 — 0분",
+                    "수임계약서 자동 생성 → 전자서명 — 1분",
+                    "성공보수·분할납부 자동 추적 — 0분",
+                    "인지대·송달료·경비 자동 계산 — 0분",
+                    "의뢰인 케어 메시지 자동 생성 — 0분",
                     "총 소요: 약 10분",
                   ].map((item) => (
                     <li
@@ -874,7 +876,7 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-[#efeeea] border border-[#efeeea]">
                 <Zap className="w-5 h-5 text-[#735c00]" />
                 <span className="text-[#1b1c1a] font-semibold">
-                  7시간 → 10분.
+                  8시간 → 10분.
                 </span>
                 <span className="text-[#414846]">
                   나머지 시간은 변호사님의 것입니다.
@@ -900,21 +902,21 @@ export default function LandingPage() {
             {[
               {
                 quote:
-                  "상담 직후 바로 내용증명 초안이 나옵니다. 의뢰인도 빠른 대응에 놀라십니다. 수임료 관리까지 자동이라 사무장 채용을 미룰 수 있었어요.",
+                  "상담 직후 내용증명 초안에 수임계약서까지 한 번에 나옵니다. 전자서명으로 바로 계약 완료. 의뢰인이 '이렇게 빠른 건 처음'이라고 하세요.",
                 name: "김○○ 변호사",
                 firm: "서울 민사 전문",
                 years: "경력 8년",
               },
               {
                 quote:
-                  "판례 검색에 쓰던 시간이 거의 사라졌습니다. 전자서명으로 수임계약까지 비대면으로 진행하니, 지방 의뢰인도 편하게 맡기시더라고요.",
+                  "성공보수 관리가 엑셀 없이 되니까 정말 편합니다. 분할납부 연체도 자동 알림이 오고, 인지대 계산도 한 번에. 한판서 님이 찾아주는 판례도 정확해요.",
                 name: "이○○ 변호사",
                 firm: "부산 종합 법률사무소",
                 years: "경력 5년",
               },
               {
                 quote:
-                  "혼자 운영하는 사무실이라 모든 걸 혼자 해야 했는데, 이제 든든한 팀이 생긴 느낌입니다. 특히 미수금 알림이 정말 유용해요.",
+                  "혼자 운영하는데 조필묵 님이 문서 초안 잡아주고, 최감수 님이 검토해주니 대형 로펌 뺨치는 퀄리티가 나옵니다. 카드 경비도 자동 분류되니 세무사 보낼 자료가 바로 나와요.",
                 name: "박○○ 변호사",
                 firm: "대전 1인 사무소",
                 years: "경력 3년",
@@ -955,7 +957,7 @@ export default function LandingPage() {
                 사무소 규모에 맞는 플랜
               </h2>
               <p className="text-[#414846] text-lg">
-                사무장 월급보다 저렴한 비용으로, 사무소 전체를 관리하세요.
+                사무장 월급보다 저렴한 비용으로, 변호사 업무 전체��� 자동화하세요.
               </p>
             </div>
           </FadeIn>
@@ -1086,10 +1088,10 @@ export default function LandingPage() {
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
               상담부터 정산까지,
               <br />
-              <span className="text-[#fed65b]">사무소의 모든 것을 하나로</span>
+              <span className="text-[#fed65b]">변호사 업무의 모든 것을 하나로</span>
             </h2>
             <p className="text-white/60 text-lg mb-4 max-w-xl mx-auto">
-              AI가 분석하고, 관리하고, 변호사가 결정합니다.
+              6명의 AI 전문가가 분석하고, 관리하고, 변호사가 결정합니다.
             </p>
             <p className="text-white/30 text-sm mb-10">
               지금 가입하면 7일간 Pro 플랜을 무료로 체험할 수 있습니다.
