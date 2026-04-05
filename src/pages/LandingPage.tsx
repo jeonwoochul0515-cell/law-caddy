@@ -200,15 +200,15 @@ function WorkflowDemo() {
 
   const steps = [
     {
-      label: "상담 녹음",
+      label: "녹음 & 문서 첨부",
       icon: <Mic className="w-5 h-5" />,
-      detail: "변호사-의뢰인 대화를 녹음합니다",
+      detail: "상담을 녹음하고, 관련 문서를 첨부합니다",
       time: "30분 상담",
     },
     {
       label: "AI 분석",
       icon: <Brain className="w-5 h-5" />,
-      detail: "6개 에이전트가 동시에 분석합니다",
+      detail: "6명의 에이전트가 첨부 문서까지 분석합니다",
       time: "약 2분",
     },
     {
@@ -536,7 +536,7 @@ export default function LandingPage() {
               <p className="text-sm text-white/40 max-w-xl mx-auto mb-10 leading-relaxed">
                 한판서, 윤율무, 정소리, 서혜안, 조필묵, 최감수 — 6명의 AI 전문가가
                 <br className="hidden sm:block" />
-                판례 검색부터 계약서 작성, 성공보수 관리, 의뢰인 케어까지 함께합니다.
+                녹음·첨부 문서를 분석하고, 계약서 작성부터 성공보수 관리까지 함께합니다.
               </p>
             </FadeIn>
 
@@ -747,6 +747,42 @@ export default function LandingPage() {
               </FadeIn>
             ))}
           </div>
+
+          {/* 문서 첨부 & 자동 분석 안내 */}
+          <FadeIn delay={300}>
+            <div className="mt-12 p-6 sm:p-8 rounded-2xl bg-[#01261f] border border-[#1a3c34]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-5">
+                <div className="w-10 h-10 rounded-lg bg-[#fed65b]/10 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5 text-[#fed65b]" />
+                </div>
+                <div>
+                  <h4 className="text-white font-semibold mb-1">
+                    문서 첨부하면, 에이전트가 읽고 분석합니다
+                  </h4>
+                  <p className="text-white/50 text-sm">
+                    상담 녹음과 함께 관련 문서를 첨부하세요. AI가 자동으로 텍스트를 추출하고, 증거번호(갑 제1호증)까지 매겨서 문서에 인용합니다.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "PDF",
+                  "DOCX",
+                  "HWP/HWPX",
+                  "Excel",
+                  "PPTX",
+                  "이미지(OCR)",
+                ].map((format) => (
+                  <span
+                    key={format}
+                    className="px-3 py-1.5 rounded-full bg-white/10 text-white/80 text-xs font-medium border border-white/10"
+                  >
+                    {format}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </FadeIn>
         </div>
       </section>
 
