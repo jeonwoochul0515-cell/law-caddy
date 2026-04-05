@@ -613,7 +613,7 @@ export default function CaseDetailPage() {
         isOpen={contractModalOpen}
         onClose={() => setContractModalOpen(false)}
         caseData={caseData}
-        user={user}
+        user={user!}
         onComplete={handleContractComplete}
       />
 
