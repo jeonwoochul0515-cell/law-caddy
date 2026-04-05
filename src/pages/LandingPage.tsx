@@ -352,7 +352,6 @@ const PLATFORM_FEATURES = [
     tag: "비용관리",
   },
   {
-    icon: <BarChart3 className="w-6 h-6" />,
     icon: <CreditCard className="w-6 h-6" />,
     title: "은행·카드 자동 연동 & AI 매칭",
     desc: "CODEF로 입출금·카드 내역을 자동 수집. 신뢰도 85% 이상이면 사건별 매출·경비에 자동 분류됩니다.",
@@ -726,7 +725,7 @@ export default function LandingPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {AGENTS.map((agent, i) => (
-              <FadeIn key={agent.name} delay={i * 80}>
+              <FadeIn key={agent.fullName} delay={i * 80}>
                 <div className="group flex items-start gap-4 p-6 rounded-xl bg-[#faf9f5] border border-[#efeeea] hover:border-[#735c00]/20 hover:shadow-md transition-all h-full">
                   <div
                     className={`w-10 h-10 rounded-lg bg-white flex items-center justify-center flex-shrink-0 ${agent.color} group-hover:scale-110 transition-transform shadow-sm`}
