@@ -52,7 +52,7 @@ export interface CheckpointAnswer {
   audioBlob: Blob | null;
 }
 
-/** 판서가 검증한 판례 참조 ID */
+/** 한판서가 검증한 판례 참조 ID */
 export interface CaseRef {
   id: string;           // "CaseRef-1"
   court: string;        // "대법원"

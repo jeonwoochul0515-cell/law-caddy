@@ -1,5 +1,5 @@
 // 법률 교과서 서지정보 DB (정적 데이터, Claude API 호출 0회)
-// 쟁점 키워드로 매칭하여 필묵에게 "참고문헌" 형식 안내
+// 쟁점 키워드로 매칭하여 조필묵에게 "참고문헌" 형식 안내
 // 본문 없음 — 저작권 문제 없음 (서지정보만)
 
 export interface TextbookEntry {
@@ -91,7 +91,7 @@ export function findRelevantTextbooks(issueKeywords: string[]): TextbookEntry[] 
 }
 
 /**
- * 매칭된 교과서를 필묵 프롬프트에 주입할 텍스트로 변환합니다.
+ * 매칭된 교과서를 조필묵 프롬프트에 주입할 텍스트로 변환합니다.
  */
 export function formatTextbooksForPrompt(books: TextbookEntry[]): string {
   if (books.length === 0) return "";

@@ -1,5 +1,5 @@
 // 증거번호-파일 매핑 레지스트리
-// 업로드 파일에 자동으로 "갑 제N호증" 부여 + 필묵 컨텍스트 생성
+// 업로드 파일에 자동으로 "갑 제N호증" 부여 + 조필묵 컨텍스트 생성
 
 /** 증거 항목 */
 export interface EvidenceItem {
@@ -33,7 +33,7 @@ export function createEvidenceRegistry(
 }
 
 /**
- * 증거 레지스트리를 필묵(docgen) 프롬프트에 주입할 텍스트로 변환합니다.
+ * 증거 레지스트리를 조필묵(docgen) 프롬프트에 주입할 텍스트로 변환합니다.
  */
 export function formatEvidenceForPrompt(items: EvidenceItem[]): string {
   if (items.length === 0) return "";

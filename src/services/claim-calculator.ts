@@ -1,5 +1,5 @@
 // 청구취지 자동 계산 서비스
-// 혜안의 FactMaster JSON에서 금액을 추출하여 청구취지 문구 자동 생성
+// 서혜안의 FactMaster JSON에서 금액을 추출하여 청구취지 문구 자동 생성
 
 /** FactMaster의 금액 항목 */
 export interface FactMasterAmount {
@@ -20,7 +20,7 @@ export interface ClaimCalculation {
   provisionalExecution: boolean;
   /** 가집행선고 근거 */
   provisionalExecutionBasis: string;
-  /** 청구취지 컨텍스트 (필묵에게 전달할 텍스트) */
+  /** 청구취지 컨텍스트 (조필묵에게 전달할 텍스트) */
   contextText: string;
 }
 

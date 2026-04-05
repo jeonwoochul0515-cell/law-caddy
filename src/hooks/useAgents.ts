@@ -82,7 +82,7 @@ interface RunAgentsContext extends AgentContext {
   searchKeywords?: string[];
   /** 쟁점 분석 결과 (runAllAgents에서 1회 분석 → 에이전트 간 공유) */
   identifiedIssues?: IssueWithKeywords[];
-  /** 판서가 검증한 판례 참조 목록 (Stage 2 → Stage 3/docgen에 전달) */
+  /** 한판서가 검증한 판례 참조 목록 (Stage 2 → Stage 3/docgen에 전달) */
   caseRefs?: CaseRef[];
 }
 
@@ -393,7 +393,7 @@ export default function useAgents(): UseAgentsReturn {
       // Stage 1 컨텍스트 (analyzeIssuesWithAI 호출 없이 혜안에 통합)
       const contextForStage1 = { ...context };
 
-      // ─── Stage 1: precedent 제외 4개 에이전트 병렬 실행 (감수는 Stage 3으로 이동) ───
+      // ─── Stage 1: precedent 제외 4개 에이전트 병렬 실행 (최감수는 Stage 3으로 이동) ───
       const STAGE1_AGENTS: AgentId[] = ["stt", "analysis", "legal", "docgen"];
       console.log("[Stage 1] 4개 에이전트 병렬 실행:", STAGE1_AGENTS.join(", "));
 
@@ -415,7 +415,7 @@ export default function useAgents(): UseAgentsReturn {
         STAGE1_AGENTS.map((id) => runAgent(id, contextForStage1)),
       );
 
-      // ─── Stage 1 완료 후: 혜안(analysis) 결과에서 쟁점 + 검색 키워드 파싱 ───
+      // ─── Stage 1 완료 후: 서혜안(analysis) 결과에서 쟁점 + 검색 키워드 파싱 ───
       const analysisState = stage1Results.find(
         (r, i) => STAGE1_AGENTS[i] === "analysis" && r.status === "fulfilled" && r.value.status === "completed",
       );
@@ -425,7 +425,7 @@ export default function useAgents(): UseAgentsReturn {
       let searchKeywords: string[] = [];
 
       if (analysisResult) {
-        // 혜안 결과에서 JSON 배열 파싱 (쟁점 + 키워드)
+        // 서혜안 결과에서 JSON 배열 파싱 (쟁점 + 키워드)
         const issuesMatch = analysisResult.match(/\[[\s\S]*?\]/);
         if (issuesMatch) {
           try {
@@ -441,10 +441,10 @@ export default function useAgents(): UseAgentsReturn {
             if (valid.length > 0) {
               identifiedIssues = valid;
               searchKeywords = identifiedIssues.flatMap((i) => i.keywords);
-              console.log("[Stage 1] 혜안 결과에서 쟁점 파싱 성공:", identifiedIssues.map((i) => `${i.issue} → ${i.keywords.join(", ")}`));
+              console.log("[Stage 1] 서혜안 결과에서 쟁점 파싱 성공:", identifiedIssues.map((i) => `${i.issue} → ${i.keywords.join(", ")}`));
             }
           } catch (err) {
-            console.warn("[Stage 1] 혜안 결과 JSON 파싱 실패, 폴백 사용:", err);
+            console.warn("[Stage 1] 서혜안 결과 JSON 파싱 실패, 폴백 사용:", err);
           }
         }
       }
@@ -456,7 +456,7 @@ export default function useAgents(): UseAgentsReturn {
         console.log("[Stage 1] 폴백 키워드 사용:", searchKeywords);
       }
 
-      // ─── Stage 2: 혜안 결과의 쟁점으로 precedent 실행 ───
+      // ─── Stage 2: 서혜안 결과의 쟁점으로 precedent 실행 ───
       const precedentContext: RunAgentsContext = {
         ...context,
         searchKeywords,
@@ -466,7 +466,7 @@ export default function useAgents(): UseAgentsReturn {
       console.log("[Stage 2] precedent 에이전트 실행 (키워드:", searchKeywords.join(", "), ")");
       const precedentState = await runAgent("precedent", precedentContext);
 
-      // 판서 결과에서 CaseRef JSON 파싱
+      // 한판서 결과에서 CaseRef JSON 파싱
       let caseRefs: CaseRef[] = [];
       try {
         const caseRefMatch = precedentState.result.match(/\{"caseRefs"\s*:\s*\[[\s\S]*?\]\}/);
@@ -498,7 +498,7 @@ export default function useAgents(): UseAgentsReturn {
       finalStates.precedent = precedentState;
 
       // ─── Stage 3: 감수 실행 (모든 에이전트 결과를 받아 3중 검증) ───
-      console.log("[Stage 3] 감수 에이전트 실행");
+      console.log("[Stage 3] 최감수 에이전트 실행");
       const reviewContext: RunAgentsContext = {
         ...contextForStage1,
         searchKeywords,

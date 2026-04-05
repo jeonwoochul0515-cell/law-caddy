@@ -149,7 +149,7 @@ export default function DocumentPage() {
         barLicenseNumber: state.barLicenseNumber,
         businessAddress: state.businessAddress,
         lawyerPhone: state.lawyerPhone,
-        // 다른 에이전트 분석 결과를 필묵에게 전달
+        // 다른 에이전트 분석 결과를 조필묵에게 전달
         precedentResult: state.agentResults.precedent ?? "",
         analysisResult: state.agentResults.analysis ?? "",
         legalResult: state.agentResults.legal ?? "",
