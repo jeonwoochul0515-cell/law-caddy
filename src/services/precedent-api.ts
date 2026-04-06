@@ -66,7 +66,8 @@ export async function searchLatestPrecedents(
     });
 
     if (!response.ok) {
-      console.warn(`[판례검색] 법제처 API 검색 실패: HTTP ${response.status}`);
+      const errBody = await response.text().catch(() => "");
+      console.warn(`[판례검색] 법제처 API 검색 실패: HTTP ${response.status}`, errBody);
       return [];
     }
 
