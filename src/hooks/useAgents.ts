@@ -21,6 +21,21 @@ import type { AgentId, AgentState, CaseType, IssueWithKeywords } from "../types/
 import type { CaseRef } from "../types/document";
 import { CASE_TYPES } from "../config/constants";
 
+/** 서혜안 응답에서 최상위 JSON 배열을 추출 (중첩 bracket 지원) */
+function extractTopLevelJsonArray(text: string): string | null {
+  const start = text.indexOf("[");
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "[") depth++;
+    else if (text[i] === "]") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 /** 법률 키워드 사전 — AI 실패 시 텍스트에서 매칭하여 폴백 키워드 생성 */
 const LEGAL_KEYWORD_PATTERNS: Array<[string, string[]]> = [
   ["손해배상", ["손해배상", "불법행위"]],
@@ -425,13 +440,14 @@ export default function useAgents(): UseAgentsReturn {
       let searchKeywords: string[] = [];
 
       if (analysisResult) {
-        // 서혜안 결과에서 JSON 배열 파싱 (쟁점 + 키워드)
-        const issuesMatch = analysisResult.match(/\[[\s\S]*?\]/);
-        if (issuesMatch) {
+        // 서혜안 결과에서 JSON 배열 파싱 (쟁점 + 키워드 + 법조문)
+        // 중첩 배열(statutes[], joSearch[])을 지원하기 위해 bracket 카운팅 사용
+        const jsonStr = extractTopLevelJsonArray(analysisResult);
+        if (jsonStr) {
           try {
             // eslint-disable-next-line no-control-regex
             const ctrlRegex = /[\x00-\x1F\x7F]/g;
-            const cleaned = issuesMatch[0]
+            const cleaned = jsonStr
               .replace(ctrlRegex, " ")
               .replace(/,\s*([}\]])/g, "$1")
               .replace(/'/g, '"')
