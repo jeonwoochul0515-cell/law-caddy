@@ -974,14 +974,17 @@ export async function searchAll(
   const allRawScores: number[] = [];
   for (const table of tables) {
     const items = resultMap[table] as Array<{ combined_score?: number }> | undefined;
+    const count = items?.length ?? 0;
     if (items) {
       for (const item of items) {
         if (typeof item.combined_score === "number") allRawScores.push(item.combined_score);
       }
     }
+    if (count > 0) console.log(`[RAG] ${table}: ${count}건 반환, 점수 있는 건: ${items?.filter((i) => typeof i.combined_score === "number").length ?? 0}`);
   }
   const rawTopScore = allRawScores.length > 0 ? Math.max(...allRawScores) : 0;
   const dynamicThreshold = Math.max(rawTopScore * 0.4, 0.08); // 최소 0.08
+  console.log(`[RAG] 전체 ${allRawScores.length}건, rawTopScore: ${rawTopScore.toFixed(4)}, threshold: ${dynamicThreshold.toFixed(4)}`);
 
   let context = emptyRAGContext();
   for (const table of tables) {
