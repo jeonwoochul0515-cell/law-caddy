@@ -37,11 +37,7 @@ function extractTopLevelJsonObject(text: string, key: string): string | null {
 /** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
 interface RunAgentsContext extends AgentContext {
   transcribeId?: string;
-  /** AI 추출 검색 키워드 (runAllAgents에서 1회 추출 → 에이전트 간 공유) */
-  searchKeywords?: string[];
-  /** 쟁점 분석 결과 (runAllAgents에서 1회 분석 → 에이전트 간 공유) */
-  identifiedIssues?: IssueWithKeywords[];
-  /** 한판서가 검증한 판례 참조 목록 (Stage 2 → Stage 3/docgen에 전달) */
+  /** 한판서가 검증한 판례 참조 목록 */
   caseRefs?: CaseRef[];
 }
 
