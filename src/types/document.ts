@@ -60,4 +60,11 @@ export interface CaseRef {
   caseNumber: string;   // "2017다241819"
   group: "A" | "B" | "C";
   keyHolding: string;   // 핵심 판시사항
+  // Phase 1 확장 (optional — 기존 파싱 로직에 영향 없음)
+  division?: string;                                    // "전원합의체" | undefined
+  caseType?: "leading" | "supporting" | "adverse";      // 리딩케이스 / 보강 / 불리
+  relatedStatutes?: string[];                           // ["민법 제750조"]
+  factSimilarity?: "high" | "medium" | "low";           // 사실관계 유사도
+  overruled?: boolean;                                  // 폐기 여부
+  source?: string;                                      // "law.go.kr" | "rag-db" | "citation-chain"
 }
