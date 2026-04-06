@@ -541,6 +541,139 @@ export async function searchByStatute(
 }
 
 // ---------------------------------------------------------------------------
+// 지능형 법령검색 (aiSearch) — 조문 원문 포함
+// ---------------------------------------------------------------------------
+
+export interface SmartArticle {
+  lawName: string;
+  articleNumber: string;
+  articleTitle: string;
+  articleContent: string;
+  enforcementDate: string;
+}
+
+interface SmartSearchResponse { totalCount: number; articles: SmartArticle[]; }
+
+export async function searchSmartStatutes(query: string, count: number = 5): Promise<SmartArticle[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(PROXY_URL, { method: "POST", headers, body: JSON.stringify({ query, count, target: "aiSearch" }) });
+    if (!res.ok) { console.warn(`[지능형검색] 실패: HTTP ${res.status}`); return []; }
+    return ((await res.json()) as SmartSearchResponse).articles ?? [];
+  } catch (e) { console.warn("[지능형검색] 오류:", e instanceof Error ? e.message : e); return []; }
+}
+
+export function formatSmartArticlesForPrompt(articles: SmartArticle[]): string {
+  if (!articles.length) return "";
+  return articles.map((a, i) =>
+    `${i + 1}. ${a.lawName} 제${parseInt(a.articleNumber, 10)}조 (${a.articleTitle})\n   ${truncate(a.articleContent, 500)}`
+  ).join("\n\n");
+}
+
+// ---------------------------------------------------------------------------
+// 연관법령 (aiRltLs) — 키워드로 관련 조문 자동 탐색
+// ---------------------------------------------------------------------------
+
+export interface RelatedLaw {
+  lawName: string;
+  articleNumber: string;
+  articleTitle: string;
+  enforcementDate: string;
+}
+
+interface RelatedLawResponse { totalCount: number; relatedLaws: RelatedLaw[]; }
+
+export async function searchRelatedLaws(query: string, count: number = 10): Promise<RelatedLaw[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(PROXY_URL, { method: "POST", headers, body: JSON.stringify({ query, count, target: "aiRltLs" }) });
+    if (!res.ok) { console.warn(`[연관법령] 실패: HTTP ${res.status}`); return []; }
+    return ((await res.json()) as RelatedLawResponse).relatedLaws ?? [];
+  } catch (e) { console.warn("[연관법령] 오류:", e instanceof Error ? e.message : e); return []; }
+}
+
+export function formatRelatedLawsForPrompt(laws: RelatedLaw[]): string {
+  if (!laws.length) return "";
+  return laws.map((l, i) =>
+    `${i + 1}. ${l.lawName} 제${parseInt(l.articleNumber, 10)}조 — ${l.articleTitle}`
+  ).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// 노동위원회 심판례 (nlrc) — 38,000건+
+// ---------------------------------------------------------------------------
+
+export interface LaborCase { caseNumber: string; title: string; date: string; serialNumber: string; }
+interface LaborCaseResponse { totalCount: number; laborCases: LaborCase[]; }
+
+export async function searchLaborCases(query: string, count: number = 5): Promise<LaborCase[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(PROXY_URL, { method: "POST", headers, body: JSON.stringify({ query, count, target: "nlrc" }) });
+    if (!res.ok) { console.warn(`[노동위원회] 실패: HTTP ${res.status}`); return []; }
+    return ((await res.json()) as LaborCaseResponse).laborCases ?? [];
+  } catch (e) { console.warn("[노동위원회] 오류:", e instanceof Error ? e.message : e); return []; }
+}
+
+export function formatLaborCasesForPrompt(cases: LaborCase[]): string {
+  if (!cases.length) return "";
+  return cases.map((c, i) =>
+    `${i + 1}. ${c.title} (${c.caseNumber}, ${c.date})`
+  ).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// 공정위 심결 (ftc) — 2,700건+
+// ---------------------------------------------------------------------------
+
+export interface FtcCase { caseNumber: string; caseName: string; decisionDate: string; serialNumber: string; }
+interface FtcCaseResponse { totalCount: number; ftcCases: FtcCase[]; }
+
+export async function searchFtcCases(query: string, count: number = 5): Promise<FtcCase[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(PROXY_URL, { method: "POST", headers, body: JSON.stringify({ query, count, target: "ftc" }) });
+    if (!res.ok) { console.warn(`[공정위] 실패: HTTP ${res.status}`); return []; }
+    return ((await res.json()) as FtcCaseResponse).ftcCases ?? [];
+  } catch (e) { console.warn("[공정위] 오류:", e instanceof Error ? e.message : e); return []; }
+}
+
+export function formatFtcCasesForPrompt(cases: FtcCase[]): string {
+  if (!cases.length) return "";
+  return cases.map((c, i) =>
+    `${i + 1}. ${c.caseName} (${c.caseNumber}, ${c.decisionDate})`
+  ).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// 법령용어-조문 연계 (lstrmRltJo)
+// ---------------------------------------------------------------------------
+
+export interface LinkedArticle { lawName: string; articleNumber: string; articleContent: string; termType: string; }
+interface LinkedArticleResponse { totalCount: number; linkedArticles: LinkedArticle[]; }
+
+export async function searchTermToStatute(query: string): Promise<LinkedArticle[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(PROXY_URL, { method: "POST", headers, body: JSON.stringify({ query, count: 10, target: "lstrmRltJo" }) });
+    if (!res.ok) { console.warn(`[용어-조문] 실패: HTTP ${res.status}`); return []; }
+    return ((await res.json()) as LinkedArticleResponse).linkedArticles ?? [];
+  } catch (e) { console.warn("[용어-조문] 오류:", e instanceof Error ? e.message : e); return []; }
+}
+
+export function formatLinkedArticlesForPrompt(articles: LinkedArticle[]): string {
+  if (!articles.length) return "";
+  return articles.map((a, i) =>
+    `${i + 1}. ${a.lawName} 제${parseInt(a.articleNumber, 10) || a.articleNumber}조\n   ${truncate(a.articleContent, 400)}`
+  ).join("\n\n");
+}
+
+// ---------------------------------------------------------------------------
 // 내부 유틸리티
 // ---------------------------------------------------------------------------
 

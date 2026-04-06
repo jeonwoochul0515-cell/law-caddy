@@ -53,7 +53,7 @@ const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
 const LAW_API_DETAIL = "https://www.law.go.kr/DRF/lawService.do";
 
 /** 검색 대상 타입 */
-type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm";
+type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm" | "aiSearch" | "aiRltLs" | "nlrc" | "ftc" | "lstrmRltJo";
 
 /** 요청 body 타입 */
 interface PrecedentSearchRequest {
@@ -666,6 +666,204 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const rawTerms = Array.isArray(data.LstrmSearch.lstrm) ? data.LstrmSearch.lstrm : data.LstrmSearch.lstrm ? [data.LstrmSearch.lstrm] : [];
       const terms = rawTerms.map(mapLegalTerm);
       return Response.json({ totalCount, terms });
+    }
+
+    // -----------------------------------------------------------------------
+    // 지능형 법령검색 (target=aiSearch) — 조문 원문 포함
+    // -----------------------------------------------------------------------
+    if (target === "aiSearch") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "aiSearch");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("search", "0"); // 법령조문
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) return Response.json({ error: "법제처 지능형검색 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, articles: [] });
+
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text) as Record<string, unknown>; }
+      catch { return Response.json({ error: "지능형검색 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError}` }, { status: 502 });
+
+      const aiData = data.aiSearch as Record<string, unknown> | undefined;
+      if (!aiData) return Response.json({ totalCount: 0, articles: [] });
+
+      const totalCount = parseInt(String(aiData.검색결과개수 ?? "0"), 10);
+      const rawArticles = Array.isArray(aiData.법령조문) ? aiData.법령조문 : aiData.법령조문 ? [aiData.법령조문] : [];
+      const articles = (rawArticles as Array<Record<string, string>>).map((a) => ({
+        lawName: a.법령명 ?? "",
+        articleNumber: a.조문번호 ?? "",
+        articleTitle: a.조문제목 ?? "",
+        articleContent: a.조문내용 ?? "",
+        enforcementDate: formatDate(a.시행일자?.slice(0, 8) ?? ""),
+      }));
+      return Response.json({ totalCount, articles });
+    }
+
+    // -----------------------------------------------------------------------
+    // 연관법령 검색 (target=aiRltLs) — 키워드로 관련 법조문 자동 탐색
+    // -----------------------------------------------------------------------
+    if (target === "aiRltLs") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "aiRltLs");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("search", "0");
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) return Response.json({ error: "법제처 연관법령 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, relatedLaws: [] });
+
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text) as Record<string, unknown>; }
+      catch { return Response.json({ error: "연관법령 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError}` }, { status: 502 });
+
+      const aiData = data.aiRltLsSearch as Record<string, unknown> | undefined;
+      if (!aiData) return Response.json({ totalCount: 0, relatedLaws: [] });
+
+      const totalCount = parseInt(String(aiData.검색결과개수 ?? "0"), 10);
+      const rawLaws = Array.isArray(aiData.법령조문) ? aiData.법령조문 : aiData.법령조문 ? [aiData.법령조문] : [];
+      const relatedLaws = (rawLaws as Array<Record<string, string>>).map((a) => ({
+        lawName: a.법령명 ?? "",
+        articleNumber: a.조문번호 ?? "",
+        articleTitle: a.조문제목 ?? "",
+        enforcementDate: formatDate(a.시행일자?.slice(0, 8) ?? ""),
+      }));
+      return Response.json({ totalCount, relatedLaws });
+    }
+
+    // -----------------------------------------------------------------------
+    // 노동위원회 심판례 (target=nlrc)
+    // -----------------------------------------------------------------------
+    if (target === "nlrc") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "nlrc");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) return Response.json({ error: "노동위원회 API 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, laborCases: [] });
+
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text) as Record<string, unknown>; }
+      catch { return Response.json({ error: "노동위원회 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError}` }, { status: 502 });
+
+      // 응답 키가 불확실 — 범용 파싱
+      const searchData = (data.nlrcSearch ?? data.NlrcSearch ?? data.nlrc) as Record<string, unknown> | undefined;
+      if (!searchData) return Response.json({ totalCount: 0, laborCases: [] });
+
+      const totalCount = parseInt(String(searchData.totalCnt ?? searchData.검색결과개수 ?? "0"), 10);
+      const rawCases = (() => {
+        const items = searchData.nlrc ?? searchData.Nlrc ?? searchData.list;
+        return Array.isArray(items) ? items : items ? [items] : [];
+      })();
+      const laborCases = (rawCases as Array<Record<string, string>>).map((c) => ({
+        caseNumber: c.사건번호 ?? c.제목 ?? "",
+        title: c.제목 ?? c.사건명 ?? "",
+        date: formatDate(c.등록일 ?? c.결정일 ?? ""),
+        serialNumber: c.결정문일련번호 ?? "",
+      }));
+      return Response.json({ totalCount, laborCases });
+    }
+
+    // -----------------------------------------------------------------------
+    // 공정위 심결 (target=ftc)
+    // -----------------------------------------------------------------------
+    if (target === "ftc") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "ftc");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) return Response.json({ error: "공정위 API 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, ftcCases: [] });
+
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text) as Record<string, unknown>; }
+      catch { return Response.json({ error: "공정위 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError}` }, { status: 502 });
+
+      const searchData = (data.ftcSearch ?? data.FtcSearch ?? data.ftc) as Record<string, unknown> | undefined;
+      if (!searchData) return Response.json({ totalCount: 0, ftcCases: [] });
+
+      const totalCount = parseInt(String(searchData.totalCnt ?? searchData.검색결과개수 ?? "0"), 10);
+      const rawCases = (() => {
+        const items = searchData.ftc ?? searchData.Ftc ?? searchData.list;
+        return Array.isArray(items) ? items : items ? [items] : [];
+      })();
+      const ftcCases = (rawCases as Array<Record<string, string>>).map((c) => ({
+        caseNumber: c.사건번호 ?? "",
+        caseName: c.사건명 ?? "",
+        decisionDate: formatDate(c.결정일자 ?? ""),
+        serialNumber: c.결정문일련번호 ?? c.의결서일련번호 ?? "",
+      }));
+      return Response.json({ totalCount, ftcCases });
+    }
+
+    // -----------------------------------------------------------------------
+    // 법령용어-조문 연계 (target=lstrmRltJo) — lawService.do 사용
+    // -----------------------------------------------------------------------
+    if (target === "lstrmRltJo") {
+      const url = new URL(LAW_API_DETAIL); // lawService.do
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "lstrmRltJo");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("query", body.query);
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) return Response.json({ error: "법령용어-조문 API 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, linkedArticles: [] });
+
+      let data: Record<string, unknown>;
+      try { data = JSON.parse(text) as Record<string, unknown>; }
+      catch { return Response.json({ error: "법령용어-조문 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError}` }, { status: 502 });
+
+      const svcData = data.lstrmRltJoService as Record<string, unknown> | undefined;
+      if (!svcData) return Response.json({ totalCount: 0, linkedArticles: [] });
+
+      const totalCount = parseInt(String(svcData.검색결과개수 ?? "0"), 10);
+      const termData = svcData.법령용어 as Record<string, unknown> | undefined;
+      const rawLinks = (() => {
+        const items = termData?.연계법령;
+        return Array.isArray(items) ? items : items ? [items] : [];
+      })();
+      const linkedArticles = (rawLinks as Array<Record<string, string>>).map((a) => ({
+        lawName: a.법령명 ?? "",
+        articleNumber: a.조번호 ?? "",
+        articleContent: a.조문내용 ?? "",
+        termType: a.용어구분 ?? "",
+      }));
+      return Response.json({ totalCount, linkedArticles });
     }
 
     // -----------------------------------------------------------------------

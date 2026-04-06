@@ -17,6 +17,17 @@ import {
   formatStatutesForPrompt,
   searchLegalTerms,
   formatLegalTermsForPrompt,
+  // 지능형 API
+  searchSmartStatutes,
+  formatSmartArticlesForPrompt,
+  searchRelatedLaws,
+  formatRelatedLawsForPrompt,
+  searchLaborCases,
+  formatLaborCasesForPrompt,
+  searchFtcCases,
+  formatFtcCasesForPrompt,
+  searchTermToStatute,
+  formatLinkedArticlesForPrompt,
 } from "../services/precedent-api";
 import type { PrecedentCase, ConstitutionalDecision } from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
@@ -240,6 +251,26 @@ async function runSingleAgent(
       enrichedContext.constitutionalDecisions = formatConstitutionalForPrompt(allDetc.slice(0, 3));
       console.log(`[한판서] 헌재결정례 ${allDetc.length}건 확보`);
     }
+
+    // 사건 유형별 특수 검색 (노동위원회 / 공정위)
+    try {
+      if (context.caseType === "노동" || context.caseDesc.includes("해고") || context.caseDesc.includes("임금")) {
+        const laborCases = await searchLaborCases(keywords[0] ?? "부당해고", 5);
+        if (laborCases.length > 0) {
+          const laborText = formatLaborCasesForPrompt(laborCases);
+          enrichedContext.latestPrecedents = (enrichedContext.latestPrecedents ?? "") + `\n\n[노동위원회 심판례]\n${laborText}`;
+          console.log(`[한판서] 노동위원회 심판례 ${laborCases.length}건 확보`);
+        }
+      }
+      if (context.caseDesc.includes("공정거래") || context.caseDesc.includes("부당공동") || context.caseDesc.includes("불공정")) {
+        const ftcCases = await searchFtcCases(keywords[0] ?? "부당공동행위", 5);
+        if (ftcCases.length > 0) {
+          const ftcText = formatFtcCasesForPrompt(ftcCases);
+          enrichedContext.latestPrecedents = (enrichedContext.latestPrecedents ?? "") + `\n\n[공정위 심결]\n${ftcText}`;
+          console.log(`[한판서] 공정위 심결 ${ftcCases.length}건 확보`);
+        }
+      }
+    } catch { /* 특수 검색 실패해도 진행 */ }
   }
 
   if (agentId === "legal") {
@@ -263,22 +294,54 @@ async function runSingleAgent(
   }
 
   if (agentId === "analysis") {
-    // 서혜안: 현행법령 + 법령용어 검색
+    // 서혜안: 연관법령(aiRltLs) + 지능형 법령검색(aiSearch) + 법령용어-조문 연계(lstrmRltJo)
     const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
     try {
-      const statutes = await searchStatutes(keywords[0] ?? "법령", 3);
-      if (statutes.length > 0) {
-        enrichedContext.statuteResults = formatStatutesForPrompt(statutes);
-        console.log(`[서혜안] 현행법령 ${statutes.length}건 확보`);
+      // 1. 연관법령 — 핵심 관련 조문 자동 탐색
+      const relatedLaws = await searchRelatedLaws(keywords[0] ?? "손해배상", 10);
+      if (relatedLaws.length > 0) {
+        enrichedContext.statuteResults = `[연관법령 (AI 자동 탐색)]\n${formatRelatedLawsForPrompt(relatedLaws)}`;
+        console.log(`[서혜안] 연관법령 ${relatedLaws.length}건 확보`);
       }
       await delay(300);
-      const terms = await searchLegalTerms(keywords[0] ?? "법률용어", 3);
-      if (terms.length > 0) {
-        enrichedContext.legalTermResults = formatLegalTermsForPrompt(terms);
-        console.log(`[서혜안] 법령용어 ${terms.length}건 확보`);
+
+      // 2. 지능형 법령검색 — 조문 원문 포함
+      const smartArticles = await searchSmartStatutes(keywords[0] ?? "손해배상", 5);
+      if (smartArticles.length > 0) {
+        enrichedContext.statuteResults = (enrichedContext.statuteResults ?? "") + `\n\n[관련 법조문 원문]\n${formatSmartArticlesForPrompt(smartArticles)}`;
+        console.log(`[서혜안] 지능형 법령검색 ${smartArticles.length}건 확보 (조문 원문 포함)`);
+      }
+      await delay(300);
+
+      // 3. 법령용어-조문 연계 — 핵심 법률용어로 관련 조문 조회
+      const linkedArticles = await searchTermToStatute(keywords[0] ?? "손해배상");
+      if (linkedArticles.length > 0) {
+        enrichedContext.legalTermResults = `[법령용어-조문 연계]\n${formatLinkedArticlesForPrompt(linkedArticles)}`;
+        console.log(`[서혜안] 법령용어-조문 ${linkedArticles.length}건 확보`);
       }
     } catch (err) {
       console.warn("[서혜안] 법제처 검색 실패:", err);
+    }
+
+    // 기존 폴백: 지능형 API 실패 시 기본 법령 검색
+    if (!enrichedContext.statuteResults) {
+      try {
+        const statutes = await searchStatutes(keywords[0] ?? "법령", 3);
+        if (statutes.length > 0) {
+          enrichedContext.statuteResults = formatStatutesForPrompt(statutes);
+        }
+      } catch { /* continue */ }
+    }
+    if (!enrichedContext.legalTermResults) {
+      try {
+        const terms = await searchLegalTerms(keywords[0] ?? "법률용어", 3);
+        if (terms.length > 0) {
+          enrichedContext.legalTermResults = formatLegalTermsForPrompt(terms);
+          console.log(`[서혜안] 법령용어 ${terms.length}건 확보`);
+        }
+      } catch (err) {
+        console.warn("[서혜안] 법제처 검색 실패:", err);
+      }
     }
   }
 
