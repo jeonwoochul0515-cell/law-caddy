@@ -47,10 +47,10 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
 }
 
 /** 법제처 API — 검색용 URL (lawSearch.do) */
-const LAW_API_SEARCH = "http://34.22.101.186/DRF/lawSearch.do";
+const LAW_API_SEARCH = "http://api.law-caddy.com/DRF/lawSearch.do";
 
 /** 법제처 API — 상세 조회용 URL (lawService.do, 서울 중계소 경유) */
-const LAW_API_DETAIL = "http://34.22.101.186/DRF/lawService.do";
+const LAW_API_DETAIL = "http://api.law-caddy.com/DRF/lawService.do";
 
 /** 검색 대상 타입 */
 type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm" | "aiSearch" | "aiRltLs" | "nlrc" | "ftc" | "lstrmRltJo";
