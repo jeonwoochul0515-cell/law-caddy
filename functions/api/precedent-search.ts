@@ -288,6 +288,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // 법제처 API 에러 응답 감지 (헌재 상세 조회)
+      const detcDetailError = (data as Record<string, unknown>).result;
+      if (detcDetailError && typeof detcDetailError === "string") {
+        return Response.json(
+          {
+            error: "법제처 API 인증 실패",
+            detail: `${detcDetailError} — ${(data as Record<string, unknown>).msg ?? ""}`,
+          },
+          { status: 502 },
+        );
+      }
+
       if (!data.DetcService) {
         return Response.json({ decision: null });
       }
@@ -330,6 +342,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       } catch {
         return Response.json(
           { error: "법제처 판례 상세 응답 파싱 실패", detail: text.slice(0, 200) },
+          { status: 502 },
+        );
+      }
+
+      // 법제처 API 에러 응답 감지 (상세 조회)
+      const detailApiError = (data as Record<string, unknown>).result;
+      if (detailApiError && typeof detailApiError === "string") {
+        return Response.json(
+          {
+            error: "법제처 API 인증 실패",
+            detail: `${detailApiError} — ${(data as Record<string, unknown>).msg ?? ""}`,
+          },
           { status: 502 },
         );
       }
@@ -394,6 +418,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // 법제처 API 에러 응답 감지
+      const detcApiError = (data as Record<string, unknown>).result;
+      if (detcApiError && typeof detcApiError === "string") {
+        return Response.json(
+          {
+            error: "법제처 API 인증 실패",
+            detail: `${detcApiError} — ${(data as Record<string, unknown>).msg ?? ""}`,
+          },
+          { status: 502 },
+        );
+      }
+
       if (!data.DetcSearch) {
         return Response.json({ totalCount: 0, decisions: [] });
       }
@@ -450,6 +486,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // 법제처 API 에러 응답 감지
+      const expcApiError = (data as Record<string, unknown>).result;
+      if (expcApiError && typeof expcApiError === "string") {
+        return Response.json(
+          {
+            error: "법제처 API 인증 실패",
+            detail: `${expcApiError} — ${(data as Record<string, unknown>).msg ?? ""}`,
+          },
+          { status: 502 },
+        );
+      }
+
       if (!data.Expc) {
         return Response.json({ totalCount: 0, interpretations: [] });
       }
@@ -501,6 +549,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     } catch {
       return Response.json(
         { error: "법제처 판례 검색 응답 파싱 실패", detail: text.slice(0, 200) },
+        { status: 502 },
+      );
+    }
+
+    // 법제처 API 에러 응답 감지 (HTTP 200이지만 body에 에러)
+    // 예: {"result":"사용자 정보 검증에 실패하였습니다.","msg":"IP주소 및 도메인주소를 등록해 주세요."}
+    const apiError = (data as Record<string, unknown>).result;
+    if (apiError && typeof apiError === "string") {
+      return Response.json(
+        {
+          error: "법제처 API 인증 실패",
+          detail: `${apiError} — ${(data as Record<string, unknown>).msg ?? ""}`,
+        },
         { status: 502 },
       );
     }
