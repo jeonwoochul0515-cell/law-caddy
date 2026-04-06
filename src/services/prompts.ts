@@ -359,9 +359,14 @@ ${hasExternalSources ? "법제처/RAG 검색 결과를 활용하여 분석하세
 
 \`\`\`json
 {"caseRefs":[
-{"id":"CaseRef-1","court":"법원명","division":null,"date":"YYYY. M. D.","caseNumber":"사건번호","group":"A/B/C","caseType":"leading","relatedStatutes":["법률명 제N조"],"keyHolding":"핵심 판시사항 1문장","factSimilarity":"high","overruled":false,"source":"law.go.kr"}
+{"id":"CaseRef-1","court":"대법원","division":null,"date":"2017. 11. 29.","caseNumber":"2017다241819","group":"A","caseType":"leading","relatedStatutes":["민법 제750조"],"keyHolding":"핵심 판시사항 1문장","factSimilarity":"high","overruled":false,"source":"ai-knowledge"}
 ]}
 \`\`\`
+⚠️ CaseRef 필수 규칙:
+- **사건번호를 확실히 아는 판례만** CaseRef에 포함하세요
+- 사건번호가 불확실하면 CaseRef에 넣지 마세요 ("검색 필요" 같은 placeholder 금지)
+- caseNumber는 반드시 "2017다241819" 같은 실제 사건번호여야 합니다
+- date도 "2017. 11. 29." 같은 실제 선고일이어야 합니다
 - division: 전원합의체이면 "전원합의체", 아니면 null
 - caseType: "leading"(리딩케이스) / "supporting"(보강) / "adverse"(불리)
 - relatedStatutes: 이 판례가 해석한 법조문 배열
