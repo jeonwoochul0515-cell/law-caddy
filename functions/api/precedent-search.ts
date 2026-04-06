@@ -53,18 +53,20 @@ const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
 const LAW_API_DETAIL = "https://www.law.go.kr/DRF/lawService.do";
 
 /** 검색 대상 타입 */
-type SearchTarget = "prec" | "detc" | "expc";
+type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm";
 
 /** 요청 body 타입 */
 interface PrecedentSearchRequest {
   query: string;
   count?: number;
-  /** 검색 대상: prec(판례), detc(헌재결정례), expc(법령해석례). 기본값 prec */
+  /** 검색 대상: prec(판례), detc(헌재결정례), expc(법령해석례), law(현행법령), lstrm(법령용어). 기본값 prec */
   target?: SearchTarget;
   /** 판례 일련번호로 상세 조회 (query 대신 사용, prec 전용) */
   id?: string;
   /** 헌재결정례 일련번호로 상세 조회 (query 대신 사용, detc 전용) */
   detcId?: string;
+  /** 법률명 필터 (JO 파라미터, 판례 검색 시 참조조문 기반 필터링) */
+  jo?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +186,64 @@ interface LegalInterpretationResult {
 }
 
 // ---------------------------------------------------------------------------
+// 현행법령 (law) 타입
+// ---------------------------------------------------------------------------
+
+/** 법제처 API 법령 항목 */
+interface LawApiLaw {
+  법령일련번호: string;
+  법령명한글: string;
+  법령약칭명?: string;
+  시행일자?: string;
+  법령상세링크?: string;
+  조문내용?: string;
+}
+
+/** 법제처 법령 검색 API 응답 */
+interface LawApiLawSearchResponse {
+  LawSearch: {
+    totalCnt: string;
+    law: LawApiLaw[] | LawApiLaw;
+  };
+}
+
+/** 프론트엔드로 반환할 법령 타입 */
+interface StatuteResult {
+  serialNumber: string;
+  lawName: string;
+  abbreviation: string;
+  enforcementDate: string;
+  detailLink: string;
+  content: string;
+}
+
+// ---------------------------------------------------------------------------
+// 법령용어 (lstrm) 타입
+// ---------------------------------------------------------------------------
+
+/** 법제처 API 법령용어 항목 */
+interface LawApiTerm {
+  용어명?: string;
+  정의?: string;
+  법령명?: string;
+}
+
+/** 법제처 법령용어 검색 API 응답 */
+interface LawApiTermSearchResponse {
+  LstrmSearch: {
+    totalCnt: string;
+    lstrm: LawApiTerm[] | LawApiTerm;
+  };
+}
+
+/** 프론트엔드로 반환할 법령용어 타입 */
+interface LegalTermResult {
+  term: string;
+  definition: string;
+  lawName: string;
+}
+
+// ---------------------------------------------------------------------------
 // 매핑 함수
 // ---------------------------------------------------------------------------
 
@@ -231,6 +291,31 @@ function mapLegalInterpretation(raw: LawApiExpc): LegalInterpretationResult {
     date: formatDate(raw.회신일자 ?? ""),
     detailLink: raw.법령해석례상세링크 ?? "",
     summary: raw.결정요지 ?? "",
+  };
+}
+
+/**
+ * 법제처 API에서 받은 법령을 프론트엔드 형식으로 변환합니다.
+ */
+function mapStatute(raw: LawApiLaw): StatuteResult {
+  return {
+    serialNumber: raw.법령일련번호 ?? "",
+    lawName: raw.법령명한글 ?? "",
+    abbreviation: raw.법령약칭명 ?? "",
+    enforcementDate: formatDate(raw.시행일자 ?? ""),
+    detailLink: raw.법령상세링크 ?? "",
+    content: raw.조문내용 ?? "",
+  };
+}
+
+/**
+ * 법제처 API에서 받은 법령용어를 프론트엔드 형식으로 변환합니다.
+ */
+function mapLegalTerm(raw: LawApiTerm): LegalTermResult {
+  return {
+    term: raw.용어명 ?? "",
+    definition: raw.정의 ?? "",
+    lawName: raw.법령명 ?? "",
   };
 }
 
@@ -516,6 +601,74 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // -----------------------------------------------------------------------
+    // 현행법령 검색 (target=law)
+    // -----------------------------------------------------------------------
+    if (target === "law") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "law");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) {
+        return Response.json({ error: "법제처 법령 API 호출 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      }
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, statutes: [] });
+
+      let data: LawApiLawSearchResponse;
+      try { data = JSON.parse(text) as LawApiLawSearchResponse; }
+      catch { return Response.json({ error: "법제처 법령 응답 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = (data as Record<string, unknown>).result;
+      if (apiError && typeof apiError === "string") {
+        return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError} — ${(data as Record<string, unknown>).msg ?? ""}` }, { status: 502 });
+      }
+      if (!data.LawSearch) return Response.json({ totalCount: 0, statutes: [] });
+
+      const totalCount = parseInt(data.LawSearch.totalCnt ?? "0", 10);
+      const rawLaws = Array.isArray(data.LawSearch.law) ? data.LawSearch.law : data.LawSearch.law ? [data.LawSearch.law] : [];
+      const statutes = rawLaws.map(mapStatute);
+      return Response.json({ totalCount, statutes });
+    }
+
+    // -----------------------------------------------------------------------
+    // 법령용어 검색 (target=lstrm)
+    // -----------------------------------------------------------------------
+    if (target === "lstrm") {
+      const url = new URL(LAW_API_SEARCH);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "lstrm");
+      url.searchParams.set("type", "JSON");
+      url.searchParams.set("query", body.query);
+      url.searchParams.set("display", String(count));
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) {
+        return Response.json({ error: "법제처 법령용어 API 호출 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      }
+      const text = await response.text();
+      if (!text.trim()) return Response.json({ totalCount: 0, terms: [] });
+
+      let data: LawApiTermSearchResponse;
+      try { data = JSON.parse(text) as LawApiTermSearchResponse; }
+      catch { return Response.json({ error: "법제처 법령용어 응답 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = (data as Record<string, unknown>).result;
+      if (apiError && typeof apiError === "string") {
+        return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError} — ${(data as Record<string, unknown>).msg ?? ""}` }, { status: 502 });
+      }
+      if (!data.LstrmSearch) return Response.json({ totalCount: 0, terms: [] });
+
+      const totalCount = parseInt(data.LstrmSearch.totalCnt ?? "0", 10);
+      const rawTerms = Array.isArray(data.LstrmSearch.lstrm) ? data.LstrmSearch.lstrm : data.LstrmSearch.lstrm ? [data.LstrmSearch.lstrm] : [];
+      const terms = rawTerms.map(mapLegalTerm);
+      return Response.json({ totalCount, terms });
+    }
+
+    // -----------------------------------------------------------------------
     // 판례 검색 (target=prec, 기본값)
     // -----------------------------------------------------------------------
     const url = new URL(LAW_API_SEARCH);
@@ -525,6 +678,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     url.searchParams.set("query", body.query);
     url.searchParams.set("display", String(count));
     url.searchParams.set("sort", "ddes"); // 최신순
+    if (body.jo) url.searchParams.set("JO", body.jo); // 법률명 필터 (참조조문 기반)
 
     const response = await fetchWithRetry(url.toString());
 

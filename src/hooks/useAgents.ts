@@ -5,11 +5,59 @@ import { useState, useCallback } from "react";
 import { callClaude } from "../services/claude";
 import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
 import { pollTranscription, formatTranscript } from "../services/rtzr";
+import {
+  searchLatestPrecedents,
+  getPrecedentDetail,
+  formatPrecedentsForPrompt,
+  searchConstitutionalDecisions,
+  formatConstitutionalForPrompt,
+  searchLegalInterpretations,
+  formatInterpretationsForPrompt,
+  searchStatutes,
+  formatStatutesForPrompt,
+  searchLegalTerms,
+  formatLegalTermsForPrompt,
+} from "../services/precedent-api";
+import type { PrecedentCase, ConstitutionalDecision } from "../services/precedent-api";
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
-// SearchPool은 시그니처 호환용 (실제 사용하지 않음)
 import type { CaseRef } from "../types/document";
 import { CASE_TYPES } from "../config/constants";
+
+/** 사건 정보에서 법제처 API 검색 키워드를 추출합니다 (규칙 기반, Claude 호출 없음) */
+function extractSearchKeywords(caseDesc: string, caseType?: string): string[] {
+  const keywords: string[] = [];
+  const KW_MAP: Array<[string, string[]]> = [
+    ["손해배상", ["손해배상"]], ["부당해고", ["부당해고"]], ["해고", ["부당해고"]],
+    ["이혼", ["이혼 재산분할"]], ["임대차", ["임대차보증금 반환"]], ["전세", ["전세금 반환"]],
+    ["사기", ["사기", "편취"]], ["횡령", ["횡령"]], ["배임", ["배임"]],
+    ["명예훼손", ["명예훼손"]], ["채무", ["채무불이행"]], ["계약", ["계약해제"]],
+    ["상속", ["상속"]], ["가압류", ["가압류"]], ["교통사고", ["교통사고"]],
+    ["의료", ["의료과실"]], ["특허", ["특허침해"]], ["부동산", ["부동산 매매"]],
+    ["임금", ["체불임금"]], ["퇴직", ["퇴직금"]], ["폭행", ["폭행"]],
+    ["성범죄", ["성범죄"]], ["마약", ["마약"]], ["음주운전", ["음주운전"]],
+  ];
+
+  for (const [pattern, kws] of KW_MAP) {
+    if (caseDesc.includes(pattern)) {
+      keywords.push(...kws);
+      if (keywords.length >= 3) break;
+    }
+  }
+
+  // 사건 유형 기반 폴백
+  if (keywords.length === 0 && caseType) {
+    const TYPE_MAP: Record<string, string[]> = {
+      "민사": ["손해배상"], "형사": ["형사"], "가사": ["이혼"],
+      "행정": ["행정처분"], "노동": ["부당해고"], "부동산": ["부동산"],
+      "채권·채무": ["채무불이행"], "손해배상": ["손해배상"],
+    };
+    keywords.push(...(TYPE_MAP[caseType] ?? ["손해배상"]));
+  }
+
+  if (keywords.length === 0) keywords.push("손해배상");
+  return keywords.slice(0, 3);
+}
 
 /** 텍스트에서 특정 키를 포함하는 최상위 JSON 객체를 추출 (중첩 bracket 지원) */
 function extractTopLevelJsonObject(text: string, key: string): string | null {
@@ -143,10 +191,100 @@ async function runSingleAgent(
     return "음성 변환 시간이 초과되었습니다. 녹음 파일을 확인해 주세요.";
   }
 
-  // 일반 에이전트: Claude API 호출 (외부 API 의존 없이 Claude 학습 데이터 활용)
-  // docgen 에이전트는 체크포인트 질문 생성 단계에서 docgen_questions 프롬프트 사용
+  // ─── 법제처 API 검색 (한판서·윤율무·서혜안만, 실패해도 Claude만으로 동작) ───
+  const enrichedContext = { ...context };
+  const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  if (agentId === "precedent") {
+    // 한판서: 판례 + 헌재결정례 검색
+    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    console.log(`[한판서] 법제처 검색 키워드: ${keywords.join(", ")}`);
+    let allPrecedents: PrecedentCase[] = [];
+    const allDetc: ConstitutionalDecision[] = [];
+    const seen = new Set<string>();
+
+    for (const kw of keywords) {
+      try {
+        const precs = await searchLatestPrecedents(kw, 5);
+        for (const p of precs) {
+          if (!seen.has(p.caseNumber)) { seen.add(p.caseNumber); allPrecedents.push(p); }
+        }
+        await delay(300);
+        const detcs = await searchConstitutionalDecisions(kw, 2);
+        for (const d of detcs) {
+          if (!seen.has(d.caseNumber)) { seen.add(d.caseNumber); allDetc.push(d); }
+        }
+        await delay(300);
+      } catch (err) {
+        console.warn(`[한판서] "${kw}" 검색 실패:`, err);
+      }
+    }
+
+    // 상위 5건 상세 조회
+    const top = allPrecedents.slice(0, 5);
+    for (let j = 0; j < top.length; j++) {
+      if (!top[j].serialNumber) continue;
+      try {
+        const detail = await getPrecedentDetail(top[j].serialNumber);
+        if (detail) top[j] = { ...top[j], ...detail };
+        await delay(300);
+      } catch { /* continue */ }
+    }
+    allPrecedents = top;
+
+    if (allPrecedents.length > 0) {
+      enrichedContext.latestPrecedents = formatPrecedentsForPrompt(allPrecedents);
+      console.log(`[한판서] 법제처 판례 ${allPrecedents.length}건 확보`);
+    }
+    if (allDetc.length > 0) {
+      enrichedContext.constitutionalDecisions = formatConstitutionalForPrompt(allDetc.slice(0, 3));
+      console.log(`[한판서] 헌재결정례 ${allDetc.length}건 확보`);
+    }
+  }
+
+  if (agentId === "legal") {
+    // 윤율무: 법령해석례 + 현행법령 검색
+    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    try {
+      const interps = await searchLegalInterpretations(keywords[0] ?? "법령해석", 3);
+      if (interps.length > 0) {
+        enrichedContext.legalInterpretations = formatInterpretationsForPrompt(interps);
+        console.log(`[윤율무] 법령해석례 ${interps.length}건 확보`);
+      }
+      await delay(300);
+      const statutes = await searchStatutes(keywords[0] ?? "법령", 3);
+      if (statutes.length > 0) {
+        enrichedContext.statuteResults = formatStatutesForPrompt(statutes);
+        console.log(`[윤율무] 현행법령 ${statutes.length}건 확보`);
+      }
+    } catch (err) {
+      console.warn("[윤율무] 법제처 검색 실패:", err);
+    }
+  }
+
+  if (agentId === "analysis") {
+    // 서혜안: 현행법령 + 법령용어 검색
+    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    try {
+      const statutes = await searchStatutes(keywords[0] ?? "법령", 3);
+      if (statutes.length > 0) {
+        enrichedContext.statuteResults = formatStatutesForPrompt(statutes);
+        console.log(`[서혜안] 현행법령 ${statutes.length}건 확보`);
+      }
+      await delay(300);
+      const terms = await searchLegalTerms(keywords[0] ?? "법률용어", 3);
+      if (terms.length > 0) {
+        enrichedContext.legalTermResults = formatLegalTermsForPrompt(terms);
+        console.log(`[서혜안] 법령용어 ${terms.length}건 확보`);
+      }
+    } catch (err) {
+      console.warn("[서혜안] 법제처 검색 실패:", err);
+    }
+  }
+
+  // Claude API 호출
   const promptId = agentId === "docgen" ? "docgen_questions" : agentId;
-  const prompt = buildPrompt(promptId, context);
+  const prompt = buildPrompt(promptId, enrichedContext);
 
   const userMessage =
     agentId === "docgen"

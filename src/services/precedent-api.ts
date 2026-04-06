@@ -395,6 +395,152 @@ export function formatInterpretationsForPrompt(
 }
 
 // ---------------------------------------------------------------------------
+// 현행법령 (law) 검색
+// ---------------------------------------------------------------------------
+
+/** 법령 검색 결과 항목 */
+export interface StatuteResult {
+  serialNumber: string;
+  lawName: string;
+  abbreviation: string;
+  enforcementDate: string;
+  detailLink: string;
+  content: string;
+}
+
+interface StatuteSearchResponse {
+  totalCount: number;
+  statutes: StatuteResult[];
+}
+
+/**
+ * 현행법령을 검색합니다.
+ */
+export async function searchStatutes(
+  query: string,
+  count: number = 5,
+): Promise<StatuteResult[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, count, target: "law" }),
+    });
+    if (!response.ok) {
+      console.warn(`[법령검색] 법제처 API 실패: HTTP ${response.status}`);
+      return [];
+    }
+    const data = (await response.json()) as StatuteSearchResponse;
+    return data.statutes ?? [];
+  } catch (error: unknown) {
+    console.warn("[법령검색] 법제처 API 오류:", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+/**
+ * 법령 검색 결과를 프롬프트용 텍스트로 포맷합니다.
+ */
+export function formatStatutesForPrompt(statutes: StatuteResult[]): string {
+  if (statutes.length === 0) return "";
+  return statutes.map((s, i) => {
+    const parts = [
+      `${i + 1}. 법령명: ${s.lawName}${s.abbreviation ? ` (${s.abbreviation})` : ""}`,
+      `   시행일: ${s.enforcementDate}`,
+    ];
+    if (s.content) parts.push(`   내용: ${truncate(s.content, 800)}`);
+    return parts.join("\n");
+  }).join("\n\n");
+}
+
+// ---------------------------------------------------------------------------
+// 법령용어 (lstrm) 검색
+// ---------------------------------------------------------------------------
+
+/** 법령용어 검색 결과 항목 */
+export interface LegalTermResult {
+  term: string;
+  definition: string;
+  lawName: string;
+}
+
+interface LegalTermSearchResponse {
+  totalCount: number;
+  terms: LegalTermResult[];
+}
+
+/**
+ * 법령용어를 검색합니다.
+ */
+export async function searchLegalTerms(
+  query: string,
+  count: number = 5,
+): Promise<LegalTermResult[]> {
+  if (!query.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, count, target: "lstrm" }),
+    });
+    if (!response.ok) {
+      console.warn(`[법령용어] 법제처 API 실패: HTTP ${response.status}`);
+      return [];
+    }
+    const data = (await response.json()) as LegalTermSearchResponse;
+    return data.terms ?? [];
+  } catch (error: unknown) {
+    console.warn("[법령용어] 법제처 API 오류:", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+/**
+ * 법령용어 검색 결과를 프롬프트용 텍스트로 포맷합니다.
+ */
+export function formatLegalTermsForPrompt(terms: LegalTermResult[]): string {
+  if (terms.length === 0) return "";
+  return terms.map((t, i) =>
+    `${i + 1}. ${t.term}: ${truncate(t.definition, 300)} (${t.lawName})`
+  ).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// JO 파라미터 판례 검색 (법조문 기반)
+// ---------------------------------------------------------------------------
+
+/**
+ * 특정 법률을 참조한 판례를 검색합니다 (JO 파라미터 활용).
+ */
+export async function searchByStatute(
+  lawName: string,
+  query: string,
+  count: number = 10,
+): Promise<PrecedentCase[]> {
+  if (!lawName.trim()) return [];
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ jo: lawName, query, count, target: "prec" }),
+    });
+    if (!response.ok) {
+      console.warn(`[법조문판례] 법제처 API 실패: HTTP ${response.status}`);
+      return [];
+    }
+    const data = (await response.json()) as PrecedentSearchResponse;
+    return data.precedents ?? [];
+  } catch (error: unknown) {
+    console.warn("[법조문판례] 법제처 API 오류:", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 내부 유틸리티
 // ---------------------------------------------------------------------------
 

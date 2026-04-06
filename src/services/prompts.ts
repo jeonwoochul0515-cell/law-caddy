@@ -48,6 +48,9 @@ export interface AgentContext {
   evidenceRegistry?: string;   // 증거번호-파일 매핑 텍스트
   statuteCheckResults?: string; // 법령 현행 여부 검증 결과
   relevantTextbooks?: string;  // 참고 문헌 서지정보
+  // 법제처 API 검색 결과 (에이전트별 주입)
+  statuteResults?: string;     // 현행법령 검색 결과
+  legalTermResults?: string;   // 법령용어 검색 결과
 }
 
 /** 의뢰인 메시지 전용 컨텍스트 */
@@ -132,6 +135,14 @@ function buildContextBlock(ctx: AgentContext): string {
   if (ctx.legalInterpretations && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
     const section = `\n[관련 법령해석례 (법제처 실시간 검색)]\n${ctx.legalInterpretations}\n\n※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.`;
     lines.push(section);
+  }
+
+  if (ctx.statuteResults) {
+    lines.push(`\n[관련 현행법령 (법제처 검색)]\n${ctx.statuteResults}`);
+  }
+
+  if (ctx.legalTermResults) {
+    lines.push(`\n[관련 법령용어 (법제처 검색)]\n${ctx.legalTermResults}`);
   }
 
   if (ctx.identifiedIssues && ctx.identifiedIssues.length > 0) {
