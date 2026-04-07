@@ -17,6 +17,9 @@ import {
   formatStatutesForPrompt,
   searchLegalTerms,
   formatLegalTermsForPrompt,
+  // 검증 & 체인 추적
+  verifyCaseNumber,
+  extractCaseNumbers,
   // 지능형 API
   searchSmartStatutes,
   formatSmartArticlesForPrompt,
@@ -243,9 +246,28 @@ async function runSingleAgent(
     }
     allPrecedents = top;
 
+    // 참조판례 체인 추적 (상위 2건의 참조판례에서 리딩케이스 발굴)
+    for (const prec of top.slice(0, 2)) {
+      if (!prec.refCases) continue;
+      const refNumbers = extractCaseNumbers(prec.refCases);
+      for (const refNum of refNumbers.slice(0, 2)) {
+        if (seen.has(refNum)) continue;
+        try {
+          const refResults = await searchLatestPrecedents(refNum, 3);
+          const match = refResults.find((r) => r.caseNumber.replace(/\s/g, "").includes(refNum));
+          if (match && !seen.has(match.caseNumber)) {
+            seen.add(match.caseNumber);
+            allPrecedents.push(match);
+            console.log(`[한판서] 참조판례 체인: ${refNum} → ${match.caseNumber} 발견`);
+          }
+          await delay(300);
+        } catch { /* continue */ }
+      }
+    }
+
     if (allPrecedents.length > 0) {
       enrichedContext.latestPrecedents = formatPrecedentsForPrompt(allPrecedents);
-      console.log(`[한판서] 법제처 판례 ${allPrecedents.length}건 확보`);
+      console.log(`[한판서] 법제처 판례 ${allPrecedents.length}건 확보 (체인 포함)`);
     }
     if (allDetc.length > 0) {
       enrichedContext.constitutionalDecisions = formatConstitutionalForPrompt(allDetc.slice(0, 3));
@@ -274,7 +296,7 @@ async function runSingleAgent(
   }
 
   if (agentId === "legal") {
-    // 윤율무: 법령해석례 + 현행법령 검색
+    // 윤율무: 법령해석례 + 현행법령 + 지능형 법령검색(조문 원문)
     const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
     try {
       const interps = await searchLegalInterpretations(keywords[0] ?? "법령해석", 3);
@@ -283,10 +305,11 @@ async function runSingleAgent(
         console.log(`[윤율무] 법령해석례 ${interps.length}건 확보`);
       }
       await delay(300);
-      const statutes = await searchStatutes(keywords[0] ?? "법령", 3);
-      if (statutes.length > 0) {
-        enrichedContext.statuteResults = formatStatutesForPrompt(statutes);
-        console.log(`[윤율무] 현행법령 ${statutes.length}건 확보`);
+      // 지능형 법령검색으로 관련 조문 원문 확보
+      const smartArticles = await searchSmartStatutes(keywords[0] ?? "법령", 3);
+      if (smartArticles.length > 0) {
+        enrichedContext.statuteResults = `[관련 법조문 원문]\n${formatSmartArticlesForPrompt(smartArticles)}`;
+        console.log(`[윤율무] 지능형 법령검색 ${smartArticles.length}건 확보 (조문 원문 포함)`);
       }
     } catch (err) {
       console.warn("[윤율무] 법제처 검색 실패:", err);
@@ -298,7 +321,7 @@ async function runSingleAgent(
     const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
     try {
       // 1. 연관법령 — 핵심 관련 조문 자동 탐색
-      const relatedLaws = await searchRelatedLaws(keywords[0] ?? "손해배상", 10);
+      const relatedLaws = await searchRelatedLaws(keywords[0] ?? "손해배상", 5);
       if (relatedLaws.length > 0) {
         enrichedContext.statuteResults = `[연관법령 (AI 자동 탐색)]\n${formatRelatedLawsForPrompt(relatedLaws)}`;
         console.log(`[서혜안] 연관법령 ${relatedLaws.length}건 확보`);
@@ -486,6 +509,22 @@ export default function useAgents(): UseAgentsReturn {
         }
       } catch (err) {
         console.warn("[에이전트] CaseRef 파싱 실패:", err);
+      }
+
+      // ─── CaseRef 사건번호 실존 검증 (법제처 nb 파라미터) ───
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      for (const ref of caseRefs.slice(0, 5)) {
+        try {
+          const result = await verifyCaseNumber(ref.caseNumber);
+          if (result.verified) {
+            ref.source = "law.go.kr-verified";
+            console.log(`[검증] ${ref.caseNumber}: ✅ 실존 확인 (${result.court})`);
+          } else {
+            ref.source = "unverified";
+            console.warn(`[검증] ${ref.caseNumber}: ⚠️ 법제처 DB 미확인`);
+          }
+          await delay(300);
+        } catch { /* 검증 실패해도 진행 */ }
       }
 
       setAgents(finalStates);

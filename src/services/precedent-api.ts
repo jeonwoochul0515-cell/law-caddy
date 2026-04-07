@@ -143,11 +143,11 @@ export function formatPrecedentsForPrompt(
     }
 
     if (p.summary) {
-      parts.push(`   【판결요지】 ${truncate(p.summary, 1000)}`);
+      parts.push(`   【판결요지】 ${truncate(p.summary, 1500)}`);
     }
 
     if (p.content) {
-      parts.push(`   【판례내용(발췌)】 ${truncate(p.content, 1000)}`);
+      parts.push(`   【판례내용(발췌)】 ${truncate(p.content, 500)}`);
     }
 
     if (p.refStatutes) {
@@ -539,6 +539,53 @@ export async function searchByStatute(
     console.warn("[법조문판례] 법제처 API 오류:", error instanceof Error ? error.message : error);
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// 사건번호 검증 (nb 파라미터 활용)
+// ---------------------------------------------------------------------------
+
+export interface CaseVerification {
+  verified: boolean;
+  court?: string;
+  caseName?: string;
+  date?: string;
+}
+
+/**
+ * 사건번호가 실제 존재하는지 법제처 API nb 파라미터로 검증합니다.
+ */
+export async function verifyCaseNumber(caseNumber: string): Promise<CaseVerification> {
+  if (!caseNumber.trim()) return { verified: false };
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const response = await fetch(PROXY_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query: caseNumber, count: 5, target: "prec" }),
+    });
+    if (!response.ok) return { verified: false };
+    const data = (await response.json()) as PrecedentSearchResponse;
+    const precs = data.precedents ?? [];
+    // 반환 결과에서 사건번호 정확 매칭 확인 (부분 매칭 방지)
+    const cleaned = caseNumber.replace(/\s/g, "");
+    const match = precs.find((p) => p.caseNumber.replace(/\s/g, "") === cleaned);
+    if (match) {
+      return { verified: true, court: match.court, caseName: match.caseName, date: match.date };
+    }
+    return { verified: false };
+  } catch {
+    return { verified: false };
+  }
+}
+
+/**
+ * 참조판례 텍스트에서 사건번호를 추출합니다. (Citation Chaining용)
+ */
+export function extractCaseNumbers(refCasesText: string): string[] {
+  const pattern = /(\d{2,4}[다도두부나마카타바사아자차파하거너머러]\d{1,8})/g;
+  const matches = refCasesText.match(pattern) ?? [];
+  return [...new Set(matches)];
 }
 
 // ---------------------------------------------------------------------------
