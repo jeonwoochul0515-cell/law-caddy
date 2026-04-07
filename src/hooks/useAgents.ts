@@ -38,8 +38,41 @@ import type { AgentId, AgentState, CaseType } from "../types/agent";
 import type { CaseRef } from "../types/document";
 import { CASE_TYPES } from "../config/constants";
 
-/** 사건 정보에서 법제처 API 검색 키워드를 추출합니다 (규칙 기반, Claude 호출 없음) */
-function extractSearchKeywords(caseDesc: string, caseType?: string): string[] {
+/** Claude로 사건 설명에서 법제처 검색 키워드를 추출합니다 */
+async function extractSearchKeywordsWithAI(caseDesc: string, caseType?: string): Promise<string[]> {
+  try {
+    const result = await callClaude(
+      "당신은 한국 법률 검색 키워드 추출 전문가입니다. 사건 설명을 읽고 법제처 판례 검색에 최적화된 키워드를 추출하세요.",
+      `사건 유형: ${caseType ?? "미지정"}
+사건 설명: ${caseDesc}
+
+위 사건에 대해 법제처 판례 검색에 사용할 핵심 키워드를 2~3개 추출하세요.
+규칙:
+- 법률 용어로 변환 (예: "집주인이 보증금 안 줌" → "임대차보증금 반환")
+- 구체적인 법적 쟁점 키워드 (예: "부당해고", "채무불이행", "불법행위 손해배상")
+- 일반적인 단어 금지 (예: "문제", "분쟁", "피해")
+
+반드시 아래 JSON 배열 형식으로만 응답하세요:
+["키워드1", "키워드2", "키워드3"]`,
+    );
+
+    const match = result.match(/\[[\s\S]*?\]/);
+    if (match) {
+      const parsed = JSON.parse(match[0]) as string[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        console.log(`[키워드추출] Claude AI: ${parsed.join(", ")}`);
+        return parsed.slice(0, 3);
+      }
+    }
+  } catch (err) {
+    console.warn("[키워드추출] Claude 호출 실패, 규칙 기반 폴백:", err);
+  }
+  // Claude 실패 시 규칙 기반 폴백
+  return extractSearchKeywordsFallback(caseDesc, caseType);
+}
+
+/** 규칙 기반 키워드 추출 (폴백용) */
+function extractSearchKeywordsFallback(caseDesc: string, caseType?: string): string[] {
   const keywords: string[] = [];
   const KW_MAP: Array<[string, string[]]> = [
     ["손해배상", ["손해배상"]], ["부당해고", ["부당해고"]], ["해고", ["부당해고"]],
@@ -50,6 +83,13 @@ function extractSearchKeywords(caseDesc: string, caseType?: string): string[] {
     ["의료", ["의료과실"]], ["특허", ["특허침해"]], ["부동산", ["부동산 매매"]],
     ["임금", ["체불임금"]], ["퇴직", ["퇴직금"]], ["폭행", ["폭행"]],
     ["성범죄", ["성범죄"]], ["마약", ["마약"]], ["음주운전", ["음주운전"]],
+    ["보증금", ["임대차보증금"]], ["누수", ["하자보수"]], ["하자", ["하자담보책임"]],
+    ["공사", ["건설 하자"]], ["매매", ["매매계약 해제"]], ["보험", ["보험금 청구"]],
+    ["대여금", ["대여금 반환"]], ["약정금", ["약정금"]], ["위자료", ["위자료"]],
+    ["양육", ["양육비"]], ["친권", ["친권"]], ["유류분", ["유류분"]],
+    ["근저당", ["근저당권"]], ["전세권", ["전세권"]], ["소유권", ["소유권이전"]],
+    ["저작권", ["저작권 침해"]], ["상표", ["상표권 침해"]], ["영업비밀", ["영업비밀"]],
+    ["개인정보", ["개인정보 침해"]], ["산재", ["산업재해"]], ["과로", ["과로사"]],
   ];
 
   for (const [pattern, kws] of KW_MAP) {
@@ -59,7 +99,6 @@ function extractSearchKeywords(caseDesc: string, caseType?: string): string[] {
     }
   }
 
-  // 사건 유형 기반 폴백
   if (keywords.length === 0 && caseType) {
     const TYPE_MAP: Record<string, string[]> = {
       "민사": ["손해배상"], "형사": ["형사"], "가사": ["이혼"],
@@ -211,7 +250,7 @@ async function runSingleAgent(
 
   if (agentId === "precedent") {
     // 한판서: 판례 + 헌재결정례 검색
-    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    const keywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType);
     console.log(`[한판서] 법제처 검색 키워드: ${keywords.join(", ")}`);
     let allPrecedents: PrecedentCase[] = [];
     const allDetc: ConstitutionalDecision[] = [];
@@ -297,7 +336,7 @@ async function runSingleAgent(
 
   if (agentId === "legal") {
     // 윤율무: 법령해석례 + 현행법령 + 지능형 법령검색(조문 원문)
-    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    const keywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType);
     try {
       const interps = await searchLegalInterpretations(keywords[0] ?? "법령해석", 3);
       if (interps.length > 0) {
@@ -318,7 +357,7 @@ async function runSingleAgent(
 
   if (agentId === "analysis") {
     // 서혜안: 연관법령(aiRltLs) + 지능형 법령검색(aiSearch) + 법령용어-조문 연계(lstrmRltJo)
-    const keywords = extractSearchKeywords(context.caseDesc, context.caseType);
+    const keywords = await extractSearchKeywordsWithAI(context.caseDesc, context.caseType);
     try {
       // 1. 연관법령 — 핵심 관련 조문 자동 탐색
       const relatedLaws = await searchRelatedLaws(keywords[0] ?? "손해배상", 5);
