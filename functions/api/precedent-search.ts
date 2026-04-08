@@ -46,11 +46,11 @@ async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Respo
   throw new Error("법제처 API 호출 실패");
 }
 
-/** 법제처 API — 검색용 URL (lawSearch.do) */
-const LAW_API_SEARCH = "https://www.law.go.kr/DRF/lawSearch.do";
+/** 법제처 API — 검색용 URL (lawSearch.do, 고정IP 프록시 경유) */
+const LAW_API_SEARCH = "http://34.64.144.217/DRF/lawSearch.do";
 
-/** 법제처 API — 상세 조회용 URL (lawService.do) */
-const LAW_API_DETAIL = "https://www.law.go.kr/DRF/lawService.do";
+/** 법제처 API — 상세 조회용 URL (lawService.do, 고정IP 프록시 경유) */
+const LAW_API_DETAIL = "http://34.64.144.217/DRF/lawService.do";
 
 /** 검색 대상 타입 */
 type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm" | "aiSearch" | "aiRltLs" | "nlrc" | "ftc" | "lstrmRltJo";
