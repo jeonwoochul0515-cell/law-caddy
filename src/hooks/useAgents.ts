@@ -1,10 +1,9 @@
 // 6개 AI 에이전트 병렬 실행 훅
-// 판례 검색, 적법성 검증, STT, 쟁점 분석, 문서 작성, 검토·감수
+// 판례 검색, RAG 판례, 적법성 검증, 쟁점 분석, 문서 작성, 검토·감수
 
 import { useState, useCallback } from "react";
 import { callClaude } from "../services/claude";
 import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
-import { pollTranscription, formatTranscript } from "../services/rtzr";
 import {
   searchLatestPrecedents,
   getPrecedentDetail,
@@ -135,9 +134,8 @@ function extractTopLevelJsonObject(text: string, key: string): string | null {
 }
 
 
-/** 에이전트 실행 컨텍스트 (STT 폴링용 transcribeId 포함) */
+/** 에이전트 실행 컨텍스트 */
 interface RunAgentsContext extends AgentContext {
-  transcribeId?: string;
   /** 한판서가 검증한 판례 참조 목록 */
   caseRefs?: CaseRef[];
 }
@@ -171,8 +169,8 @@ interface UseAgentsReturn {
 /** 에이전트 ID 목록 */
 const AGENT_IDS: AgentId[] = [
   "precedent",
+  "rag_precedent",
   "legal",
-  "stt",
   "analysis",
   "docgen",
   "review",
@@ -201,52 +199,25 @@ function createInitialStates(): Record<AgentId, AgentState> {
 // ---------------------------------------------------------------------------
 
 /**
- * 단일 에이전트 실행 (STT 에이전트 특수 처리 포함)
+ * 단일 에이전트 실행 (rag_precedent 에이전트 특수 처리 포함)
  */
 async function runSingleAgent(
   agentId: AgentId,
   context: RunAgentsContext,
 ): Promise<string> {
-  // STT 에이전트: transcribeId가 있으면 RTZR 폴링, 없으면 안내 메시지
-  if (agentId === "stt") {
-    if (!context.transcribeId) {
-      return "음성 파일이 없어 음성 변환을 수행하지 않았습니다.";
-    }
-
-    const POLL_INTERVAL = 3000; // 3초
-    const MAX_POLLS = 120; // 최대 6분
-    const MAX_TRANSIENT_ERRORS = 5; // 일시적 오류 허용 횟수
-    let transientErrors = 0;
-
-    for (let i = 0; i < MAX_POLLS; i++) {
-      try {
-        const result = await pollTranscription(context.transcribeId);
-        transientErrors = 0; // 성공 시 카운터 리셋
-
-        if (result.status === "completed" && result.utterances) {
-          return formatTranscript(result.utterances);
-        }
-
-        if (result.status === "failed") {
-          return "음성 변환에 실패했습니다. 녹음 파일을 확인해 주세요.";
-        }
-      } catch (err) {
-        transientErrors++;
-        console.warn(`[STT] 폴링 오류 (${transientErrors}/${MAX_TRANSIENT_ERRORS}):`, err instanceof Error ? err.message : err);
-        if (transientErrors >= MAX_TRANSIENT_ERRORS) {
-          return "음성 변환 중 네트워크 오류가 반복되었습니다. 잠시 후 다시 시도해 주세요.";
-        }
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-    }
-
-    return "음성 변환 시간이 초과되었습니다. 녹음 파일을 확인해 주세요.";
-  }
-
   // ─── 법제처 API 검색 (한판서·윤율무·서혜안만, 실패해도 Claude만으로 동작) ───
   const enrichedContext = { ...context };
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  if (agentId === "rag_precedent") {
+    // 오사서: Supabase RAG 기반 시맨틱 판례 검색
+    // ragContext가 이미 주입되어 있으면 그대로 사용, 없으면 스킵
+    if (!enrichedContext.ragContext) {
+      console.log("[오사서] RAG 컨텍스트 없음, Claude 학습 데이터만으로 분석");
+    } else {
+      console.log("[오사서] RAG 판례 데이터 활용하여 시맨틱 분석");
+    }
+  }
 
   if (agentId === "precedent") {
     // 한판서: 판례 + 헌재결정례 검색
@@ -426,7 +397,6 @@ async function runSingleAgent(
  *
  * - 모든 에이전트를 Promise.allSettled로 병렬 실행
  * - 각 에이전트 진행 상태를 개별 추적
- * - STT 에이전트는 RTZR 폴링 -> 실패 시 Claude 폴백
  */
 export default function useAgents(): UseAgentsReturn {
   const [agents, setAgents] = useState<Record<AgentId, AgentState>>(
@@ -483,7 +453,7 @@ export default function useAgents(): UseAgentsReturn {
   /**
    * 6명 에이전트 전원 병렬 실행 (외부 API 의존 없음)
    *
-   * 한판서·서혜안·윤율무·정소리·조필묵·최감수가 동시에 각자의 전문 분야를 분석.
+   * 한판서·오사서·윤율무·서혜안·조필묵·최감수가 동시에 각자의 전문 분야를 분석.
    * Claude 학습 데이터 기반으로 작업하며, 외부 검색 API 호출 없이 빠르게 완료.
    */
   const runAllAgents = useCallback(

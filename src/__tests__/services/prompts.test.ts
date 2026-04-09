@@ -25,9 +25,9 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('쟁점');
   });
 
-  it('returns empty string for stt agent (handled by RTZR)', () => {
-    const prompt = buildPrompt('stt', baseContext);
-    expect(prompt).toBe('');
+  it('returns non-empty prompt for rag_precedent agent', () => {
+    const prompt = buildPrompt('rag_precedent', baseContext);
+    expect(prompt).toContain('판례');
   });
 
   it('includes anti-hallucination rules in legal agent prompt', () => {

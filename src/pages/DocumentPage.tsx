@@ -143,7 +143,7 @@ export default function DocumentPage() {
         caseType: state.caseType,
         caseDesc: state.caseDesc,
         docType: state.docType,
-        transcript: state.agentResults.stt ?? "",
+        transcript: state.transcript ?? "",
         lawyerName: state.lawyerName,
         firmName: state.firmName,
         barLicenseNumber: state.barLicenseNumber,

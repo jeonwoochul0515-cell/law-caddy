@@ -47,7 +47,7 @@ export class SearchPool {
    * 가장 큰 limit으로 searchAll을 1회 호출한다.
    * 이미 검색 중이면 동일 Promise를 반환한다 (중복 호출 방지).
    */
-  private searchOnce(): Promise<RAGContext> {
+  public searchOnce(): Promise<RAGContext> {
     if (this.searchPromise) return this.searchPromise;
 
     // 모든 에이전트의 테이블 합집합 + 최대 limit 계산

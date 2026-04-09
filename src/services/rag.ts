@@ -389,6 +389,11 @@ export const AGENT_SEARCH_CONFIG: Record<
     tables: ["statutes", "aihub_legal_qa", "cases", "legal_judgments", "legal_commentary"],
     limit: 3,
   },
+  // RAG 판례 검색 (사전 호출용): cases + legal_judgments + aihub_legal_qa
+  rag_precedent: {
+    tables: ["cases", "legal_judgments", "aihub_legal_qa"],
+    limit: 8,
+  },
 };
 
 // ──────────────────────────────────────────────

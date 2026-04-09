@@ -22,7 +22,7 @@ export interface LegalDocument {
   agentResults: {
     precedent: string;
     legal: string;
-    stt: string;
+    rag_precedent: string;
     analysis: string;
     docgen: string;
     review: string;

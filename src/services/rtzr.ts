@@ -182,3 +182,56 @@ export function formatTranscript(
 
   return lines.join("\n");
 }
+
+/**
+ * 음성 파일을 전사하고 완료될 때까지 폴링하여 대화록을 반환합니다.
+ * AgentsPage에서 사전 처리용으로 사용합니다.
+ */
+export async function transcribeAndWait(
+  file: File,
+  onProgress?: (status: string) => void,
+): Promise<string | null> {
+  const POLL_INTERVAL = 3000;
+  const MAX_POLLS = 120;
+  const MAX_TRANSIENT_ERRORS = 5;
+
+  try {
+    onProgress?.("음성 파일 전사 요청 중...");
+    const transcribeId = await transcribeFile(file);
+    onProgress?.("음성 변환 중...");
+
+    let transientErrors = 0;
+    for (let i = 0; i < MAX_POLLS; i++) {
+      try {
+        const result = await pollTranscription(transcribeId);
+        transientErrors = 0;
+
+        if (result.status === "completed" && result.utterances) {
+          onProgress?.("음성 변환 완료");
+          return formatTranscript(result.utterances);
+        }
+
+        if (result.status === "failed") {
+          onProgress?.("음성 변환 실패");
+          return null;
+        }
+      } catch (err) {
+        transientErrors++;
+        console.warn(`[STT] 폴링 오류 (${transientErrors}/${MAX_TRANSIENT_ERRORS}):`, err instanceof Error ? err.message : err);
+        if (transientErrors >= MAX_TRANSIENT_ERRORS) {
+          onProgress?.("음성 변환 네트워크 오류");
+          return null;
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+    }
+
+    onProgress?.("음성 변환 시간 초과");
+    return null;
+  } catch (err) {
+    console.warn("[STT] transcribeAndWait 실패:", err instanceof Error ? err.message : err);
+    onProgress?.("음성 변환 요청 실패");
+    return null;
+  }
+}

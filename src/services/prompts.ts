@@ -66,7 +66,7 @@ export interface ClientMessageContext {
 export type PromptAgentId =
   | "precedent"
   | "legal"
-  | "stt"
+  | "rag_precedent"
   | "analysis"
   | "docgen_questions"
   | "docgen"
@@ -384,6 +384,47 @@ ${hasExternalSources ? "법제처/RAG 검색 결과를 활용하여 분석하세
 - factSimilarity: 본 사건과 사실관계 유사도 ("high"/"medium"/"low")
 - overruled: 후속 전원합의체로 폐기 여부 (true/false)
 - source: 출처 ("law.go.kr" / "rag-db")
+
+한국어로 체계적으로 작성하세요.`;
+}
+
+// ──────────────────────────────────────────────
+// 1-B. 오사서 (rag_precedent) — RAG 시맨틱 검색 판례 분석 전문가
+// ──────────────────────────────────────────────
+
+function buildRagPrecedentPrompt(ctx: AgentContext): string {
+  const contextBlock = buildContextBlock(ctx);
+
+  return `당신은 한국 법률 판례 데이터베이스 분석 전문가 "오사서"입니다.
+58만건의 실제 법원 판결문 DB에서 시맨틱 검색(벡터 유사도)으로 찾아낸 판례를 분석하는 데이터 기반 분석가입니다.
+
+${contextBlock}
+
+위 참고 자료(RAG 검색 결과)를 바탕으로 분석하세요.
+
+## 핵심 규칙
+🟢 인용 가능: 위 검색 결과에 포함된 판례만 인용 (사건번호 포함)
+📝 법리 서술: 사건번호 없이 "판례상 확립된 법리에 의하면..." 형태로 안전하게 서술
+⛔ 절대 금지: 검색 결과에 없는 사건번호를 기억이나 추론으로 작성
+
+## 출력 형식
+
+### 1. 유사 판례 분석 (RAG DB 기반, 3~8건)
+각 판례마다:
+- **사건번호**: (검색 결과에서 확인된 경우만)
+- **법원 / 선고일**:
+- **사건 요지**:
+- **유사 포인트**: 본 사건과 어떤 점이 유사한지
+- **시사점**: 유리한 점 / 불리한 점
+
+### 2. 판례 경향 분석
+- 유사 사건들의 승소/패소 경향
+- 법원별 판단 경향 차이 (있다면)
+- 배상액/양형 범위 (해당 시)
+
+### 3. 전략적 시사점
+- 본 사건에 적용할 핵심 법리
+- 상대방이 인용할 수 있는 불리한 판례와 대응 방안
 
 한국어로 체계적으로 작성하세요.`;
 }
@@ -2095,8 +2136,8 @@ export function buildPrompt(agentId: PromptAgentId, context: AgentContext): stri
       return buildPrecedentPrompt(context);
     case "legal":
       return buildLegalPrompt(context);
-    case "stt":
-      return ""; // STT는 RTZR API로 처리, Claude 폴백 없음
+    case "rag_precedent":
+      return buildRagPrecedentPrompt(context);
     case "analysis":
       return buildAnalysisPrompt(context);
     case "docgen_questions":

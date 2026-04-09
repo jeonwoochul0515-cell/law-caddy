@@ -3,7 +3,7 @@
 export type { CaseType } from "./case";
 export type { DocType } from "./document";
 
-export type AgentId = "precedent" | "legal" | "stt" | "analysis" | "docgen" | "review";
+export type AgentId = "precedent" | "rag_precedent" | "legal" | "analysis" | "docgen" | "review";
 
 /** 쟁점 분석 결과 (판례 검색 키워드 + 법조문 매핑 포함) */
 export interface IssueWithKeywords {

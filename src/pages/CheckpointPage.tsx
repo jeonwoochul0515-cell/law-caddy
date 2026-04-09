@@ -351,7 +351,7 @@ export default function CheckpointPage() {
         if (attachedContents) {
           state.agentResults = {
             ...state.agentResults,
-            stt: (state.agentResults.stt ?? "") + `\n\n[체크포인트 첨부 파일 내용]\n${attachedContents}`,
+            rag_precedent: (state.agentResults.rag_precedent ?? "") + `\n\n[체크포인트 첨부 파일 내용]\n${attachedContents}`,
           };
         }
       } finally {

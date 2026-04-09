@@ -534,7 +534,7 @@ function DocumentCard({
               .map(([key, val]) => (
                 <details key={key} className="bg-navy-light rounded-lg border border-border">
                   <summary className="px-3 py-2 text-xs text-text-dim cursor-pointer hover:text-gold transition-colors">
-                    {key === "precedent" ? "판례 검색" : key === "legal" ? "적법성 검증" : key === "stt" ? "음성 변환" : key === "analysis" ? "쟁점 분석" : key === "docgen" ? "문서 작성" : key === "review" ? "검토·감수" : key}
+                    {key === "precedent" ? "판례 검색" : key === "legal" ? "적법성 검증" : key === "rag_precedent" ? "RAG 판례 검색" : key === "analysis" ? "쟁점 분석" : key === "docgen" ? "문서 작성" : key === "review" ? "검토·감수" : key}
                   </summary>
                   <div className="px-3 pb-3 max-h-40 overflow-y-auto">
                     <pre className="whitespace-pre-wrap text-xs text-text-primary leading-relaxed font-sans">{val}</pre>

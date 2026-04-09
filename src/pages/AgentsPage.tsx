@@ -7,7 +7,7 @@ import useCases from "../hooks/useCases";
 import { AGENTS, DOC_TYPES } from "../config/constants";
 import { createDocument, addTimelineEvent, createRecording } from "../services/firebase/firestore";
 import { uploadRecordingFile } from "../services/firebase/storage";
-import { transcribeFile } from "../services/rtzr";
+import { transcribeAndWait } from "../services/rtzr";
 import { callClaude } from "../services/claude";
 import { buildCaseDescriptionPrompt } from "../services/prompts";
 import { extractAllPdfTexts } from "../services/pdf";
@@ -191,19 +191,19 @@ export default function AgentsPage() {
         ...(fileContents ? { fileContents } : {}),
       };
 
-      // 오디오 파일이 있으면 STT 요청 후 에이전트 실행
+      // 오디오 파일이 있으면 사전 처리: STT 완료 대기
+      let transcript: string | undefined;
       if (audioFiles.length > 0) {
         try {
-          setPrepStatus("음성 파일 변환 요청 중...");
-          const transcribeId = await transcribeFile(audioFiles[0]);
-          runAllAgents({ ...baseContext, transcribeId });
+          setPrepStatus("음성 파일 변환 중...");
+          transcript = (await transcribeAndWait(audioFiles[0])) ?? undefined;
         } catch (err) {
-          console.error("[AgentsPage] STT 요청 실패:", err);
-          runAllAgents(baseContext);
+          console.error("[AgentsPage] STT 변환 실패:", err);
         }
-      } else {
-        runAllAgents(baseContext);
       }
+
+      // 에이전트 실행 시 transcript 포함
+      runAllAgents({ ...baseContext, transcript });
     };
 
     startAgents();
@@ -229,11 +229,10 @@ export default function AgentsPage() {
       return;
     }
     const analysisResult = agents.analysis?.result ?? "";
-    const sttResult = agents.stt?.result ?? "";
     const prompt = buildCaseDescriptionPrompt(
       state.clientName,
       analysisResult,
-      sttResult,
+      "",
       state.typedNotes ?? "",
     );
     callClaude(prompt, "사건 개요를 요약해 주세요.")
@@ -527,7 +526,7 @@ export default function AgentsPage() {
                     agentResults: {
                       precedent: agentResults.precedent ?? "",
                       legal: agentResults.legal ?? "",
-                      stt: agentResults.stt ?? "",
+                      rag_precedent: agentResults.rag_precedent ?? "",
                       analysis: agentResults.analysis ?? "",
                       docgen: agentResults.docgen ?? "",
                       review: agentResults.review ?? "",
