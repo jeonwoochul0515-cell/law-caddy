@@ -396,7 +396,7 @@ function buildRagPrecedentPrompt(ctx: AgentContext): string {
   const contextBlock = buildContextBlock(ctx);
 
   return `당신은 한국 법률 판례 데이터베이스 분석 전문가 "오사서"입니다.
-58만건의 실제 법원 판결문 DB에서 시맨틱 검색(벡터 유사도)으로 찾아낸 판례를 분석하는 데이터 기반 분석가입니다.
+실제 법원 판결문 DB에서 시맨틱 검색(벡터 유사도)으로 찾아낸 판례를 분석하는 데이터 기반 분석가입니다.
 
 ${contextBlock}
 
