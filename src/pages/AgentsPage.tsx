@@ -414,17 +414,7 @@ export default function AgentsPage() {
         </div>
         <div className="p-5">
           {agents[activeTab]?.status === "running" ? (
-            <div className="flex flex-col items-center gap-3 py-10 text-text-dim">
-              <Loader2 className="w-6 h-6 animate-spin text-gold" />
-              <span className="text-sm font-medium">
-                {AGENTS.find((a) => a.id === activeTab)?.nickname} 분석 중
-                <span className="inline-flex items-center gap-0.5 ml-0.5">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
-              </span>
-            </div>
+            <AgentWorkingView agentId={activeTab} nickname={AGENTS.find((a) => a.id === activeTab)?.nickname ?? ""} />
           ) : agents[activeTab]?.status === "completed" ? (
             <div>
               {(activeTab === "precedent" || activeTab === "analysis") && (
@@ -595,6 +585,91 @@ export default function AgentsPage() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+/** 에이전트 분석 중 재미있는 워킹 뷰 */
+const AGENT_WORKING_MESSAGES: Record<string, string[]> = {
+  precedent: [
+    "법제처 판례 DB를 뒤지고 있습니다...",
+    "유사 판례를 찾아 리딩케이스를 추적 중...",
+    "참조판례 체인을 따라가는 중...",
+    "판결요지를 꼼꼼히 읽고 있습니다...",
+    "이 사건에 딱 맞는 판례가 있을 텐데...",
+    "헌재결정례도 함께 확인하고 있습니다...",
+  ],
+  rag_precedent: [
+    "58만건 판결문 DB에서 시맨틱 검색 중...",
+    "사실관계가 유사한 판례를 벡터 분석 중...",
+    "승소/패소 패턴을 분석하고 있습니다...",
+    "AI가 판결문 원문을 읽고 있습니다...",
+    "유사도 높은 판례를 선별하는 중...",
+    "판례 경향 데이터를 종합하고 있습니다...",
+  ],
+  legal: [
+    "관련 법령 조문을 확인하는 중...",
+    "법령해석례를 검토하고 있습니다...",
+    "통비법, 변호사법 위반 여부 점검 중...",
+    "소송 요건을 하나하나 확인합니다...",
+    "관할 법원을 판정하고 있습니다...",
+    "소멸시효 기간을 계산하는 중...",
+  ],
+  analysis: [
+    "사건의 핵심 쟁점을 파악하는 중...",
+    "법조문과 쟁점을 매칭하고 있습니다...",
+    "상대방 반론 가능성을 예측하는 중...",
+    "증거 구조를 설계하고 있습니다...",
+    "유리한 점과 불리한 점을 정리 중...",
+    "전략적 접근 방향을 구상합니다...",
+  ],
+  docgen: [
+    "문서 양식을 선택하고 있습니다...",
+    "변호사님이 확인할 체크포인트를 만드는 중...",
+    "핵심 확인 사항을 정리하고 있습니다...",
+    "빠뜨린 사항이 없는지 점검 중...",
+    "실무 경험을 바탕으로 질문을 구성합니다...",
+  ],
+  review: [
+    "다른 에이전트의 분석을 교차 검증 중...",
+    "논리적 허점이 없는지 확인합니다...",
+    "판례 인용의 정확성을 점검하는 중...",
+    "5점 척도 평가 기준을 적용 중...",
+    "수정 제안 사항을 정리하고 있습니다...",
+    "최종 품질 검수를 진행합니다...",
+  ],
+};
+
+function AgentWorkingView({ agentId, nickname }: { agentId: AgentId; nickname: string }) {
+  const [msgIndex, setMsgIndex] = useState(0);
+  const messages = AGENT_WORKING_MESSAGES[agentId] ?? ["분석 중..."];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => (prev + 1) % messages.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-12 text-text-dim">
+      <div className="relative">
+        <Loader2 className="w-10 h-10 animate-spin text-gold" />
+        <Sparkles className="w-4 h-4 text-gold absolute -top-1 -right-1 animate-pulse" />
+      </div>
+      <div className="text-center space-y-2">
+        <p className="text-sm font-semibold text-text-primary">
+          {nickname} 분석 중
+          <span className="inline-flex items-center gap-0.5 ml-1">
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+            <span className="typing-dot" />
+          </span>
+        </p>
+        <p className="text-xs text-text-dim transition-opacity duration-500 min-h-[1.25rem]">
+          {messages[msgIndex]}
+        </p>
+      </div>
+    </div>
   );
 }
 
