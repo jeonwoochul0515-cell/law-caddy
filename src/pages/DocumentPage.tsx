@@ -143,7 +143,7 @@ export default function DocumentPage() {
         caseType: state.caseType,
         caseDesc: state.caseDesc,
         docType: state.docType,
-        transcript: state.transcript ?? "",
+        transcript: (state.agentResults?.rag_precedent ?? ""),
         lawyerName: state.lawyerName,
         firmName: state.firmName,
         barLicenseNumber: state.barLicenseNumber,
@@ -302,7 +302,7 @@ export default function DocumentPage() {
           agentResults: {
             precedent: state.agentResults?.precedent ?? "",
             legal: state.agentResults?.legal ?? "",
-            stt: state.agentResults?.stt ?? "",
+            rag_precedent: state.agentResults?.rag_precedent ?? "",
             analysis: state.agentResults?.analysis ?? "",
             docgen: state.agentResults?.docgen ?? "",
             review: state.agentResults?.review ?? "",
