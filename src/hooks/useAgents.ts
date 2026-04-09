@@ -36,6 +36,8 @@ import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
 import type { CaseRef } from "../types/document";
 import { CASE_TYPES } from "../config/constants";
+import { SearchPool } from "../services/search-pool";
+import { formatRAGContext } from "../services/rag";
 
 /** Claude로 사건 설명에서 법제처 검색 키워드를 추출합니다 */
 async function extractSearchKeywordsWithAI(caseDesc: string, caseType?: string): Promise<string[]> {
@@ -209,13 +211,18 @@ async function runSingleAgent(
   const enrichedContext = { ...context };
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  if (agentId === "rag_precedent") {
-    // 오사서: Supabase RAG 기반 시맨틱 판례 검색
-    // ragContext가 이미 주입되어 있으면 그대로 사용, 없으면 스킵
-    if (!enrichedContext.ragContext) {
-      console.log("[오사서] RAG 컨텍스트 없음, Claude 학습 데이터만으로 분석");
-    } else {
-      console.log("[오사서] RAG 판례 데이터 활용하여 시맨틱 분석");
+  // ─── RAG 검색 (SearchPool 활용, 실패해도 Claude만으로 동작) ───
+  if (["rag_precedent", "legal", "analysis", "docgen", "review"].includes(agentId)) {
+    try {
+      const pool = new SearchPool(context.caseDesc, context.caseType);
+      const ragResult = await pool.getForAgent(agentId);
+      const ragText = formatRAGContext(ragResult);
+      if (ragText) {
+        enrichedContext.ragContext = ragText;
+        console.log(`[${agentId}] RAG 검색 결과 주입 완료`);
+      }
+    } catch (err) {
+      console.warn(`[${agentId}] RAG 검색 실패, Claude만으로 진행:`, err);
     }
   }
 
