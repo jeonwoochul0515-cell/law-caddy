@@ -348,7 +348,7 @@ export default function AgentsPage() {
         </div>
         <div className="h-2 bg-surface rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-gold to-gold-bright rounded-full transition-all duration-500"
+            className={`h-full bg-gradient-to-r from-gold to-gold-bright rounded-full transition-all duration-500 ${isRunning ? "progress-stripe" : ""}`}
             style={{ width: `${(completedCount / 6) * 100}%` }}
           />
         </div>
@@ -370,7 +370,7 @@ export default function AgentsPage() {
                 isActive
                   ? "bg-gold-dim border-gold/30"
                   : "bg-surface border-border hover:border-border-hover"
-              }`}
+              } ${agentState?.status === "running" ? "agent-shimmer agent-pulse" : ""}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-lg">{agent.icon}</span>
@@ -378,13 +378,24 @@ export default function AgentsPage() {
                   <Loader2 className="w-4 h-4 text-gold animate-spin" />
                 )}
                 {agentState?.status === "completed" && (
-                  <CheckCircle2 className="w-4 h-4 text-success" />
+                  <CheckCircle2 className="w-4 h-4 text-success check-pop" />
                 )}
                 {agentState?.status === "error" && (
                   <AlertCircle className="w-4 h-4 text-error" />
                 )}
               </div>
-              <p className="text-xs font-medium text-text-primary">{agent.nickname} <span className="text-text-dim">· {agent.name}</span></p>
+              <p className="text-xs font-medium text-text-primary">
+                {agent.nickname}
+                {agentState?.status === "running" ? (
+                  <span className="inline-flex items-center gap-0.5 ml-1">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </span>
+                ) : (
+                  <span className="text-text-dim"> · {agent.name}</span>
+                )}
+              </p>
               {!agentState?.status && prepStatus && (
                 <p className="text-[10px] text-gold mt-1 truncate">{prepStatus}</p>
               )}
@@ -403,9 +414,16 @@ export default function AgentsPage() {
         </div>
         <div className="p-5">
           {agents[activeTab]?.status === "running" ? (
-            <div className="flex items-center gap-3 py-8 justify-center text-text-dim">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              분석 중...
+            <div className="flex flex-col items-center gap-3 py-10 text-text-dim">
+              <Loader2 className="w-6 h-6 animate-spin text-gold" />
+              <span className="text-sm font-medium">
+                {AGENTS.find((a) => a.id === activeTab)?.nickname} 분석 중
+                <span className="inline-flex items-center gap-0.5 ml-0.5">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </span>
+              </span>
             </div>
           ) : agents[activeTab]?.status === "completed" ? (
             <div>

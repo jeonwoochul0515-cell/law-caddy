@@ -74,3 +74,75 @@ html, body, #root {
 .gold-border-bottom {
   border-bottom: 0.5px solid #735c00;
 }
+
+/* ── 에이전트 애니메이션 ── */
+
+/* 시머(shimmer) 그라디언트 효과 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.agent-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(115, 92, 0, 0.04) 0%,
+    rgba(115, 92, 0, 0.12) 50%,
+    rgba(115, 92, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+
+/* 타이핑 도트 깜빡임 */
+@keyframes blink-dot {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+.typing-dot {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background-color: #735c00;
+  animation: blink-dot 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* 진행바 스트라이프(barber pole) */
+@keyframes barber-pole {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+.progress-stripe {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255,255,255,0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255,255,255,0.2) 50%,
+    rgba(255,255,255,0.2) 75%,
+    transparent 75%
+  );
+  background-size: 40px 40px;
+  animation: barber-pole 0.8s linear infinite;
+}
+
+/* 체크마크 팝 */
+@keyframes pop-in {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.check-pop {
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 에이전트 카드 펄스 글로우 */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(115, 92, 0, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(115, 92, 0, 0.15); }
+}
+.agent-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}

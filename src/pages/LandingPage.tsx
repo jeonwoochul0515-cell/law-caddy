@@ -297,10 +297,10 @@ const AGENTS = [
     color: "text-[#1a3c34]",
   },
   {
-    icon: <Mic className="w-5 h-5" />,
-    fullName: "정소리",
-    role: "음성 변환 에이전트",
-    desc: "법정 속기사 출신 청각 전문가. 상담 녹음에서 변호사·의뢰인을 자동 구분하고 법률 전문용어까지 정확하게 받아적습니다.",
+    icon: <Search className="w-5 h-5" />,
+    fullName: "오사서",
+    role: "RAG 판례 검색 에이전트",
+    desc: "AI 법률 데이터베이스 전문 연구원. 58만건의 실제 판결문 DB를 시맨틱 검색으로 탐색하며, 사실관계가 유사한 판례를 패턴 분석으로 발굴합니다.",
     color: "text-[#735c00]",
   },
   {
@@ -534,7 +534,7 @@ export default function LandingPage() {
                 까지.
               </p>
               <p className="text-sm text-white/40 max-w-xl mx-auto mb-10 leading-relaxed">
-                한판서, 윤율무, 정소리, 서혜안, 조필묵, 최감수 — 6명의 AI 전문가가
+                한판서, 오사서, 윤율무, 서혜안, 조필묵, 최감수 — 6명의 AI 전문가가
                 <br className="hidden sm:block" />
                 녹음·첨부 문서를 분석하고, 계약서 작성부터 성공보수 관리까지 함께합니다.
               </p>
