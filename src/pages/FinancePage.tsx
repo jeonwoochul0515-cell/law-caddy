@@ -15,13 +15,13 @@ import {
   Calculator,
   RefreshCw,
 } from "lucide-react";
-import { collection, query, where, getDocs, type Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import AppLayout from "../components/layout/AppLayout";
 import MonthlyReportTab from "../components/accounting/MonthlyReportTab";
 import TaxReportTab from "../components/accounting/TaxReportTab";
 import CodefSyncTab from "../components/accounting/CodefSyncTab";
 import useAuth from "../hooks/useAuth";
-import { db, isDemoMode } from "../config/firebase";
+import { db } from "../config/firebase";
 import type { Fee } from "../types/accounting";
 import type { Transaction } from "../types/accounting";
 import type { OfficeExpense } from "../types/accounting";
@@ -29,204 +29,6 @@ import type { Deposit } from "../types/accounting";
 
 type FinanceTab = "dashboard" | "monthly-report" | "tax-report" | "auto-sync";
 
-// ─────────────────────────────────────────────
-// 데모 데이터 (Firestore 데이터가 없을 때 UI 확인용)
-// ─────────────────────────────────────────────
-
-const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    id: "demo-tx-1", ownerId: "demo", type: "매출", subType: "수임료_착수금",
-    description: "김철수 대여금 반환 청구 착수금", clientName: "김철수", caseId: "demo-1",
-    vat: { supplyAmount: 2727273, vatAmount: 272727, totalAmount: 3000000 },
-    date: "2026-03-01", paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-2", ownerId: "demo", type: "매출", subType: "수임료_착수금",
-    description: "이영희 이혼소송 착수금 1차", clientName: "이영희", caseId: "demo-2",
-    vat: { supplyAmount: 2272727, vatAmount: 227273, totalAmount: 2500000 },
-    date: "2026-03-15", paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-3", ownerId: "demo", type: "매출", subType: "수임료_착수금",
-    description: "박민수 부당해고 구제 착수금", clientName: "박민수", caseId: "demo-3",
-    vat: { supplyAmount: 1818182, vatAmount: 181818, totalAmount: 2000000 },
-    date: "2026-02-20", paymentMethod: "계좌이체", evidenceType: "현금영수증",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-4", ownerId: "demo", type: "매출", subType: "수임료_착수금",
-    description: "최건석 손해배상 청구 착수금", clientName: "최건석", caseId: "demo-4",
-    vat: { supplyAmount: 9090909, vatAmount: 909091, totalAmount: 10000000 },
-    date: "2026-03-10", paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-5", ownerId: "demo", type: "매출", subType: "자문료",
-    description: "한국전자 계약서 자문", clientName: "한국전자(주)", caseId: undefined,
-    vat: { supplyAmount: 1363636, vatAmount: 136364, totalAmount: 1500000 },
-    date: "2026-03-20", paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-6", ownerId: "demo", type: "매입", subType: "사무용품",
-    description: "A4용지, 토너 구입", clientName: undefined,
-    vat: { supplyAmount: 127273, vatAmount: 12727, totalAmount: 140000 },
-    date: "2026-03-05", paymentMethod: "카드", evidenceType: "카드매출전표",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-7", ownerId: "demo", type: "매입", subType: "도서구입",
-    description: "민사소송법 주석서 (제8판)", clientName: undefined,
-    vat: { supplyAmount: 72727, vatAmount: 7273, totalAmount: 80000 },
-    date: "2026-03-12", paymentMethod: "카드", evidenceType: "카드매출전표",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-tx-8", ownerId: "demo", type: "매입", subType: "접대비",
-    description: "의뢰인 미팅 식대", clientName: undefined,
-    vat: { supplyAmount: 54545, vatAmount: 5455, totalAmount: 60000 },
-    date: "2026-03-18", paymentMethod: "카드", evidenceType: "카드매출전표",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-];
-
-const DEMO_OFFICE_EXPENSES: OfficeExpense[] = [
-  {
-    id: "demo-oe-1", ownerId: "demo", category: "임대료", costType: "고정비",
-    description: "3월 사무실 임대료 (서초동)", amount: 1500000,
-    date: "2026-03-01", yearMonth: "2026-03", recurring: true, recurringDay: 1,
-    paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-oe-2", ownerId: "demo", category: "관리비", costType: "고정비",
-    description: "3월 사무실 관리비", amount: 250000,
-    date: "2026-03-05", yearMonth: "2026-03", recurring: true, recurringDay: 5,
-    paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-oe-3", ownerId: "demo", category: "통신비_인터넷", costType: "고정비",
-    description: "KT 인터넷+전화 요금", amount: 55000,
-    date: "2026-03-10", yearMonth: "2026-03", recurring: true, recurringDay: 10,
-    paymentMethod: "계좌이체", evidenceType: "세금계산서",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-oe-4", ownerId: "demo", category: "소프트웨어", costType: "고정비",
-    description: "법률정보 DB (LAWnB) 월 이용료", amount: 110000,
-    date: "2026-03-01", yearMonth: "2026-03", recurring: true, recurringDay: 1,
-    paymentMethod: "카드", evidenceType: "카드매출전표",
-    attachments: [], confirmed: true,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-  {
-    id: "demo-oe-5", ownerId: "demo", category: "변호사회비", costType: "고정비",
-    description: "대한변호사협회 월 회비", amount: 30000,
-    date: "2026-03-01", yearMonth: "2026-03", recurring: true, recurringDay: 1,
-    paymentMethod: "계좌이체", evidenceType: "없음",
-    attachments: [], confirmed: false,
-    createdAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-    updatedAt: { toMillis: () => Date.now() } as unknown as Timestamp,
-  },
-];
-
-const ts = (ms: number) => ({ toMillis: () => ms } as unknown as Timestamp);
-
-const DEMO_FEES: Fee[] = [
-  {
-    id: "demo-fee-1", caseId: "demo-2", ownerId: "demo", clientName: "이영희",
-    contract: { signed: true, signedDate: "2026-02-28", contractType: "서면" },
-    retainer: { amount: 5000000, paidAmount: 2500000, paid: false, paidDate: "2026-03-15", paymentMethod: "계좌이체" },
-    successFee: { agreed: false, status: "해당없음" },
-    useInstallment: true, installmentCount: 2, totalInstallmentAmount: 5000000,
-    totalAgreedAmount: 5000000, totalPaidAmount: 2500000, totalOutstanding: 2500000,
-    status: "미완납", evidenceType: "세금계산서", evidenceIssued: true, attachments: [],
-    createdAt: ts(Date.now() - 86400000 * 25), updatedAt: ts(Date.now()),
-  },
-  {
-    id: "demo-fee-2", caseId: "demo-5", ownerId: "demo", clientName: "정수진",
-    contract: { signed: true, signedDate: "2026-01-15", contractType: "전자" },
-    retainer: { amount: 3000000, paidAmount: 3000000, paid: true, paidDate: "2026-01-20", paymentMethod: "계좌이체" },
-    successFee: { agreed: true, type: "percent", percent: 10, status: "미확정", condition: "배상금 인용 시" },
-    useInstallment: false,
-    totalAgreedAmount: 3000000, totalPaidAmount: 1500000, totalOutstanding: 1500000,
-    status: "미완납", evidenceType: "세금계산서", evidenceIssued: true, attachments: [],
-    memo: "잔금 2026-04-15 예정",
-    createdAt: ts(Date.now() - 86400000 * 70), updatedAt: ts(Date.now()),
-  },
-  {
-    id: "demo-fee-3", caseId: "demo-6", ownerId: "demo", clientName: "오태현",
-    contract: { signed: true, signedDate: "2025-12-01", contractType: "서면" },
-    retainer: { amount: 8000000, paidAmount: 5000000, paid: false, paymentMethod: "계좌이체" },
-    successFee: { agreed: true, type: "fixed", fixedAmount: 10000000, status: "미확정", condition: "전부 승소 시" },
-    useInstallment: true, installmentCount: 4, totalInstallmentAmount: 8000000,
-    totalAgreedAmount: 8000000, totalPaidAmount: 5000000, totalOutstanding: 3000000,
-    status: "미완납", evidenceType: "세금계산서", evidenceIssued: true, attachments: [],
-    createdAt: ts(Date.now() - 86400000 * 115), updatedAt: ts(Date.now()),
-  },
-];
-
-const DEMO_DEPOSITS: Deposit[] = [
-  {
-    id: "demo-dep-1", ownerId: "demo", caseId: "demo-1", clientName: "김철수",
-    type: "의뢰인예치금", description: "인지대, 송달료 등 소송비용 예치",
-    originalAmount: 500000, usedAmount: 202000, remainingAmount: 298000,
-    status: "일부사용",
-    receivedDate: "2026-03-02", receivedMethod: "계좌이체", bankName: "국민은행",
-    usageHistory: [
-      { date: "2026-03-05", amount: 150000, purpose: "소장 인지대 납부" },
-      { date: "2026-03-05", amount: 52000, purpose: "소장 송달료 납부" },
-    ],
-    attachments: [],
-    createdAt: ts(Date.now() - 86400000 * 24), updatedAt: ts(Date.now()),
-  },
-  {
-    id: "demo-dep-2", ownerId: "demo", caseId: "demo-4", clientName: "최건석",
-    type: "의뢰인예치금", description: "감정료 및 소송비용 예치",
-    originalAmount: 2000000, usedAmount: 0, remainingAmount: 2000000,
-    status: "보관중",
-    receivedDate: "2026-03-11", receivedMethod: "계좌이체", bankName: "신한은행",
-    usageHistory: [],
-    attachments: [],
-    createdAt: ts(Date.now() - 86400000 * 15), updatedAt: ts(Date.now()),
-  },
-  {
-    id: "demo-dep-3", ownerId: "demo", caseId: "demo-6", clientName: "오태현",
-    type: "합의금예치", description: "상대방 합의금 임시 보관",
-    originalAmount: 15000000, usedAmount: 0, remainingAmount: 15000000,
-    status: "보관중",
-    receivedDate: "2026-03-20", receivedMethod: "계좌이체", bankName: "우리은행",
-    usageHistory: [],
-    attachments: [],
-    createdAt: ts(Date.now() - 86400000 * 6), updatedAt: ts(Date.now()),
-  },
-];
 
 // ─────────────────────────────────────────────
 // 유틸리티
@@ -298,7 +100,6 @@ export default function FinancePage() {
   const [officeExpenses, setOfficeExpenses] = useState<OfficeExpense[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingDemo, setUsingDemo] = useState(false);
 
   // 탭 상태
   const [activeTab, setActiveTab] = useState<FinanceTab>("dashboard");
@@ -312,16 +113,6 @@ export default function FinancePage() {
   // ── 데이터 fetch ──
   const fetchData = useCallback(async () => {
     if (!user) return;
-
-    if (isDemoMode) {
-      setFees(DEMO_FEES);
-      setTransactions(DEMO_TRANSACTIONS);
-      setOfficeExpenses(DEMO_OFFICE_EXPENSES);
-      setDeposits(DEMO_DEPOSITS);
-      setUsingDemo(true);
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -349,27 +140,16 @@ export default function FinancePage() {
       );
       const allDep = depSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Deposit);
 
-      // Firestore 데이터가 모두 비어있으면 데모 데이터 표시
-      if (allFees.length === 0 && allTx.length === 0 && allOff.length === 0 && allDep.length === 0) {
-        setFees(DEMO_FEES);
-        setTransactions(DEMO_TRANSACTIONS);
-        setOfficeExpenses(DEMO_OFFICE_EXPENSES);
-        setDeposits(DEMO_DEPOSITS);
-        setUsingDemo(true);
-      } else {
-        setFees(allFees);
-        setTransactions(allTx);
-        setOfficeExpenses(allOff);
-        setDeposits(allDep);
-        setUsingDemo(false);
-      }
+      setFees(allFees);
+      setTransactions(allTx);
+      setOfficeExpenses(allOff);
+      setDeposits(allDep);
     } catch (err) {
       console.error("재무 데이터 로딩 실패:", err);
-      setFees(DEMO_FEES);
-      setTransactions(DEMO_TRANSACTIONS);
-      setOfficeExpenses(DEMO_OFFICE_EXPENSES);
-      setDeposits(DEMO_DEPOSITS);
-      setUsingDemo(true);
+      setFees([]);
+      setTransactions([]);
+      setOfficeExpenses([]);
+      setDeposits([]);
     } finally {
       setLoading(false);
     }
@@ -378,6 +158,13 @@ export default function FinancePage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 신규 사용자 — 어떤 종류의 재무 데이터도 없는 상태
+  const isEmpty =
+    fees.length === 0 &&
+    transactions.length === 0 &&
+    officeExpenses.length === 0 &&
+    deposits.length === 0;
 
   // ── 기간 필터링된 데이터 ──
   const monthlyTransactions = useMemo(
@@ -533,11 +320,17 @@ export default function FinancePage() {
     );
   }
 
+  // CODEF 자동 연동: 변호사법 §26 비밀유지의무 재위탁 이슈로 베타 출시 시점에서는 숨김.
+  // 활성화하려면 .env에 VITE_ENABLE_CODEF=true 추가 (법무 검토 완료 후).
+  const enableCodef = import.meta.env.VITE_ENABLE_CODEF === "true";
+
   const TABS: { key: FinanceTab; label: string; icon: typeof LayoutDashboard }[] = [
     { key: "dashboard", label: "현황 대시보드", icon: LayoutDashboard },
     { key: "monthly-report", label: "월별 정산", icon: FileSpreadsheet },
     { key: "tax-report", label: "세무 자료", icon: Calculator },
-    { key: "auto-sync", label: "자동 수집", icon: RefreshCw },
+    ...(enableCodef
+      ? [{ key: "auto-sync" as const, label: "자동 수집", icon: RefreshCw }]
+      : []),
   ];
 
   return (
@@ -566,16 +359,6 @@ export default function FinancePage() {
         })}
       </div>
 
-      {/* ── 데모 데이터 안내 배너 ── */}
-      {(usingDemo || isDemoMode) && (
-        <div className="mb-6 px-4 py-3 rounded-xl bg-gold-dim border border-gold/20 flex items-center gap-3">
-          <span className="text-gold text-lg">&#9888;</span>
-          <p className="text-sm text-gold">
-            현재 데모 데이터를 표시하고 있습니다. 실제 거래를 등록하면 데모 데이터가 자동으로 대체됩니다.
-          </p>
-        </div>
-      )}
-
       {/* ── 월별 정산 탭 ── */}
       {activeTab === "monthly-report" && user && (
         <MonthlyReportTab ownerId={user.uid} />
@@ -586,14 +369,46 @@ export default function FinancePage() {
         <TaxReportTab ownerId={user.uid} />
       )}
 
-      {/* ── 자동 수집 탭 ── */}
-      {activeTab === "auto-sync" && user && (
+      {/* ── 자동 수집 탭 (CODEF) ── 법무 검토 후 활성화 */}
+      {enableCodef && activeTab === "auto-sync" && user && (
         <CodefSyncTab ownerId={user.uid} />
       )}
 
       {/* ── 현황 대시보드 탭 ── */}
       {activeTab === "dashboard" && (
         <>
+      {/* ── 빈 상태 안내 (신규 사용자) ── */}
+      {!loading && isEmpty && (
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-gold-dim to-surface border border-gold/20">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center flex-shrink-0">
+              <Receipt className="w-6 h-6 text-gold" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-text-primary mb-2">
+                재무 관리를 시작해보세요
+              </h3>
+              <p className="text-sm text-text-dim leading-relaxed mb-4">
+                아직 등록된 거래가 없습니다. 사건별 수임료·경비·예수금은
+                <strong className="text-text-primary"> 사건 상세 페이지의 [재무] 탭</strong>에서,
+                사무실 운영 경비는 <strong className="text-text-primary">[월별 정산] 탭</strong>에서 추가할 수 있어요.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
+                  💼 사건 → 재무 탭에서 수임료 입력
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
+                  📑 월별 정산 탭에서 사무실 경비 등록
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
+                  📊 등록한 데이터는 자동으로 이 화면에 집계
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 기간 선택 ── */}
       <div className="flex items-center gap-3 mb-6">
         <Calendar className="w-5 h-5 text-text-dim" />
