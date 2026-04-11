@@ -110,7 +110,14 @@ async function callClaudeDirect(
       model: MODEL,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
-      system: systemPrompt,
+      // Prompt Caching: system prompt 캐시 → 5분 내 재호출 시 input 90% 할인
+      system: [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [{ role: "user", content: userMessage }],
     }),
   });
@@ -252,7 +259,14 @@ async function callClaudeChatDirect(
       model: MODEL,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
-      system: systemPrompt,
+      // Prompt Caching: 멀티턴 채팅에서 system prompt + 누적 메시지 캐시
+      system: [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages,
     }),
   });

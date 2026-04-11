@@ -43,6 +43,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     ];
 
     // 원본 요청의 컨텍스트를 완전히 격리한 새 Request 생성
+    // Prompt Caching: system prompt를 ephemeral 캐시로 등록 → 5분 내 재호출 시 input 90% 할인
+    // (6개 에이전트 병렬 호출, 사건 분석 워크플로우에서 큰 절감 효과)
     const anthropicRequest = new Request(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
@@ -54,7 +56,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
-        system: body.systemPrompt,
+        system: [
+          {
+            type: "text",
+            text: body.systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
         messages,
       }),
     });
