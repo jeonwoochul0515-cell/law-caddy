@@ -632,7 +632,7 @@ export default function DocumentPage() {
           {/* 모바일: 플로팅 채팅 버튼 */}
           <button
             onClick={() => setChatOpen(true)}
-            className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity z-40"
+            className="lg:hidden fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-full shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity z-40"
           >
             <MessageCircle className="w-6 h-6" />
           </button>
