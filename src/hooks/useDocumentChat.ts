@@ -281,7 +281,7 @@ export default function useDocumentChat(
   const startAutoReview = useCallback(() => {
     if (messages.length > 0 || isLoading) return;
     sendMessage(
-      "이 문서 초안을 검토해 주세요. [제안N] 형식으로 수정이 필요한 부분을 3~5가지 제시해 주세요. 각 제안은 독립적으로 적용 가능해야 합니다.",
+      "이 문서 초안을 검토해 주세요. [제안N] 형식으로 수정이 필요한 부분을 1~3가지 제시해 주세요. 각 제안은 독립적으로 적용 가능해야 합니다.",
     );
   }, [messages.length, isLoading, sendMessage]);
 
