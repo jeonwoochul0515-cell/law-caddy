@@ -92,6 +92,7 @@ async function callClaudeDirect(
   systemPrompt: string,
   userMessage: string,
   apiKey: string,
+  sharedPrefix?: string,
 ): Promise<string> {
   const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
   const headers: Record<string, string> = {
@@ -103,6 +104,28 @@ async function callClaudeDirect(
   if (!isDev) {
     headers["anthropic-dangerous-direct-browser-access"] = "true";
   }
+  // Phase 2 Prompt Caching:
+  //  - sharedPrefix 있으면: [공통 prefix(캐시), 에이전트별 persona(캐시 안 함)] 두 블록
+  //  - sharedPrefix 없으면: 단일 system 블록 (Phase 1 폴백)
+  const systemBlocks = sharedPrefix
+    ? [
+        {
+          type: "text",
+          text: sharedPrefix,
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          type: "text",
+          text: systemPrompt,
+        },
+      ]
+    : [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ];
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -110,14 +133,7 @@ async function callClaudeDirect(
       model: MODEL,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
-      // Prompt Caching: system prompt 캐시 → 5분 내 재호출 시 input 90% 할인
-      system: [
-        {
-          type: "text",
-          text: systemPrompt,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
+      system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
     }),
   });
@@ -147,13 +163,14 @@ const API_BASE = typeof window !== "undefined" && window.location.hostname !== "
 async function callClaudeProxy(
   systemPrompt: string,
   userMessage: string,
+  sharedPrefix?: string,
 ): Promise<string> {
   return withRetry(async () => {
     const headers = await authHeaders({ "Content-Type": "application/json" });
     const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ systemPrompt, userMessage }),
+      body: JSON.stringify({ systemPrompt, userMessage, sharedPrefix }),
     });
 
     if (!response.ok) {
@@ -174,22 +191,48 @@ async function callClaudeProxy(
 }
 
 /**
+ * Phase 2: 공통 prefix를 별도 캐시 블록으로 보내는 호출 함수.
+ *
+ * 6개 에이전트가 sharedPrefix를 공유하면, 첫 호출에서 캐시가 만들어진 후
+ * 같은 5분 윈도우의 나머지 호출들은 prefix 부분에서 ~90% 할인.
+ * persona 부분은 에이전트마다 달라서 캐시 안 되지만 어차피 짧음.
+ *
+ * 작동 원리:
+ *   system: [
+ *     { type: "text", text: sharedPrefix, cache_control: ephemeral },  ← 캐시
+ *     { type: "text", text: persona }                                  ← 캐시 안 함
+ *   ]
+ */
+export async function callClaudeWithCachedPrefix(
+  sharedPrefix: string,
+  persona: string,
+  userMessage: string,
+): Promise<string> {
+  // 합쳐서 단일 systemPrompt로 보내되, 백엔드/Direct에서 두 블록으로 분리
+  // (호환성을 위해 기존 systemPrompt 인터페이스를 깨지 않음)
+  return callClaude(persona, userMessage, sharedPrefix);
+}
+
+/**
  * Anthropic Claude API를 호출하여 응답을 받습니다.
  * - VITE_ANTHROPIC_API_KEY가 있으면: 브라우저에서 직접 호출 (CORS 허용)
  * - 없으면: /api/claude Cloudflare 프록시 사용 (폴백)
+ *
+ * @param sharedPrefix Phase 2 prompt caching용 공통 prefix (선택). 있으면 별도 캐시 블록으로 분리됨.
  */
 export async function callClaude(
   systemPrompt: string,
   userMessage: string,
+  sharedPrefix?: string,
 ): Promise<string> {
   try {
     // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
     if (DIRECT_API_KEY) {
-      return await callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY);
+      return await callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY, sharedPrefix);
     }
 
     // 폴백: Cloudflare Functions 프록시
-    return await callClaudeProxy(systemPrompt, userMessage);
+    return await callClaudeProxy(systemPrompt, userMessage, sharedPrefix);
   } catch (error: unknown) {
     Sentry.captureException(error);
     const errMsg = error instanceof Error ? error.message : "알 수 없는 오류";

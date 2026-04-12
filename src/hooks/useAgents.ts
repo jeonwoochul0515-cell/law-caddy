@@ -2,8 +2,8 @@
 // 판례 검색, RAG 판례, 적법성 검증, 쟁점 분석, 문서 작성, 검토·감수
 
 import { useState, useCallback } from "react";
-import { callClaude } from "../services/claude";
-import { buildPrompt, buildCaseTypeClassificationPrompt } from "../services/prompts";
+import { callClaude, callClaudeWithCachedPrefix } from "../services/claude";
+import { buildPrompt, buildCaseTypeClassificationPrompt, SHARED_AGENT_PREFIX } from "../services/prompts";
 import {
   searchLatestPrecedents,
   getPrecedentDetail,
@@ -396,7 +396,9 @@ async function runSingleAgent(
         : "사건에 적합한 법률 문서 작성 전 확인 사항을 JSON으로 제시해 주세요."
       : `${context.clientName} 의뢰인의 사건에 대해 분석해 주세요.`;
 
-  return callClaude(prompt, userMessage);
+  // Phase 2 Prompt Caching: 6개 에이전트가 SHARED_AGENT_PREFIX를 공유 → 첫 호출에서 캐시 생성
+  // 이후 같은 5분 윈도우의 나머지 호출들은 prefix 부분에서 ~90% input 할인
+  return callClaudeWithCachedPrefix(SHARED_AGENT_PREFIX, prompt, userMessage);
 }
 
 /**

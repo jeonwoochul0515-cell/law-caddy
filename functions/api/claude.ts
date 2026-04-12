@@ -16,6 +16,8 @@ interface ClaudeRequest {
   systemPrompt: string;
   userMessage?: string;
   messages?: ChatMessage[];
+  /** Phase 2 Prompt Caching: 6개 에이전트가 공유하는 큰 공통 prefix (선택). */
+  sharedPrefix?: string;
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -42,9 +44,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       { role: "user", content: body.userMessage! },
     ];
 
+    // Phase 2 Prompt Caching:
+    //  - sharedPrefix 있으면: [공통 prefix(캐시), persona(캐시 안 함)] 두 블록 → 에이전트 간 prefix 공유로 ~90% 할인
+    //  - sharedPrefix 없으면: 단일 system 블록 (Phase 1 폴백, 기존 동작)
+    const systemBlocks = body.sharedPrefix
+      ? [
+          {
+            type: "text",
+            text: body.sharedPrefix,
+            cache_control: { type: "ephemeral" },
+          },
+          {
+            type: "text",
+            text: body.systemPrompt,
+          },
+        ]
+      : [
+          {
+            type: "text",
+            text: body.systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ];
+
     // 원본 요청의 컨텍스트를 완전히 격리한 새 Request 생성
-    // Prompt Caching: system prompt를 ephemeral 캐시로 등록 → 5분 내 재호출 시 input 90% 할인
-    // (6개 에이전트 병렬 호출, 사건 분석 워크플로우에서 큰 절감 효과)
     const anthropicRequest = new Request(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
@@ -56,13 +79,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
-        system: [
-          {
-            type: "text",
-            text: body.systemPrompt,
-            cache_control: { type: "ephemeral" },
-          },
-        ],
+        system: systemBlocks,
         messages,
       }),
     });
