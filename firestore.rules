@@ -111,6 +111,15 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // ── 사건기록 (전자소송 PDF + 자동 분류 + AI 분석 결과 임베드) ──
+    match /case_records/{recordId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+    }
+
     // ── 수임료 (Fees) ──
     match /fees/{feeId} {
       allow create: if isOwnerOnCreate();

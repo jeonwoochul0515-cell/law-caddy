@@ -112,6 +112,7 @@ export default function CaseRecordsTab({
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queueFiles = (files: File[]) => {
@@ -174,6 +175,7 @@ export default function CaseRecordsTab({
   const handleSubmit = async () => {
     if (pendingFiles.length === 0) return;
     setUploading(true);
+    setUploadError(null);
     setUploadProgress({ done: 0, total: pendingFiles.length });
     try {
       // 순차 업로드 — 네트워크 부담·Firestore 쓰기 한도 고려 (병렬로 바꾸려면 Promise.all)
@@ -183,6 +185,10 @@ export default function CaseRecordsTab({
         setUploadProgress({ done: i + 1, total: pendingFiles.length });
       }
       resetForm();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(msg);
+      console.error("사건기록 업로드 실패:", err);
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -332,6 +338,19 @@ export default function CaseRecordsTab({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg space-y-1.5">
+              <p className="text-xs text-error font-medium">업로드 실패</p>
+              <p className="text-xs text-error/90">{uploadError}</p>
+              {/permission|unauthorized|forbidden/i.test(uploadError) && (
+                <p className="text-[11px] text-text-dim mt-1">
+                  💡 Firebase Storage·Firestore 보안규칙이 배포되지 않았을 수 있습니다.
+                  관리자에게 <code className="text-amber">firebase deploy --only storage,firestore:rules</code> 실행을 요청하세요.
+                </p>
+              )}
             </div>
           )}
 

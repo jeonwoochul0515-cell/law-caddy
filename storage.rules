@@ -46,6 +46,18 @@ service firebase.storage {
       allow read: if isAdmin();
     }
 
+    // ── 사건기록 PDF: 본인만 읽기/쓰기 ──
+    match /case-records/{ownerId}/{caseId}/{fileName} {
+      allow read: if isAuthenticated() && request.auth.uid == ownerId;
+      allow write: if isAuthenticated() && request.auth.uid == ownerId
+        // 최대 100MB, PDF만 허용 (전자소송에서 받은 기록 단일 PDF)
+        && request.resource.size < 100 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf');
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+    }
+
     // ── 문서 내보내기 파일: 본인만 읽기/쓰기 ──
     match /documents/{ownerId}/{caseId}/{fileName} {
       allow read: if isAuthenticated() && request.auth.uid == ownerId;
