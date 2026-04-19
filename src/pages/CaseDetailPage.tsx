@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator, CalendarClock, X, FileDown, FileStack } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Clock, Heart, Loader2, Mic, Calculator, CalendarClock, X, FileDown, FileStack, Sparkles } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useCaseDetail from "../hooks/useCaseDetail";
@@ -9,6 +9,7 @@ import OverviewTab from "../components/cases/OverviewTab";
 import UnifiedTimelineTab from "../components/cases/UnifiedTimelineTab";
 import ClientCareTab from "../components/cases/ClientCareTab";
 import CaseRecordsTab from "../components/cases/CaseRecordsTab";
+import CaseAssistantTab from "../components/cases/CaseAssistantTab";
 import FeeManagementTab from "../components/accounting/FeeManagementTab";
 import CaseExpenseTab from "../components/accounting/CaseExpenseTab";
 import DepositManagementTab from "../components/accounting/DepositManagementTab";
@@ -40,7 +41,7 @@ import type { FeePaymentType } from "../services/autoRevenue";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
 
-type TabKey = "overview" | "timeline" | "schedule" | "clientcare" | "finance" | "records";
+type TabKey = "overview" | "timeline" | "schedule" | "clientcare" | "finance" | "records" | "assistant";
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -477,6 +478,7 @@ export default function CaseDetailPage() {
     { key: "overview", label: "개요", icon: LayoutGrid },
     { key: "schedule", label: "일정 관리", icon: CalendarClock },
     { key: "records", label: "사건기록", count: caseRecords.length, icon: FileStack },
+    { key: "assistant", label: "AI 비서", icon: Sparkles },
     { key: "finance", label: "재무", icon: Calculator },
     { key: "timeline", label: "활동 기록", count: totalCount, icon: Clock },
     { key: "clientcare", label: "의뢰인 케어", icon: Heart },
@@ -561,6 +563,19 @@ export default function CaseDetailPage() {
           onUpload={uploadCaseRecord}
           onRemove={removeCaseRecord}
           onAnalyze={analyzeCaseRecord}
+        />
+      )}
+
+      {tab === "assistant" && caseData && (
+        <CaseAssistantTab
+          caseData={caseData}
+          recordings={recordings}
+          documents={documents}
+          caseRecords={caseRecords}
+          fee={fee}
+          installments={installments}
+          caseExpenses={caseExpenses}
+          deposits={deposits}
         />
       )}
 
