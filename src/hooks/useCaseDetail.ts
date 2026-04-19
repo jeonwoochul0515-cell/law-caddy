@@ -6,8 +6,10 @@ import useAuth from "./useAuth";
 import { extractPdfText } from "../services/pdf";
 import { callClaude } from "../services/claude";
 import { buildOpponentBriefAnalyzerPrompt } from "../services/prompts";
+import { classifyByFileName, classifyByLLM, needsLLMRefinement } from "../services/caseRecordClassifier";
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../types/case";
 import type { CaseRecord, RecordDocType, RecordSubmittedBy, OcrStatus, AnalyzedClaim, SuggestedPrecedent, CaseRecordEmbeddedAnalysis } from "../types/caseRecord";
+import type { CaseType } from "../types/agent";
 import type { LegalDocument } from "../types/document";
 import type { Recording } from "../types/recording";
 
@@ -35,9 +37,14 @@ interface UseCaseDetailReturn {
   addNote: (label: string, detail: string) => Promise<void>;
   uploadOpponentDoc: (file: File, label: string) => Promise<void>;
   removeOpponentDoc: (docId: string) => Promise<void>;
+  /**
+   * 사건기록을 업로드한다.
+   * meta 를 생략하면 파일명 휴리스틱으로 docType·submittedBy 를 자동 추정.
+   * 복수 파일 업로드는 호출 측에서 Promise.all 로 병렬 실행 권장.
+   */
   uploadCaseRecord: (
     file: File,
-    meta: { docType: RecordDocType; submittedBy: RecordSubmittedBy },
+    meta?: { docType?: RecordDocType; submittedBy?: RecordSubmittedBy },
   ) => Promise<void>;
   removeCaseRecord: (recordId: string) => Promise<void>;
   analyzeCaseRecord: (recordId: string) => Promise<void>;
@@ -242,9 +249,15 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
   const uploadCaseRecord = useCallback(
     async (
       file: File,
-      meta: { docType: RecordDocType; submittedBy: RecordSubmittedBy },
+      meta?: { docType?: RecordDocType; submittedBy?: RecordSubmittedBy },
     ) => {
       if (!caseData) return;
+
+      // 메타 미제공 시 파일명 휴리스틱으로 자동 추정
+      const classified = classifyByFileName(file.name);
+      const docType: RecordDocType = meta?.docType ?? classified.docType;
+      const submittedBy: RecordSubmittedBy =
+        meta?.submittedBy ?? classified.submittedBy;
 
       const fileSizeMB = parseFloat((file.size / (1024 * 1024)).toFixed(2));
 
@@ -253,8 +266,8 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
           id: `demo-rec-${Date.now()}`,
           caseId,
           ownerId: caseData.ownerId,
-          docType: meta.docType,
-          submittedBy: meta.submittedBy,
+          docType,
+          submittedBy,
           fileName: file.name,
           storageUrl: "#",
           fileSizeMB,
@@ -271,8 +284,8 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
       const id = await createCaseRecord({
         caseId,
         ownerId: caseData.ownerId,
-        docType: meta.docType,
-        submittedBy: meta.submittedBy,
+        docType,
+        submittedBy,
         fileName: file.name,
         storageUrl,
         fileSizeMB,
@@ -285,8 +298,8 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
           id,
           caseId,
           ownerId: caseData.ownerId,
-          docType: meta.docType,
-          submittedBy: meta.submittedBy,
+          docType,
+          submittedBy,
           fileName: file.name,
           storageUrl,
           fileSizeMB,
@@ -300,12 +313,13 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
 
       await addTimelineEvent(caseId, {
         type: "filing",
-        label: `사건기록 업로드: ${meta.docType} (${meta.submittedBy})`,
+        label: `사건기록 업로드: ${docType} (${submittedBy})`,
         detail: `파일 "${file.name}" 업로드 완료. 파싱 대기 중.`,
       });
 
       // 백그라운드 파싱 시작 (await 하지 않음 — UI는 업로드 직후 즉시 리턴)
-      void parseRecordInBackground(id, file);
+      // docType/submittedBy/caseType 을 인자로 넘겨 stale closure 회피
+      void parseRecordInBackground(id, file, docType, submittedBy, caseData.caseType);
     },
     // parseRecordInBackground 는 같은 클로저에 있으므로 의존성 목록에서 제외
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -325,8 +339,15 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
 
   // 사건기록 파싱 (업로드 직후 백그라운드에서 실행)
   // pdfjs-dist 텍스트 레이어 → 부족 시 CLOVA OCR 폴백. DRM PDF는 drm_blocked 로 귀결.
+  // docType/submittedBy/caseType 은 인자로 전달받아 stale closure 문제를 회피.
   const parseRecordInBackground = useCallback(
-    async (recordId: string, file: File) => {
+    async (
+      recordId: string,
+      file: File,
+      currentDocType: RecordDocType,
+      currentSubmittedBy: RecordSubmittedBy,
+      caseType: CaseType,
+    ) => {
       const applyLocal = (patch: Partial<CaseRecord>) => {
         setCaseRecords((prev) =>
           prev.map((r) => (r.id === recordId ? { ...r, ...patch } : r)),
@@ -352,6 +373,37 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         };
         if (!isDemoMode) await updateCaseRecord(recordId, updates);
         applyLocal(updates);
+
+        // Step 2: docType/submittedBy 가 기본값이면 LLM 보정 (예외는 로그만 남기고 무시)
+        if (needsLLMRefinement(currentDocType, currentSubmittedBy)) {
+          try {
+            const refined = await classifyByLLM({
+              caseType,
+              fileName: file.name,
+              parsedText: text,
+              currentDocType,
+              currentSubmittedBy,
+            });
+            if (
+              refined.confidence > 0 &&
+              (refined.docType !== currentDocType ||
+                refined.submittedBy !== currentSubmittedBy)
+            ) {
+              const refinePatch: Partial<CaseRecord> = {
+                docType: refined.docType,
+                submittedBy: refined.submittedBy,
+              };
+              if (!isDemoMode) {
+                await updateCaseRecord(recordId, refinePatch).catch((e) =>
+                  console.warn("LLM 보정 저장 실패:", e),
+                );
+              }
+              applyLocal(refinePatch);
+            }
+          } catch (llmErr) {
+            console.warn("LLM 분류 보정 실패 (무시):", llmErr);
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const isDrm = /password|encrypted|drm|permission/i.test(msg);

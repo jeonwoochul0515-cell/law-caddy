@@ -17,6 +17,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import useDropZone from "../../hooks/useDropZone";
+import { classifyByFileName } from "../../services/caseRecordClassifier";
 import type {
   CaseRecord,
   RecordDocType,
@@ -42,17 +43,25 @@ const SUBMITTED_BY_OPTIONS: RecordSubmittedBy[] = [
   "미상",
 ];
 
-/** 사건기록 업로드 시 부모에게 전달할 메타 (파일은 별도 인자) */
+/** 사건기록 업로드 시 부모에게 전달할 메타 — 생략 시 자동 추정 */
 export interface CaseRecordUploadMeta {
-  docType: RecordDocType;
-  submittedBy: RecordSubmittedBy;
+  docType?: RecordDocType;
+  submittedBy?: RecordSubmittedBy;
 }
 
 interface CaseRecordsTabProps {
   caseRecords: CaseRecord[];
-  onUpload: (file: File, meta: CaseRecordUploadMeta) => Promise<void>;
+  onUpload: (file: File, meta?: CaseRecordUploadMeta) => Promise<void>;
   onRemove: (recordId: string) => Promise<void>;
   onAnalyze: (recordId: string) => Promise<void>;
+}
+
+/** 업로드 큐의 개별 파일 상태 */
+interface PendingFile {
+  file: File;
+  docType: RecordDocType;
+  submittedBy: RecordSubmittedBy;
+  autoClassified: boolean; // true: 파일명 휴리스틱 성공, false: 기본값(사용자 수동 조정 필요)
 }
 
 interface StatusBadgeStyle {
@@ -96,15 +105,29 @@ export default function CaseRecordsTab({
   onAnalyze,
 }: CaseRecordsTabProps) {
   const [showForm, setShowForm] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [docType, setDocType] = useState<RecordDocType>("기타");
-  const [submittedBy, setSubmittedBy] = useState<RecordSubmittedBy>("미상");
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const queueFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    const queued: PendingFile[] = files.map((file) => {
+      const cls = classifyByFileName(file.name);
+      return {
+        file,
+        docType: cls.docType,
+        submittedBy: cls.submittedBy,
+        autoClassified: cls.confidence > 0,
+      };
+    });
+    setPendingFiles((prev) => [...prev, ...queued]);
+    setShowForm(true);
+  };
 
   const handleAnalyze = async (recordId: string) => {
     setAnalyzingId(recordId);
@@ -126,27 +149,43 @@ export default function CaseRecordsTab({
 
   const { isDragging, dropZoneProps } = useDropZone(
     useCallback((droppedFiles: File[]) => {
-      if (droppedFiles.length > 0) {
-        setSelectedFile(droppedFiles[0]);
-        setShowForm(true);
-      }
+      queueFiles(droppedFiles);
     }, []),
     [".pdf"],
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setSelectedFile(file);
+    const files = Array.from(e.target.files ?? []);
+    queueFiles(files);
+    // 같은 파일 재선택 허용을 위해 value 초기화
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemovePending = (index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdatePending = (index: number, patch: Partial<PendingFile>) => {
+    setPendingFiles((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, ...patch, autoClassified: false } : p)),
+    );
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile) return;
+    if (pendingFiles.length === 0) return;
     setUploading(true);
+    setUploadProgress({ done: 0, total: pendingFiles.length });
     try {
-      await onUpload(selectedFile, { docType, submittedBy });
+      // 순차 업로드 — 네트워크 부담·Firestore 쓰기 한도 고려 (병렬로 바꾸려면 Promise.all)
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const p = pendingFiles[i];
+        await onUpload(p.file, { docType: p.docType, submittedBy: p.submittedBy });
+        setUploadProgress({ done: i + 1, total: pendingFiles.length });
+      }
       resetForm();
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -161,9 +200,7 @@ export default function CaseRecordsTab({
 
   const resetForm = () => {
     setShowForm(false);
-    setSelectedFile(null);
-    setDocType("기타");
-    setSubmittedBy("미상");
+    setPendingFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -199,7 +236,14 @@ export default function CaseRecordsTab({
       {showForm && (
         <div className="bg-surface border border-gold/20 rounded-2xl p-5 backdrop-blur-sm space-y-3 mb-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text-primary">사건기록 업로드</h4>
+            <h4 className="text-sm font-semibold text-text-primary">
+              사건기록 업로드
+              {pendingFiles.length > 0 && (
+                <span className="ml-2 text-xs text-text-dim">
+                  {pendingFiles.length}개 선택됨
+                </span>
+              )}
+            </h4>
             <button
               onClick={resetForm}
               className="text-text-dim hover:text-error transition-colors"
@@ -208,73 +252,121 @@ export default function CaseRecordsTab({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-dim mb-1.5 block">문서 종류</label>
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value as RecordDocType)}
-                className="w-full px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary focus:border-gold/40 focus:outline-none transition-colors"
-              >
-                {DOC_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-text-dim mb-1.5 block">제출자</label>
-              <select
-                value={submittedBy}
-                onChange={(e) => setSubmittedBy(e.target.value as RecordSubmittedBy)}
-                className="w-full px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary focus:border-gold/40 focus:outline-none transition-colors"
-              >
-                {SUBMITTED_BY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
+          {/* 파일 선택/드래그 영역 */}
           <div
             onClick={() => fileInputRef.current?.click()}
             className="flex flex-col items-center justify-center gap-2 py-5 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-gold/30 transition-colors"
           >
             <Upload className="w-5 h-5 text-text-dim" />
-            {selectedFile ? (
-              <div className="text-center">
-                <p className="text-sm text-text-primary font-medium">{selectedFile.name}</p>
-                <p className="text-xs text-text-dim">{formatSize(selectedFile.size / (1024 * 1024))}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-text-dim">PDF 파일 첨부 (전자소송에서 다운로드한 기록)</p>
-            )}
+            <p className="text-xs text-text-dim">
+              PDF 파일 다중 선택 가능 (여기에 끌어다 놓아도 됩니다)
+            </p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             accept=".pdf"
+            multiple
             onChange={handleFileChange}
             className="hidden"
           />
 
-          <div className="flex gap-2">
+          {/* 선택된 파일 리스트 — 자동 분류 결과 미리보기 + 수정 */}
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {pendingFiles.map((p, idx) => (
+                <div
+                  key={`${p.file.name}-${idx}`}
+                  className="bg-navy-light border border-border rounded-lg p-3 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary font-medium truncate">
+                        {p.file.name}
+                      </p>
+                      <p className="text-[11px] text-text-dim">
+                        {formatSize(p.file.size / (1024 * 1024))}
+                        {p.autoClassified ? (
+                          <span className="ml-2 text-emerald-400/80">· 자동 분류됨</span>
+                        ) : (
+                          <span className="ml-2 text-text-dim/60">· 수동 확인 필요</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemovePending(idx)}
+                      className="p-1.5 text-text-dim hover:text-error transition-colors rounded-lg hover:bg-error/10"
+                      title="이 파일 제외"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={p.docType}
+                      onChange={(e) =>
+                        handleUpdatePending(idx, {
+                          docType: e.target.value as RecordDocType,
+                        })
+                      }
+                      className="px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text-primary focus:border-gold/40 focus:outline-none transition-colors"
+                    >
+                      {DOC_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={p.submittedBy}
+                      onChange={(e) =>
+                        handleUpdatePending(idx, {
+                          submittedBy: e.target.value as RecordSubmittedBy,
+                        })
+                      }
+                      className="px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text-primary focus:border-gold/40 focus:outline-none transition-colors"
+                    >
+                      {SUBMITTED_BY_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
             <button
               onClick={handleSubmit}
-              disabled={!selectedFile || uploading}
+              disabled={pendingFiles.length === 0 || uploading}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {uploading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> 업로드 중...</>
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  업로드 중 {uploadProgress && `(${uploadProgress.done}/${uploadProgress.total})`}
+                </>
               ) : (
-                <><Upload className="w-4 h-4" /> 업로드</>
+                <>
+                  <Upload className="w-4 h-4" />
+                  {pendingFiles.length > 0
+                    ? `${pendingFiles.length}개 업로드`
+                    : "업로드"}
+                </>
               )}
             </button>
             <button
               onClick={resetForm}
-              className="px-4 py-2 border border-border text-text-dim rounded-lg text-sm hover:border-gold/30 hover:text-gold transition-colors"
+              disabled={uploading}
+              className="px-4 py-2 border border-border text-text-dim rounded-lg text-sm hover:border-gold/30 hover:text-gold transition-colors disabled:opacity-40"
             >
               취소
             </button>
+            {pendingFiles.length > 0 && !uploading && (
+              <span className="text-[11px] text-text-dim ml-auto">
+                자동 분류가 틀렸으면 위 드롭다운에서 수정하세요
+              </span>
+            )}
           </div>
         </div>
       )}

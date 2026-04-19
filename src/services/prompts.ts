@@ -2596,6 +2596,55 @@ ${workList ? `[총 투입 작업량]\n${workList}\n` : ""}
 }
 
 // ──────────────────────────────────────────────
+// caseRecordClassifier — 사건기록 본문 기반 자동 분류 (Step 2 LLM 보정)
+// ──────────────────────────────────────────────
+//
+// 파일명 휴리스틱이 "기타"/"미상" 으로 남긴 건만 호출되는 가벼운 분류기.
+// 응답은 JSON 한 줄, 저비용.
+
+export interface CaseRecordClassifyContext {
+  caseType: CaseType;
+  fileName: string;
+  /** 파싱된 본문의 첫 2000자 이내 */
+  firstText: string;
+  currentDocType: string;
+  currentSubmittedBy: string;
+}
+
+/**
+ * 본문과 파일명을 보고 docType·submittedBy 를 JSON으로 재분류하는 프롬프트.
+ * 확신이 없으면 current 값을 유지하라고 명시해 오분류를 최소화한다.
+ */
+export function buildCaseRecordClassifyPrompt(
+  ctx: CaseRecordClassifyContext,
+): string {
+  return `당신은 한국 법률 문서 분류기입니다. 아래 파일이 어떤 유형의 서면인지, 누가 제출했는지를 JSON 한 줄로 판정하세요.
+
+[사건 유형] ${ctx.caseType}
+[파일명] ${ctx.fileName}
+[현재 분류] docType="${ctx.currentDocType}", submittedBy="${ctx.currentSubmittedBy}"
+
+[본문 앞부분 (최대 2000자)]
+${ctx.firstText}
+
+## 응답 규칙
+
+- 단일 JSON 객체만 출력. 서론·맺음말·코드펜스 금지.
+- 스키마:
+  {
+    "docType": "소장" | "답변서" | "준비서면" | "증거" | "결정문" | "판결문" | "기타",
+    "submittedBy": "원고" | "피고" | "법원" | "기타" | "미상",
+    "confidence": "high" | "medium" | "low"
+  }
+- 확신이 없으면 현재 분류 값을 그대로 반환하고 confidence="low" 로 표시합니다.
+- 법원이 발송한 문서(판결·결정·명령·기일통지 등)는 submittedBy="법원" 으로 분류합니다.
+- 증거서류(갑제N호증·을제N호증·서증)는 docType="증거" 로 분류합니다.
+- 형사 사건에서 피고인 변호인이 낸 서면도 "피고"로 분류합니다.
+
+지금 JSON 객체만 출력하세요.`;
+}
+
+// ──────────────────────────────────────────────
 // opponentBriefAnalyzer — 상대방 서면 심층 분석 (변호사 전용)
 // ──────────────────────────────────────────────
 //
