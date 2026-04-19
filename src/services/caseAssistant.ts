@@ -225,8 +225,8 @@ function formatFinance(
     lines.push(`- 사건비용 ${expenses.length}건, 합계 ${total.toLocaleString()}원`);
   }
   if (deposits && deposits.length > 0) {
-    const total = deposits.reduce((a, d) => a + (d.amount ?? 0), 0);
-    lines.push(`- 예수금 ${deposits.length}건, 합계 ${total.toLocaleString()}원`);
+    const remaining = deposits.reduce((a, d) => a + (d.remainingAmount ?? 0), 0);
+    lines.push(`- 예수금 ${deposits.length}건, 잔액 ${remaining.toLocaleString()}원`);
   }
   if (lines.length === 0) return null;
   return ["# 재무 현황", ...lines].join("\n");
