@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
+import type { CaseRecord } from "../../types/caseRecord";
 import type { ClientCareMessage } from "../../types/clientCare";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
@@ -406,6 +407,127 @@ export async function deleteOpponentDoc(id: string): Promise<void> {
       throw new Error(`상대방 서면 삭제 실패: ${error.message}`);
     }
     throw new Error("상대방 서면 삭제 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+// ──────────────────────────────────────────────
+// Case Records (사건기록)
+// ──────────────────────────────────────────────
+//
+// 컬렉션: case_records
+// 보안 규칙: ownerId == request.auth.uid
+// 관련 타입: src/types/caseRecord.ts (CaseRecord)
+// 업로드 흐름: uploadCaseRecordFile(Storage) → createCaseRecord(메타) → parse API → analyze API
+
+/** 사건기록 생성 시 필요한 데이터 (id, 타임스탬프 제외) */
+type CreateCaseRecordData = Omit<CaseRecord, "id" | "uploadedAt" | "updatedAt">;
+
+/**
+ * 새 사건기록 문서를 생성합니다.
+ * Storage 업로드(uploadCaseRecordFile) 직후에 호출하며, ocrStatus 는 "pending" 으로 시작.
+ */
+export async function createCaseRecord(
+  data: CreateCaseRecordData,
+): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db!, "case_records"), {
+      ...data,
+      uploadedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 등록 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 등록 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 특정 사건의 사건기록 목록을 조회합니다.
+ *
+ * @param caseId - 사건 ID
+ * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
+ */
+export async function getCaseRecords(
+  caseId: string,
+  ownerId: string,
+): Promise<CaseRecord[]> {
+  try {
+    const q = query(
+      collection(db!, "case_records"),
+      where("caseId", "==", caseId),
+      where("ownerId", "==", ownerId),
+    );
+    const snapshot = await getDocs(q);
+    const results = snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as CaseRecord[];
+    return results.sort((a, b) => {
+      const ta = a.uploadedAt?.seconds ?? 0;
+      const tb = b.uploadedAt?.seconds ?? 0;
+      return tb - ta;
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 조회 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 단일 사건기록을 조회합니다.
+ */
+export async function getCaseRecord(id: string): Promise<CaseRecord | null> {
+  try {
+    const snap = await getDoc(doc(db!, "case_records", id));
+    if (!snap.exists()) return null;
+    return { ...snap.data(), id: snap.id } as CaseRecord;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 조회 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 사건기록을 부분 업데이트합니다.
+ * 파싱 완료(parsedText, ocrStatus="parsed"), 분석 완료(analyzedAt, analysisSummaryId) 등에 사용.
+ * updatedAt 은 서버 타임스탬프로 자동 갱신.
+ */
+export async function updateCaseRecord(
+  id: string,
+  updates: Partial<Omit<CaseRecord, "id" | "uploadedAt">>,
+): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "case_records", id), {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 업데이트 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 업데이트 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 사건기록을 삭제합니다. (Storage 원본 파일은 호출 측에서 별도 삭제)
+ */
+export async function deleteCaseRecord(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "case_records", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 삭제 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 삭제 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 

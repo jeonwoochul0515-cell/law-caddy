@@ -2594,3 +2594,107 @@ ${workList ? `[총 투입 작업량]\n${workList}\n` : ""}
 8. 이모지 1~2개만
 9. ${ctx.firmName} ${ctx.lawyerName} 변호사 서명`;
 }
+
+// ──────────────────────────────────────────────
+// opponentBriefAnalyzer — 상대방 서면 심층 분석 (변호사 전용)
+// ──────────────────────────────────────────────
+//
+// buildOpponentDocMessagePrompt 는 "의뢰인 카톡용 쉬운 요약"
+// 이 함수는 "변호사 전용 심층 분석"으로, 둘은 레이어가 다르다.
+// 출력은 JSON 고정 스키마(CaseRecordAnalysis 호환)로 받아 파싱한다.
+// 환각 방지 원칙: 모든 주장·근거·반박에 서면 원문 인용 스팬(citation) 필수,
+// 인용이 비어 있는 항목은 아예 내보내지 않는다.
+//
+// 관련 타입: src/types/caseRecord.ts
+//   - AnalyzedClaim: 번호·요지·인용·근거·약점·반박 포인트
+//   - SuggestedPrecedent: 판례 사건번호·법조문·관련성
+//   - CaseRecordAnalysis.rebuttalOutline: h2 수준 목차 문자열 배열
+
+/** opponentBriefAnalyzer 에이전트 컨텍스트 */
+export interface OpponentBriefAnalyzerContext {
+  /** 사건 기본정보 요약 (당사자·쟁점·진행단계) */
+  caseBrief: string;
+  /** 사건 유형 */
+  caseType: CaseType;
+  /** 분석 대상 서면의 문서 유형 라벨 (예: "준비서면", "답변서") */
+  docTypeLabel: string;
+  /** 분석 대상 서면 전문 (마스킹된 parsedText) */
+  opponentBriefText: string;
+  /** 동일 사건에서 RAG로 가져온 선행 서면 요약 (없으면 빈 문자열) */
+  priorBriefSummaries?: string;
+}
+
+/**
+ * 상대방 서면을 분석해 주장·약점·반박·판례 제안을 JSON으로 생성하는 프롬프트.
+ *
+ * 호출 측은 응답의 JSON 블록을 파싱해 CaseRecordAnalysis 로 저장한다.
+ * JSON 외 자연어 서술은 허용하지 않으며, JSON 파싱 실패 시 재시도 1회 후 failed 처리.
+ */
+export function buildOpponentBriefAnalyzerPrompt(
+  context: OpponentBriefAnalyzerContext,
+): string {
+  const priorSummary =
+    context.priorBriefSummaries && context.priorBriefSummaries.trim().length > 0
+      ? `\n\n[동일 사건 선행 서면 요약]\n${context.priorBriefSummaries}`
+      : "";
+
+  return `당신은 한국 ${context.caseType} 실무에 능한 상대방 서면 분석 전문가입니다.
+변호사가 반박 준비서면을 작성하기 전 단계에서, 상대방 서면을 해부해 주장·약점·반박 포인트·판례 후보를 구조화된 JSON으로 돌려주는 역할을 수행합니다.
+
+[사건 기본정보]
+${context.caseBrief}
+
+[분석 대상 서면 유형]
+${context.docTypeLabel}
+
+[분석 대상 서면 전문]
+${context.opponentBriefText}${priorSummary}
+
+## 작업 지시
+
+아래 JSON 스키마를 **정확히** 지켜서 응답하세요. JSON 외 자연어 서술·서론·맺음말은 금지합니다.
+코드 블록 울타리(\`\`\`) 없이 JSON 객체만 단독으로 출력하세요.
+
+\`\`\`
+{
+  "claims": [
+    {
+      "index": 1,
+      "summary": "상대방 주장 요지 1~2문장",
+      "citation": "서면 원문에서 그대로 가져온 인용 스팬 (쌍따옴표 내 문자열)",
+      "citationPage": 3,
+      "basis": "상대방이 제시한 근거 요약",
+      "weakness": "논리·증거·법리상 약점",
+      "rebuttalPoint": "우리 측이 취할 반박 포인트"
+    }
+  ],
+  "rebuttalOutline": [
+    "## 1. 주장 A에 대한 반박",
+    "## 2. 주장 B의 근거 부실 지적",
+    "## 3. 우리 측 주장과의 정합성 재강조"
+  ],
+  "suggestedPrecedents": [
+    {
+      "caseNumber": "대법원 2017. 11. 29. 선고 2017다241819 판결",
+      "statute": "민법 제750조",
+      "relevance": "본 사건의 쟁점 X에 직접 적용되는 이유 1~2문장"
+    }
+  ]
+}
+\`\`\`
+
+## 출력 규칙 (매우 중요)
+
+1. \`claims\` 는 3~7개. 상대방 서면의 실질 주장을 빠짐없이 포착하되, 절차적 의례(예: "귀원의 건승을 기원합니다") 는 제외합니다.
+2. **\`citation\` 이 비어 있거나 서면에 없는 문장을 지어낸 경우 해당 claim 전체를 출력에서 제외합니다.** 인용은 서면 원문을 그대로 복사해야 합니다.
+3. \`citationPage\` 는 확인 가능한 경우에만 정수로 기재, 불확실하면 필드 자체를 생략합니다.
+4. \`rebuttalOutline\` 은 최종 반박 준비서면의 h2 수준 섹션 제목만 나열합니다. 본문은 작성하지 않습니다.
+5. \`suggestedPrecedents\` 는 0~5개. 사건번호 또는 법조문 중 최소 하나는 반드시 채웁니다. 둘 다 불확실하면 해당 항목은 출력하지 않습니다.
+6. \`caseNumber\` 는 "대법원 YYYY. M. D. 선고 YYYY다NNNNN 판결" 형식, \`statute\` 는 "민법 제750조" 형식을 따릅니다. 형식이 맞지 않으면 해당 항목을 제외합니다.
+7. 사건번호·법조문·인용을 추측·조합하지 않습니다. 불확실하면 해당 항목 자체를 출력하지 않는 편이 낫습니다.
+8. 한국어로 작성합니다. 법률용어는 정확한 형태로 사용하되, 쉬운 말 풀이를 덧붙이지 않습니다(이 결과는 변호사 전용).
+9. 형사 사건이라면 피고인을 단정적으로 유죄로 묘사하지 않습니다. 가족법이라면 일방을 비난하지 않습니다.
+10. 모든 응답은 단일 JSON 객체로 끝내며, 객체 앞뒤에 어떠한 추가 텍스트도 두지 않습니다.
+
+위 10개 규칙을 모두 준수하는 JSON 객체를 지금 출력하세요.`;
+}

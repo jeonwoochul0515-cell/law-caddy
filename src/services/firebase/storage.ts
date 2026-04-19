@@ -92,3 +92,35 @@ export async function uploadOpponentDocFile(
     throw new Error("상대방 서면 업로드 중 알 수 없는 오류가 발생했습니다.");
   }
 }
+
+/**
+ * 사건기록 PDF를 Firebase Storage에 업로드합니다.
+ *
+ * 저장 경로: case-records/{ownerId}/{caseId}/{timestamp}_{filename}
+ *
+ * 업로드 후 반환된 downloadUrl 을 createCaseRecord 의 storageUrl 필드에 넣어
+ * Firestore `case_records` 문서를 생성한다. (분리된 두 단계)
+ */
+export async function uploadCaseRecordFile(
+  file: File,
+  ownerId: string,
+  caseId: string,
+): Promise<string> {
+  try {
+    const timestamp = Date.now();
+    const safeFileName = `${timestamp}_${file.name}`;
+    const storagePath = `case-records/${ownerId}/${caseId}/${safeFileName}`;
+    const storageRef = ref(storage!, storagePath);
+
+    const snapshot = await uploadBytes(storageRef, file, {
+      contentType: file.type || "application/pdf",
+    });
+
+    return await getDownloadURL(snapshot.ref);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`사건기록 업로드 실패: ${error.message}`);
+    }
+    throw new Error("사건기록 업로드 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
