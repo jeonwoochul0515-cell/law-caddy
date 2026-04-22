@@ -16,7 +16,12 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import type { Case, TimelineEvent, OpponentDoc } from "../../types/case";
+import type {
+  Case,
+  CourtEvent,
+  TimelineEvent,
+  OpponentDoc,
+} from "../../types/case";
 import type { CaseRecord } from "../../types/caseRecord";
 import type { ClientCareMessage } from "../../types/clientCare";
 import type { Recording } from "../../types/recording";
@@ -147,6 +152,69 @@ export async function addTimelineEvent(
       throw new Error(`타임라인 이벤트 추가 실패: ${error.message}`);
     }
     throw new Error("타임라인 이벤트 추가 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 사건의 법원 조회 결과를 업데이트합니다.
+ * 새 이벤트만 courtEvents 배열에 추가(중복 id 제거)하고, lastCourtPolledAt을 갱신합니다.
+ * 새로 감지된 이벤트는 timeline에도 자동 기록합니다.
+ *
+ * @param caseId - 사건 문서 ID
+ * @param data - caseNumber, courtName, newEvents(이번 호출로 새로 감지된 이벤트만)
+ */
+export async function updateCaseCourtInfo(
+  caseId: string,
+  data: {
+    caseNumber: string;
+    courtName: string;
+    newEvents: CourtEvent[]; // 이번 호출로 새로 감지된 이벤트만 (중복 제거된 상태)
+  }
+): Promise<void> {
+  try {
+    const caseRef = doc(db!, "cases", caseId);
+
+    // 1) 기존 courtEvents 조회 → id 기준 중복 제거 후 병합(최신순 정렬)
+    const snap = await getDoc(caseRef);
+    const existing: CourtEvent[] = snap.exists()
+      ? ((snap.data().courtEvents as CourtEvent[] | undefined) ?? [])
+      : [];
+
+    const existingIds = new Set(existing.map((ev) => ev.id));
+    const filteredNew = data.newEvents.filter((ev) => !existingIds.has(ev.id));
+    const mergedEvents: CourtEvent[] = [...filteredNew, ...existing].sort(
+      (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0),
+    );
+
+    // 2) cases 문서에 caseNumber, courtName, courtEvents, lastCourtPolledAt 업데이트
+    await updateDoc(caseRef, {
+      caseNumber: data.caseNumber,
+      courtName: data.courtName,
+      courtEvents: mergedEvents,
+      lastCourtPolledAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // 3) 새로 감지된 이벤트를 timeline에 "response" 타입으로 추가
+    for (const ev of filteredNew) {
+      const timelineEvent: TimelineEvent = {
+        type: "response",
+        date: ev.discoveredAt ?? Timestamp.now(),
+        label: "법원 진행",
+        detail: `${ev.type}: ${ev.content}`,
+      };
+      await updateDoc(caseRef, {
+        timeline: arrayUnion(timelineEvent),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`법원 조회 결과 업데이트 실패: ${error.message}`);
+    }
+    throw new Error(
+      "법원 조회 결과 업데이트 중 알 수 없는 오류가 발생했습니다.",
+    );
   }
 }
 

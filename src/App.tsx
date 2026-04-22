@@ -45,6 +45,7 @@ const ProfileSetupPage = lazyWithRetry(() => import("./pages/ProfileSetupPage"))
 const PendingPage = lazyWithRetry(() => import("./pages/PendingPage"));
 const DashboardPage = lazyWithRetry(() => import("./pages/DashboardPage"));
 const RecordPage = lazyWithRetry(() => import("./pages/RecordPage"));
+const FreeformPage = lazyWithRetry(() => import("./pages/FreeformPage"));
 const AgentsPage = lazyWithRetry(() => import("./pages/AgentsPage"));
 const CheckpointPage = lazyWithRetry(() => import("./pages/CheckpointPage"));
 const DocumentPage = lazyWithRetry(() => import("./pages/DocumentPage"));
@@ -204,6 +205,7 @@ export default function App() {
           {/* 인증 필요 라우트 */}
           <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/record" element={<RequireAuth><RecordPage /></RequireAuth>} />
+          <Route path="/freeform" element={<RequireAuth><FreeformPage /></RequireAuth>} />
           <Route path="/record/agents" element={<RequireAuth><AgentsPage /></RequireAuth>} />
           <Route path="/record/checkpoint" element={<RequireAuth><CheckpointPage /></RequireAuth>} />
           <Route path="/record/document" element={<RequireAuth><DocumentPage /></RequireAuth>} />

@@ -10,7 +10,7 @@
 import type { Env } from "../_shared/types";
 
 const CODEF_TOKEN_URL = "https://oauth.codef.io/oauth/token";
-const CODEF_API_URL = "https://development.codef.io"; // sandbox
+const CODEF_API_URL = "https://api.codef.io"; // production (2026-04-22 전환)
 
 /** 매출/매입에 따른 CODEF API 엔드포인트 */
 const INVOICE_ENDPOINTS = {

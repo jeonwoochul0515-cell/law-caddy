@@ -10,6 +10,8 @@ import { checkRateLimit } from "./_shared/rate-limit";
 const PUBLIC_PATHS = [
   "/api/health",
   "/api/verify-business", // 회원가입 시 사업자등록증 검증 (미인증 상태)
+  // iCal 구독은 토큰 path param으로 인증 (캘린더 클라이언트가 JWT 전송 불가)
+  "/api/ical",
 ];
 
 export const onRequest: PagesFunction<Env> = async (context) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mic, FolderOpen, FileText, TrendingUp, Plus } from "lucide-react";
+import { Mic, FolderOpen, FileText, TrendingUp, Plus, Sparkles, ArrowRight } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
@@ -184,6 +184,29 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* 자유 지시 빠른 경로 (강조 CTA) */}
+      <button
+        onClick={() => navigate("/freeform")}
+        className="group w-full relative overflow-hidden bg-gradient-to-r from-gold via-gold-bright to-gold text-navy rounded-2xl p-5 sm:p-6 mb-4 shadow-lg shadow-gold/20 hover:shadow-gold/40 transition-all text-left"
+      >
+        <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy/15 rounded-full flex items-center justify-center shrink-0">
+            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-navy" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="font-bold text-base sm:text-lg">자유 지시로 빠르게 생성</p>
+              <span className="text-[10px] font-semibold px-2 py-0.5 bg-navy text-gold rounded-full">NEW</span>
+            </div>
+            <p className="text-sm text-navy/80">
+              양식 없이 AI에게 직접 시키기 · 체크포인트 생략 · 20~30초
+            </p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-navy shrink-0 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </button>
 
       {/* 새 상담 시작 + 사건 관리 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

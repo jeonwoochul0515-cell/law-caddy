@@ -14,6 +14,7 @@ const loadDocxExport = () => import("../../services/docxExport");
 const loadHwpxExport = () => import("../../services/hwpxExport");
 import ContractPaymentSection from "./ContractPaymentSection";
 import CostsSection from "./CostsSection";
+import CourtTrackingCard from "./CourtTrackingCard";
 
 const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
   consult: Mic,
@@ -38,6 +39,8 @@ interface OverviewTabProps {
   onNavigateToDocument?: (doc: LegalDocument) => void;
   onCreateContract?: () => void;
   signingRequests?: SigningRequest[];
+  /** 법원 조회 완료 후 부모가 사건을 다시 로드하도록 호출 */
+  onCourtInfoUpdated: () => void;
 }
 
 /** 파일 카테고리별 아이콘 매핑 */
@@ -63,6 +66,7 @@ export default function OverviewTab({
   onNavigateToDocument,
   onCreateContract,
   signingRequests,
+  onCourtInfoUpdated,
 }: OverviewTabProps) {
   const timeline = caseData.timeline ?? [];
   const createdDate = caseData.createdAt?.toDate?.()
@@ -131,6 +135,9 @@ export default function OverviewTab({
 
   return (
     <div className="space-y-6">
+      {/* 법원 사건 진행 자동 추적 */}
+      <CourtTrackingCard caseData={caseData} onUpdated={onCourtInfoUpdated} />
+
       {/* 통계 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[

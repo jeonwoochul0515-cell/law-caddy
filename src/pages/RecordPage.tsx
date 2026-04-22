@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Save, Loader2, FolderOpen, AlertCircle } from "lucide-react";
+import { Mic, Upload, Square, ChevronRight, ChevronLeft, Camera, FileText, Image, Music, Film, X, Plus, Save, Loader2, FolderOpen, AlertCircle, Sparkles, ArrowRight } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import useRecording from "../hooks/useRecording";
@@ -344,7 +344,32 @@ export default function RecordPage() {
 
       {/* Step 1: 사건 정보 */}
       {step === "info" && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-4">
+          {/* 자유 지시 빠른 경로 (강조 CTA) */}
+          {!prefilled?.caseId && (
+            <button
+              onClick={() => navigate("/freeform")}
+              className="group w-full relative overflow-hidden bg-gradient-to-r from-gold via-gold-bright to-gold text-navy rounded-2xl p-5 shadow-lg shadow-gold/20 hover:shadow-gold/40 transition-all text-left"
+            >
+              <div className="absolute -right-4 -top-4 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
+              <div className="relative flex items-center gap-4">
+                <div className="w-12 h-12 bg-navy/15 rounded-full flex items-center justify-center shrink-0">
+                  <Sparkles className="w-6 h-6 text-navy" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="font-bold text-base">자유 지시로 바로 생성</p>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-navy text-gold rounded-full">NEW</span>
+                  </div>
+                  <p className="text-sm text-navy/80">
+                    양식 없이 AI에게 직접 시키기 · 20~30초
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-navy shrink-0 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
+          )}
+
           <div className="bg-surface border border-border rounded-2xl p-6 backdrop-blur-sm space-y-5">
             <h3 className="text-lg font-semibold text-text-primary">사건 정보 입력</h3>
 

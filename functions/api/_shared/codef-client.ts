@@ -5,8 +5,10 @@
 const CODEF_SANDBOX_URL = "https://development.codef.io";
 const CODEF_PRODUCTION_URL = "https://api.codef.io";
 
-// 데모 버전: 샌드박스 사용
-const CODEF_BASE_URL = CODEF_SANDBOX_URL;
+// 정식버전: 2026-04-22 프로덕션 전환 (정식 client_id 발급 완료)
+const CODEF_BASE_URL = CODEF_PRODUCTION_URL;
+// 하위 린트 회피: 샌드박스 상수는 롤백용으로 보존
+void CODEF_SANDBOX_URL;
 const CODEF_TOKEN_URL = "https://oauth.codef.io/oauth/token";
 
 /** CODEF 성공 응답 코드 */

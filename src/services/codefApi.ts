@@ -353,3 +353,49 @@ export async function syncTaxInvoices(
     throw new Error("세금계산서 동기화 중 알 수 없는 오류가 발생했습니다.");
   }
 }
+
+// ─────────────────────────────────────────────
+// 대법원 나의사건검색
+// ─────────────────────────────────────────────
+
+export interface CourtCaseLookupResult {
+  success: true;
+  caseNumber: string;
+  courtName: string;
+  events: Array<{
+    date: string;
+    type: string;
+    content: string;
+  }>;
+}
+
+/**
+ * 대법원 나의사건검색으로 사건 진행상황을 조회합니다.
+ * CODEF API를 경유하며, 공개 정보라 별도 본인인증 불필요합니다.
+ *
+ * @param caseNumber - 법원 사건번호 (예: "2024가단12345")
+ * @param courtName - 법원명 (선택, 예: "서울중앙지방법원")
+ * @returns 조회된 진행 이벤트 목록
+ */
+export async function lookupCourtCase(
+  caseNumber: string,
+  courtName?: string,
+): Promise<CourtCaseLookupResult> {
+  try {
+    const body: Record<string, unknown> = { caseNumber };
+    if (courtName) {
+      body.courtName = courtName;
+    }
+    return await codefPost<CourtCaseLookupResult>(
+      "/api/codef/court-case-lookup",
+      body,
+    );
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`대법원 나의사건검색 실패: ${error.message}`);
+    }
+    throw new Error(
+      "대법원 나의사건검색 중 알 수 없는 오류가 발생했습니다.",
+    );
+  }
+}
