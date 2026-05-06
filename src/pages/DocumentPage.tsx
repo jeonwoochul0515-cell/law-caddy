@@ -83,6 +83,8 @@ export default function DocumentPage() {
     generateClientMessage,
     updateFinalDocument,
     setExternalDocument,
+    changedSegments,
+    clearHighlight,
     status,
     error: docError,
   } = useDocument();
@@ -395,7 +397,19 @@ export default function DocumentPage() {
           {/* 왼쪽: 문서 뷰어 */}
           <div className="w-full lg:w-[60%] min-w-0 bg-surface border border-border rounded-2xl backdrop-blur-sm flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
-              <h3 className="font-semibold text-text-primary text-base">{state.docType} 초안</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-text-primary text-base">{state.docType} 초안</h3>
+                {changedSegments && (
+                  <button
+                    onClick={clearHighlight}
+                    title="변경 강조 끄기"
+                    className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded-full hover:bg-emerald-500/25 transition-colors"
+                  >
+                    <span>변경 강조</span>
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {finalDocument && (
                   <>
@@ -525,7 +539,20 @@ export default function DocumentPage() {
                 </div>
               ) : finalDocument ? (
                 <div className="whitespace-pre-wrap text-[17px] text-text-primary leading-[1.9] font-sans">
-                  {finalDocument}
+                  {changedSegments
+                    ? changedSegments.map((seg, i) =>
+                        seg.type === "added" ? (
+                          <mark
+                            key={i}
+                            className="bg-emerald-500/15 text-emerald-300 rounded px-0.5"
+                          >
+                            {seg.text}
+                          </mark>
+                        ) : (
+                          <span key={i}>{seg.text}</span>
+                        ),
+                      )
+                    : finalDocument}
                 </div>
               ) : (
                 <div className="text-text-dim text-center py-16">문서가 아직 생성되지 않았습니다.</div>

@@ -1,7 +1,8 @@
 // 문서 생성 워크플로우 훅
 // 체크포인트 질문 생성 → 변호사 응답 → 최종 문서 생성 → 의뢰인 메시지
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { diffWords } from "diff";
 import { callClaude } from "../services/claude";
 import {
   buildPrompt,
@@ -23,6 +24,11 @@ type DocumentStatus =
   | "completed"
   | "error";
 
+/** 문서 본문을 변경 강조와 함께 렌더링하기 위한 단어 단위 segment */
+export type DocumentSegment =
+  | { type: "unchanged"; text: string }
+  | { type: "added"; text: string };
+
 
 /** useDocument 반환 타입 */
 interface UseDocumentReturn {
@@ -34,6 +40,8 @@ interface UseDocumentReturn {
   status: DocumentStatus;
   /** 에러 메시지 */
   error: string | null;
+  /** 직전 적용 대비 변경 segment (null = 강조 없음). 최초 생성/외부 설정/reset 시 null. */
+  changedSegments: DocumentSegment[] | null;
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   generateDocument: (
     context: AgentContext,
@@ -42,10 +50,12 @@ interface UseDocumentReturn {
   ) => Promise<void>;
   /** 의뢰인 카카오톡 메시지 생성 */
   generateClientMessage: (context: ClientMessageContext) => Promise<void>;
-  /** 채팅에서 수정안 적용 시 문서 업데이트 */
+  /** 채팅에서 수정안 적용 시 문서 업데이트 — 직전 본문과 단어 단위 diff 자동 계산 */
   updateFinalDocument: (doc: string) => void;
   /** 외부 문서(기존 서류철) 직접 설정 */
   setExternalDocument: (doc: string) => void;
+  /** 변경 강조 표시 끄기 */
+  clearHighlight: () => void;
   /** 상태 초기화 */
   reset: () => void;
 }
@@ -114,6 +124,9 @@ export default function useDocument(): UseDocumentReturn {
   const [clientMessage, setClientMessage] = useState("");
   const [status, setStatus] = useState<DocumentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [changedSegments, setChangedSegments] = useState<DocumentSegment[] | null>(null);
+  // 직전 본문 ref — diff 계산에서 stale state 회피
+  const finalDocRef = useRef("");
 
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   const generateDocument = useCallback(
@@ -195,7 +208,9 @@ export default function useDocument(): UseDocumentReturn {
           }
         } catch { /* 후처리 실패 시 원본 유지 */ }
 
+        finalDocRef.current = document;
         setFinalDocument(document);
+        setChangedSegments(null);
         setStatus("completed");
       } catch (err: unknown) {
         console.error("[useDocument] 문서 생성 실패:", err);
@@ -237,23 +252,46 @@ export default function useDocument(): UseDocumentReturn {
     [],
   );
 
-  /** 채팅에서 수정안 적용 */
+  /** 채팅에서 수정안 적용 — 직전 본문과 단어 단위 diff를 계산해 changedSegments에 반영 */
   const updateFinalDocument = useCallback((doc: string) => {
+    const prev = finalDocRef.current;
+    if (prev) {
+      const changes = diffWords(prev, doc);
+      const segments: DocumentSegment[] = changes
+        .filter((c) => !c.removed)
+        .map((c) => ({
+          type: c.added ? "added" : "unchanged",
+          text: c.value,
+        }));
+      setChangedSegments(segments);
+    } else {
+      setChangedSegments(null);
+    }
+    finalDocRef.current = doc;
     setFinalDocument(doc);
   }, []);
 
   /** 외부 문서(기존 서류철) 직접 설정 — 생성 과정 없이 완료 상태로 전환 */
   const setExternalDocument = useCallback((doc: string) => {
+    finalDocRef.current = doc;
     setFinalDocument(doc);
+    setChangedSegments(null);
     setStatus("completed");
+  }, []);
+
+  /** 변경 강조 표시 끄기 (사용자가 명시적으로 "강조 끄기" 누른 경우) */
+  const clearHighlight = useCallback(() => {
+    setChangedSegments(null);
   }, []);
 
   /** 상태 초기화 */
   const reset = useCallback(() => {
+    finalDocRef.current = "";
     setFinalDocument("");
     setClientMessage("");
     setStatus("idle");
     setError(null);
+    setChangedSegments(null);
   }, []);
 
   return {
@@ -261,10 +299,12 @@ export default function useDocument(): UseDocumentReturn {
     clientMessage,
     status,
     error,
+    changedSegments,
     generateDocument,
     generateClientMessage,
     updateFinalDocument,
     setExternalDocument,
+    clearHighlight,
     reset,
   };
 }
