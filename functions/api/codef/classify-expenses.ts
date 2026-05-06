@@ -7,6 +7,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
+const ANTHROPIC_BETA = "context-1m-2025-08-07";
 const TEMPERATURE = 0;
 
 /** 분류할 카드 거래 */
@@ -188,6 +189,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": API_VERSION,
+        "anthropic-beta": ANTHROPIC_BETA,
       },
       body: JSON.stringify({
         model: MODEL,

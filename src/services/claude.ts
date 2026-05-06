@@ -55,6 +55,7 @@ const DEV_PROXY_URL = "/api/anthropic/v1/messages";
 const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
+const ANTHROPIC_BETA = "context-1m-2025-08-07";
 const TEMPERATURE = 0.2;
 
 /**
@@ -99,6 +100,7 @@ async function callClaudeDirect(
     "Content-Type": "application/json",
     "x-api-key": apiKey,
     "anthropic-version": API_VERSION,
+    "anthropic-beta": ANTHROPIC_BETA,
   };
   // 프로덕션에서 브라우저 직접 호출 시 CORS 허용 헤더 필요
   if (!isDev) {
@@ -291,6 +293,7 @@ async function callClaudeChatDirect(
     "Content-Type": "application/json",
     "x-api-key": apiKey,
     "anthropic-version": API_VERSION,
+    "anthropic-beta": ANTHROPIC_BETA,
   };
   if (!isDev) {
     headers["anthropic-dangerous-direct-browser-access"] = "true";
