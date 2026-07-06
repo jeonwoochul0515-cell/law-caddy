@@ -186,8 +186,16 @@ export async function extractHwpText(file: File): Promise<string> {
     // ZIP으로 열 수 없음 → 진짜 HWP 바이너리
   }
 
-  // HWP 바이너리: 현재는 안내 메시지 반환
-  // 향후 @ohah/hwpjs WASM 통합 시 여기서 처리
-  console.warn(`[HWP] ${file.name}: HWP 바이너리 형식 — 텍스트 추출 제한적`);
-  return `[${file.name}] HWP 바이너리 파일입니다. 텍스트 추출을 위해 한글에서 HWPX 또는 PDF로 다시 저장해 주세요. (파일 → 다른 이름으로 저장 → HWPX 또는 PDF)`;
+  // 진짜 HWP 5.0 바이너리: 자체 파서(CFB + raw inflate)로 본문 추출
+  try {
+    const { parseHwpBinary } = await import("./hwp");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const text = parseHwpBinary(bytes);
+    console.log(`[HWP] ${file.name}: 바이너리 파싱으로 ${text.length}자 추출`);
+    return text;
+  } catch (err) {
+    // 암호화(배포용) 문서, HWP 3.x 등 미지원 형식은 기존 안내 메시지로 폴백
+    console.warn(`[HWP] ${file.name}: 바이너리 파싱 실패 —`, err instanceof Error ? err.message : err);
+    return `[${file.name}] 텍스트를 추출할 수 없는 HWP 파일입니다(암호화되었거나 구버전 형식). 한글에서 HWPX 또는 PDF로 다시 저장해 주세요. (파일 → 다른 이름으로 저장 → HWPX 또는 PDF)`;
+  }
 }

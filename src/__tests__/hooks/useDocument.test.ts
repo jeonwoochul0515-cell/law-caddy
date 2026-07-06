@@ -27,10 +27,9 @@ describe('parseCheckQuestionsResponse', () => {
     expect(result[0].category).toBe('법리검토');
   });
 
-  it('throws an error when no JSON array is found', () => {
-    expect(() => parseCheckQuestionsResponse('이것은 JSON이 아닙니다.')).toThrow(
-      'JSON 배열을 찾을 수 없습니다',
-    );
+  it('returns an empty array when no JSON array is found', () => {
+    // throw 대신 빈 배열 폴백 — 파싱 실패가 문서 생성 플로우 전체를 막지 않도록 완화됨
+    expect(parseCheckQuestionsResponse('이것은 JSON이 아닙니다.')).toEqual([]);
   });
 
   it('assigns sequential IDs when id field is missing', () => {

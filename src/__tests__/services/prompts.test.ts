@@ -31,9 +31,10 @@ describe('buildPrompt', () => {
   });
 
   it('includes anti-hallucination rules in legal agent prompt', () => {
+    // 페르소나 개편(윤율무)으로 '필수 준수 사항' 섹션은 '[판례 인용 규칙]' 블록으로 대체됨
     const prompt = buildPrompt('legal', baseContext);
-    expect(prompt).toContain('필수 준수 사항');
-    expect(prompt).toContain('통신비밀보호법');
+    expect(prompt).toContain('[판례 인용 규칙]');
+    expect(prompt).toContain('시효 도과');
   });
 
   it('includes transcript in docgen_questions prompt when provided', () => {
