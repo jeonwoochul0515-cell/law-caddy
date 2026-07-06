@@ -12,9 +12,6 @@ import {
   MapPin,
   FileCheck,
   BadgeCheck,
-  Calendar,
-  Copy,
-  RefreshCw,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -24,11 +21,6 @@ import { PLANS } from "../config/constants";
 import UsageSummary from "../components/payment/UsageSummary";
 import PlanSelector from "../components/payment/PlanSelector";
 import PaymentModal from "../components/payment/PaymentModal";
-import {
-  getOrCreateIcalToken,
-  rotateIcalToken,
-  type ICalTokenResponse,
-} from "../services/icalApi";
 
 export default function SettingsPage() {
   const user = useAuth((s) => s.user);
@@ -53,62 +45,6 @@ export default function SettingsPage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // 캘린더 구독 (iCal)
-  const [icalData, setIcalData] = useState<ICalTokenResponse | null>(null);
-  const [icalLoading, setIcalLoading] = useState(false);
-  const [icalRotating, setIcalRotating] = useState(false);
-  const [icalMsg, setIcalMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [icalGuideTab, setIcalGuideTab] = useState<"google" | "apple" | "outlook">("google");
-  const [icalCopied, setIcalCopied] = useState(false);
-
-  const handleIcalShow = async () => {
-    setIcalMsg(null);
-    setIcalLoading(true);
-    try {
-      const data = await getOrCreateIcalToken();
-      setIcalData(data);
-    } catch (err) {
-      setIcalMsg({
-        type: "error",
-        text: err instanceof Error ? err.message : "구독 URL을 불러오지 못했습니다.",
-      });
-    } finally {
-      setIcalLoading(false);
-    }
-  };
-
-  const handleIcalRotate = async () => {
-    const confirmed = window.confirm(
-      "기존 구독 URL은 즉시 무효화됩니다. 연결된 모든 캘린더에서 새 URL로 다시 구독해야 합니다. 계속하시겠어요?",
-    );
-    if (!confirmed) return;
-
-    setIcalMsg(null);
-    setIcalRotating(true);
-    try {
-      const data = await rotateIcalToken();
-      setIcalData(data);
-      setIcalMsg({ type: "success", text: "새 URL이 발급되었습니다. 기존 URL은 더 이상 동작하지 않습니다." });
-    } catch (err) {
-      setIcalMsg({
-        type: "error",
-        text: err instanceof Error ? err.message : "URL 재발급에 실패했습니다.",
-      });
-    } finally {
-      setIcalRotating(false);
-    }
-  };
-
-  const handleIcalCopy = async () => {
-    if (!icalData) return;
-    try {
-      await navigator.clipboard.writeText(icalData.subscribeUrl);
-      setIcalCopied(true);
-      window.setTimeout(() => setIcalCopied(false), 2000);
-    } catch {
-      setIcalMsg({ type: "error", text: "클립보드 복사에 실패했습니다. 수동으로 복사해 주세요." });
-    }
-  };
 
   const handleProfileSave = async () => {
     if (!user) return;
@@ -334,142 +270,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* 캘린더 자동 연동 (iCal 구독) */}
-          <div className="bg-surface border border-border rounded-2xl p-6">
-            <h3 className="font-semibold text-text-primary mb-2 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              캘린더 자동 연동
-            </h3>
-            <p className="text-sm text-text-dim mb-4 leading-relaxed">
-              법원 기일이 감지되면 Google / Apple / Outlook 캘린더에 자동으로 꽂힙니다.
-              아래 URL을 캘린더 앱에 "구독"하세요. 새 기일이 잡히면 자동으로 반영됩니다.
-            </p>
-
-            {!icalData && (
-              <button
-                onClick={handleIcalShow}
-                disabled={icalLoading}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {icalLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중...</>
-                ) : (
-                  <><Calendar className="w-4 h-4" /> 구독 URL 보기/생성</>
-                )}
-              </button>
-            )}
-
-            {icalData && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-text-dim mb-1.5">구독 URL</label>
-                  <div className="flex items-stretch gap-2">
-                    <input
-                      readOnly
-                      value={icalData.subscribeUrl}
-                      onFocus={(e) => e.currentTarget.select()}
-                      className="flex-1 min-w-0 px-3 py-2.5 bg-navy-light border border-border rounded-lg text-xs font-mono text-text-primary focus:border-gold/40 focus:outline-none"
-                    />
-                    <button
-                      onClick={handleIcalCopy}
-                      className="flex items-center gap-1.5 px-3 py-2.5 border border-border text-text-dim rounded-lg text-xs hover:border-gold/30 hover:text-gold transition-colors whitespace-nowrap"
-                    >
-                      {icalCopied ? (
-                        <><Check className="w-3.5 h-3.5 text-success" /> 복사됨</>
-                      ) : (
-                        <><Copy className="w-3.5 h-3.5" /> 복사</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleIcalRotate}
-                    disabled={icalRotating}
-                    className="flex items-center gap-2 px-4 py-2 border border-border text-text-dim rounded-lg text-xs hover:border-red-500/40 hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {icalRotating ? (
-                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 재발급 중...</>
-                    ) : (
-                      <><RefreshCw className="w-3.5 h-3.5" /> URL 재발급</>
-                    )}
-                  </button>
-                </div>
-
-                {/* 캘린더별 연결 방법 */}
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <div className="flex border-b border-border">
-                    {(
-                      [
-                        { key: "google" as const, label: "Google" },
-                        { key: "apple" as const, label: "Apple (iCloud)" },
-                        { key: "outlook" as const, label: "Outlook" },
-                      ]
-                    ).map((t) => (
-                      <button
-                        key={t.key}
-                        onClick={() => setIcalGuideTab(t.key)}
-                        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                          icalGuideTab === t.key
-                            ? "bg-gold-dim text-gold"
-                            : "text-text-dim hover:text-text-primary"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="p-4 text-xs text-text-dim leading-relaxed space-y-1.5">
-                    {icalGuideTab === "google" && (
-                      <>
-                        <p className="text-text-primary font-medium">Google Calendar 연결</p>
-                        <ol className="list-decimal list-inside space-y-1">
-                          <li>calendar.google.com 접속</li>
-                          <li>왼쪽 사이드바의 "다른 캘린더" 옆 [+] 버튼 클릭</li>
-                          <li>"URL로 추가" 선택</li>
-                          <li>위 구독 URL 붙여넣기 후 "캘린더 추가" 클릭</li>
-                        </ol>
-                      </>
-                    )}
-                    {icalGuideTab === "apple" && (
-                      <>
-                        <p className="text-text-primary font-medium">Apple Calendar (iCloud) 연결</p>
-                        <ol className="list-decimal list-inside space-y-1">
-                          <li>iPhone · iPad: 설정 &gt; 캘린더 &gt; 계정 &gt; 계정 추가 &gt; 기타 &gt; "구독 캘린더 추가"</li>
-                          <li>Mac: 캘린더 앱 &gt; 파일 &gt; 새로운 캘린더 구독</li>
-                          <li>위 구독 URL 붙여넣기</li>
-                          <li>자동 업데이트 주기: "매일" 또는 "매시간" 권장</li>
-                        </ol>
-                      </>
-                    )}
-                    {icalGuideTab === "outlook" && (
-                      <>
-                        <p className="text-text-primary font-medium">Outlook 연결</p>
-                        <ol className="list-decimal list-inside space-y-1">
-                          <li>outlook.live.com 또는 Outlook 데스크탑 앱에서 캘린더 열기</li>
-                          <li>"캘린더 추가" &gt; "웹에서 구독" 선택</li>
-                          <li>위 구독 URL 붙여넣기 후 "가져오기" 클릭</li>
-                        </ol>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {icalMsg && (
-              <div className={`flex items-center gap-2 mt-4 px-3 py-2 rounded-lg text-sm ${
-                icalMsg.type === "success"
-                  ? "bg-success/10 text-success"
-                  : "bg-error/10 text-error"
-              }`}>
-                {icalMsg.type === "success" ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                {icalMsg.text}
-              </div>
-            )}
-          </div>
 
           {/* 비밀번호 변경 */}
           <div className="bg-surface border border-border rounded-2xl p-6">

@@ -46,10 +46,6 @@ export interface Case {
   timeline: TimelineEvent[];
   contractPayment?: ContractPayment;
   costs?: CostItem[];
-  caseNumber?: string;           // 법원 사건번호 (예: "2024가단12345")
-  courtName?: string;            // 법원명 (예: "서울중앙지방법원")
-  courtEvents?: CourtEvent[];    // 수집된 이벤트 배열 (최신순 저장)
-  lastCourtPolledAt?: Timestamp; // 마지막 폴링 시각
 }
 
 export interface TimelineEvent {
@@ -57,15 +53,6 @@ export interface TimelineEvent {
   date: Timestamp;
   label: string;
   detail: string;
-}
-
-/** 법원 사건 진행 이벤트 (나의사건검색 결과) */
-export interface CourtEvent {
-  id: string;              // 해시 기반 고유 ID (date+type+content hash로 중복 방지)
-  date: string;            // YYYY-MM-DD
-  type: string;            // "접수", "송달", "기일지정", "판결" 등 자유 문자열
-  content: string;         // 상세 내용
-  discoveredAt: Timestamp; // 본 서비스가 처음 감지한 시각
 }
 
 export interface OpponentDoc {

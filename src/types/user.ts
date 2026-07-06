@@ -29,7 +29,4 @@ export interface User {
   businessTaxOffice?: string;
   businessTaxType?: string;
   profileCompleted?: boolean;       // 프로필 설정 완료 여부 (구글 로그인 후)
-  // 캘린더 구독 (iCal)
-  icalToken?: string;                 // 활성 iCal 구독 토큰
-  icalTokenCreatedAt?: Timestamp;     // 발급 일시
 }

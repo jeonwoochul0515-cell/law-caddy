@@ -69,7 +69,6 @@ export default function CaseDetailPage() {
     addCostItem,
     updateCostItem,
     removeCostItem,
-    refresh,
   } = useCaseDetail(id ?? "");
 
   // ── 재무 데이터 상태 ──
@@ -551,7 +550,6 @@ export default function CaseDetailPage() {
           onNavigateToDocument={handleNavigateToDocument}
           onCreateContract={handleCreateContract}
           signingRequests={signingRequests}
-          onCourtInfoUpdated={() => { void refresh(); }}
         />
       )}
 
