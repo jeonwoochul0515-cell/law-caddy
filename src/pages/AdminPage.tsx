@@ -13,6 +13,7 @@ import {
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
 import { getUnverifiedUsers, verifyUser, deactivateUser } from "../services/firebase/firestore";
+import { notifyApproved } from "../services/notify";
 import { isDemoMode, DEMO_ADMIN_PENDING_USERS } from "../config/demo";
 import type { User } from "../types/user";
 
@@ -54,6 +55,8 @@ export default function AdminPage() {
       } else {
         await verifyUser(uid, currentUser.uid);
         setUsers((prev) => prev.filter((u) => u.uid !== uid));
+        // 승인 완료 문자 알림 (fire-and-forget — 실패해도 승인은 유지)
+        notifyApproved(uid);
       }
       setVerifiedCount((c) => c + 1);
     } catch (err) {

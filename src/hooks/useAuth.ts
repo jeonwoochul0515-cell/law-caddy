@@ -184,6 +184,12 @@ const useAuth = create<AuthStore>((set, get) => ({
         profileData,
       );
       set({ user, newGoogleUser: null, loading: false });
+
+      // 신규 가입 관리자 알림(fire-and-forget) — 실패해도 가입 플로우에 영향 없음
+      import("../services/notify").then(({ notifySignup }) => {
+        notifySignup({ name: user.name, firmName: user.firmName });
+      });
+
       return user;
     } catch (error: unknown) {
       set({ loading: false });
