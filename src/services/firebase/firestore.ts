@@ -23,6 +23,7 @@ import type {
   OpponentDoc,
 } from "../../types/case";
 import type { CaseRecord } from "../../types/caseRecord";
+import type { CaseDeadline } from "../../types/deadline";
 import type { ClientCareMessage } from "../../types/clientCare";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
@@ -475,6 +476,72 @@ export async function deleteOpponentDoc(id: string): Promise<void> {
       throw new Error(`상대방 서면 삭제 실패: ${error.message}`);
     }
     throw new Error("상대방 서면 삭제 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+// ──────────────────────────────────────────────
+// Deadlines (사건 기한)
+// ──────────────────────────────────────────────
+
+/** 기한 생성 시 필요한 데이터 (id, 타임스탬프 제외) */
+type CreateDeadlineData = Omit<CaseDeadline, "id" | "createdAt">;
+
+/**
+ * 사건 기한을 등록합니다.
+ */
+export async function createDeadline(data: CreateDeadlineData): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db!, "deadlines"), {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`기한 등록 실패: ${error.message}`);
+    }
+    throw new Error("기한 등록 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 특정 사건의 기한 목록을 조회합니다.
+ *
+ * @param caseId - 사건 ID
+ * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
+ */
+export async function getDeadlines(caseId: string, ownerId: string): Promise<CaseDeadline[]> {
+  try {
+    const q = query(
+      collection(db!, "deadlines"),
+      where("caseId", "==", caseId),
+      where("ownerId", "==", ownerId),
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as CaseDeadline[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`기한 조회 실패: ${error.message}`);
+    }
+    throw new Error("기한 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 사건 기한을 삭제합니다.
+ */
+export async function deleteDeadline(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "deadlines", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`기한 삭제 실패: ${error.message}`);
+    }
+    throw new Error("기한 삭제 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 

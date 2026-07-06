@@ -120,6 +120,15 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // ── 사건 기한 (일정 탭) ──
+    match /deadlines/{deadlineId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+
+      // 관리자: 읽기 허용
+      allow read: if isAdmin();
+    }
+
     // ── 수임료 (Fees) ──
     match /fees/{feeId} {
       allow create: if isOwnerOnCreate();

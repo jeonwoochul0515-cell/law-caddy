@@ -1,94 +1,49 @@
-import { useState } from "react";
+// 사건 상세 > 일정 탭 — Firestore deadlines 컬렉션 기반 기한 관리
+import { useCallback, useEffect, useState } from "react";
 import {
   Clock,
   CalendarDays,
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Plus,
   Scale,
   FileText,
   Gavel,
   Timer,
   BookOpen,
+  Loader2,
+  Trash2,
+  X,
 } from "lucide-react";
+import useAuth from "../../hooks/useAuth";
+import {
+  createDeadline,
+  getDeadlines,
+  deleteDeadline,
+} from "../../services/firebase/firestore";
+import {
+  DEADLINE_CATEGORIES,
+  calcDDay,
+  calcStatus,
+  type CaseDeadline,
+  type DeadlineCategory,
+  type DeadlineStatus,
+} from "../../types/deadline";
 
 interface ScheduleTabProps {
   caseId: string;
 }
 
-interface Deadline {
-  id: number;
-  title: string;
-  dueDate: string;
-  baseDateLabel: string;
-  rule: string;
-  status: "overdue" | "imminent" | "upcoming" | "comfortable";
-  dDay: number;
-  icon: React.ElementType;
-  category: string;
-}
-
-const DUMMY_DEADLINES: Deadline[] = [
-  {
-    id: 1,
-    title: "답변서 제출기한",
-    dueDate: "2026-04-01",
-    baseDateLabel: "소장 송달일 (2026.03.02)",
-    rule: "30일 (민사소송법 \u00A7256)",
-    status: "imminent",
-    dDay: -6,
-    icon: FileText,
-    category: "서면 제출",
-  },
-  {
-    id: 2,
-    title: "준비서면 제출",
-    dueDate: "2026-04-05",
-    baseDateLabel: "제2회 변론기일 (2026.04.12)",
-    rule: "기일 7일 전",
-    status: "upcoming",
-    dDay: -10,
-    icon: FileText,
-    category: "서면 제출",
-  },
-  {
-    id: 3,
-    title: "항소기간 만료",
-    dueDate: "2026-03-28",
-    baseDateLabel: "판결 송달일 (2026.03.14)",
-    rule: "14일 (민소법 \u00A7396)",
-    status: "overdue",
-    dDay: 2,
-    icon: Gavel,
-    category: "불변기간",
-  },
-  {
-    id: 4,
-    title: "제1회 변론기일",
-    dueDate: "2026-04-12",
-    baseDateLabel: "법원 지정",
-    rule: "",
-    status: "upcoming",
-    dDay: -17,
-    icon: Scale,
-    category: "기일",
-  },
-  {
-    id: 5,
-    title: "상속포기 기한",
-    dueDate: "2026-06-15",
-    baseDateLabel: "상속개시 인지일 (2026.03.15)",
-    rule: "3개월 (민법 \u00A71019)",
-    status: "comfortable",
-    dDay: -81,
-    icon: BookOpen,
-    category: "법정기간",
-  },
-];
+const CATEGORY_ICONS: Record<DeadlineCategory, React.ElementType> = {
+  "서면 제출": FileText,
+  불변기간: Gavel,
+  기일: Scale,
+  법정기간: BookOpen,
+  기타: Clock,
+};
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const d = new Date(`${dateStr}T00:00:00`);
   const month = d.getMonth() + 1;
   const day = d.getDate();
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
@@ -102,7 +57,7 @@ function getDDayLabel(dDay: number): string {
   return `D${dDay}`;
 }
 
-function getStatusColor(status: Deadline["status"]): {
+function getStatusColor(status: DeadlineStatus): {
   bg: string;
   text: string;
   border: string;
@@ -145,7 +100,7 @@ function getStatusColor(status: Deadline["status"]): {
   }
 }
 
-function getStatusLabel(status: Deadline["status"]): string {
+function getStatusLabel(status: DeadlineStatus): string {
   switch (status) {
     case "overdue":
       return "지연";
@@ -159,24 +114,102 @@ function getStatusLabel(status: Deadline["status"]): string {
 }
 
 export default function ScheduleTab({ caseId }: ScheduleTabProps) {
-  void caseId; // TODO: Firestore 연동 시 사용
-  const [filter, setFilter] = useState<
-    "all" | "overdue" | "imminent" | "upcoming"
-  >("all");
+  const user = useAuth((s) => s.user);
+  const [deadlines, setDeadlines] = useState<CaseDeadline[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "overdue" | "imminent" | "upcoming">("all");
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const sorted = [...DUMMY_DEADLINES].sort((a, b) => b.dDay - a.dDay);
-  const filtered =
-    filter === "all" ? sorted : sorted.filter((d) => d.status === filter);
+  // 추가 폼 상태
+  const [formTitle, setFormTitle] = useState("");
+  const [formDueDate, setFormDueDate] = useState("");
+  const [formCategory, setFormCategory] = useState<DeadlineCategory>("서면 제출");
+  const [formBaseDateLabel, setFormBaseDateLabel] = useState("");
+  const [formRule, setFormRule] = useState("");
 
-  const overdueCount = DUMMY_DEADLINES.filter(
-    (d) => d.status === "overdue"
+  const load = useCallback(async () => {
+    if (!user) return;
+    try {
+      setError(null);
+      const result = await getDeadlines(caseId, user.uid);
+      setDeadlines(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "기한 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [caseId, user]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleAdd = async () => {
+    if (!user || !formTitle.trim() || !formDueDate) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await createDeadline({
+        caseId,
+        ownerId: user.uid,
+        title: formTitle.trim(),
+        dueDate: formDueDate,
+        category: formCategory,
+        ...(formBaseDateLabel.trim() ? { baseDateLabel: formBaseDateLabel.trim() } : {}),
+        ...(formRule.trim() ? { rule: formRule.trim() } : {}),
+      });
+      setFormTitle("");
+      setFormDueDate("");
+      setFormBaseDateLabel("");
+      setFormRule("");
+      setFormCategory("서면 제출");
+      setShowForm(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "기한 등록에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("이 기한을 삭제하시겠습니까?")) return;
+    setDeletingId(id);
+    try {
+      await deleteDeadline(id);
+      setDeadlines((prev) => prev.filter((d) => d.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "기한 삭제에 실패했습니다.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // D-Day·상태를 오늘 날짜 기준으로 계산해 부착
+  const enriched = deadlines.map((d) => {
+    const dDay = calcDDay(d.dueDate);
+    return { ...d, dDay, status: calcStatus(dDay) };
+  });
+
+  const sorted = [...enriched].sort((a, b) => b.dDay - a.dDay);
+  const filtered = filter === "all" ? sorted : sorted.filter((d) => d.status === filter);
+
+  const overdueCount = enriched.filter((d) => d.status === "overdue").length;
+  const imminentCount = enriched.filter(
+    (d) => d.status === "imminent" || d.status === "upcoming",
   ).length;
-  const imminentCount = DUMMY_DEADLINES.filter(
-    (d) => d.status === "imminent" || d.status === "upcoming"
-  ).length;
-  const thisWeekCount = DUMMY_DEADLINES.filter(
-    (d) => d.dDay >= -7 && d.dDay < 0
-  ).length;
+  const thisWeekCount = enriched.filter((d) => d.dDay >= -7 && d.dDay <= 0).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-[#1b1c1a]/40">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -211,6 +244,13 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         />
       </div>
 
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
       {/* 필터 */}
       <div className="flex items-center gap-2">
         {(
@@ -244,7 +284,11 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-[#1b1c1a]/40">
             <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">해당 조건의 기한이 없습니다</p>
+            <p className="text-sm">
+              {deadlines.length === 0
+                ? "등록된 기한이 없습니다. 아래 버튼으로 기한을 추가하세요."
+                : "해당 조건의 기한이 없습니다"}
+            </p>
           </div>
         ) : (
           <div className="relative">
@@ -254,7 +298,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
             <div className="space-y-0">
               {filtered.map((deadline) => {
                 const colors = getStatusColor(deadline.status);
-                const Icon = deadline.icon;
+                const Icon = CATEGORY_ICONS[deadline.category] ?? Clock;
 
                 return (
                   <div key={deadline.id} className="relative flex gap-4 py-3">
@@ -286,18 +330,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset ${colors.badge}`}
                             >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${colors.dot}`}
-                              />
+                              <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
                               {getStatusLabel(deadline.status)}
                             </span>
                           </div>
 
                           {/* 날짜 */}
                           <p className="mt-1.5 text-sm text-[#1b1c1a]/70">
-                            <span className="font-medium">
-                              {formatDate(deadline.dueDate)}
-                            </span>
+                            <span className="font-medium">{formatDate(deadline.dueDate)}</span>
                             {deadline.status === "overdue" && (
                               <span className="ml-2 text-red-600 font-semibold">
                                 {Math.abs(deadline.dDay)}일 경과
@@ -306,18 +346,21 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           </p>
 
                           {/* 기산일 + 근거 */}
-                          <div className="mt-2 flex flex-col gap-1">
-                            <p className="text-xs text-[#1b1c1a]/50">
-                              <span className="text-[#1b1c1a]/40">기산일</span>{" "}
-                              {deadline.baseDateLabel}
-                            </p>
-                            {deadline.rule && (
-                              <p className="text-xs text-[#1b1c1a]/50">
-                                <span className="text-[#1b1c1a]/40">근거</span>{" "}
-                                {deadline.rule}
-                              </p>
-                            )}
-                          </div>
+                          {(deadline.baseDateLabel || deadline.rule) && (
+                            <div className="mt-2 flex flex-col gap-1">
+                              {deadline.baseDateLabel && (
+                                <p className="text-xs text-[#1b1c1a]/50">
+                                  <span className="text-[#1b1c1a]/40">기산일</span>{" "}
+                                  {deadline.baseDateLabel}
+                                </p>
+                              )}
+                              {deadline.rule && (
+                                <p className="text-xs text-[#1b1c1a]/50">
+                                  <span className="text-[#1b1c1a]/40">근거</span> {deadline.rule}
+                                </p>
+                              )}
+                            </div>
+                          )}
 
                           {/* 카테고리 */}
                           <div className="mt-2">
@@ -327,8 +370,19 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           </div>
                         </div>
 
-                        {/* 화살표 */}
-                        <ChevronRight className="w-4 h-4 text-[#1b1c1a]/20 flex-shrink-0 mt-1" />
+                        {/* 삭제 버튼 */}
+                        <button
+                          onClick={() => handleDelete(deadline.id)}
+                          disabled={deletingId === deadline.id}
+                          className="flex-shrink-0 p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                          title="기한 삭제"
+                        >
+                          {deletingId === deadline.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -339,26 +393,116 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         )}
       </div>
 
-      {/* 기한 추가 버튼 */}
+      {/* 기한 추가 */}
       <div className="pt-2">
-        <button
-          disabled
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#efeeea] text-[#1b1c1a]/30 cursor-not-allowed transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="text-sm font-medium">기한 추가</span>
-          <span className="ml-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#efeeea] text-[#1b1c1a]/40">
-            준비 중
-          </span>
-        </button>
+        {showForm ? (
+          <div className="rounded-xl border border-[#efeeea] bg-white p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-[#1b1c1a]">새 기한 추가</h4>
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-1 rounded-lg text-[#1b1c1a]/40 hover:text-[#1b1c1a] hover:bg-[#efeeea] transition-colors"
+                aria-label="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                  제목 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="예: 답변서 제출기한"
+                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                  마감일 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formDueDate}
+                  onChange={(e) => setFormDueDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] focus:border-[#735c00]/40 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">분류</label>
+                <select
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value as DeadlineCategory)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] bg-white focus:border-[#735c00]/40 focus:outline-none"
+                >
+                  {DEADLINE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                  기산일 설명 (선택)
+                </label>
+                <input
+                  value={formBaseDateLabel}
+                  onChange={(e) => setFormBaseDateLabel(e.target.value)}
+                  placeholder="예: 소장 송달일 (2026.03.02)"
+                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                  법적 근거 (선택)
+                </label>
+                <input
+                  value={formRule}
+                  onChange={(e) => setFormRule(e.target.value)}
+                  placeholder="예: 30일 (민사소송법 §256)"
+                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a]/60 hover:text-[#1b1c1a] transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={saving || !formTitle.trim() || !formDueDate}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#735c00] text-white text-sm font-medium hover:bg-[#5d4a00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                등록
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#efeeea] text-[#1b1c1a]/50 hover:border-[#735c00]/30 hover:text-[#735c00] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">기한 추가</span>
+          </button>
+        )}
       </div>
 
       {/* 안내 문구 */}
       <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#efeeea]/60 border border-[#efeeea]">
         <Timer className="w-4 h-4 text-[#735c00] flex-shrink-0 mt-0.5" />
         <p className="text-xs text-[#1b1c1a]/50 leading-relaxed">
-          기한은 기산일과 법정 규정을 기준으로 자동 계산됩니다. 공휴일 및
-          토요일이 만료일인 경우 다음 영업일로 연장됩니다. 정확한 기한은
+          지연·임박·예정 상태는 오늘 날짜 기준으로 자동 계산됩니다. 공휴일 및
+          토요일이 만료일인 경우 다음 영업일로 연장될 수 있으니, 정확한 기한은
           담당 법원의 송달일 기준으로 직접 확인하시기 바랍니다.
         </p>
       </div>
@@ -386,12 +530,8 @@ function SummaryCard({
   iconBg: string;
 }) {
   return (
-    <div
-      className={`rounded-xl border ${borderColor} ${bgColor} p-4 flex items-center gap-4`}
-    >
-      <div
-        className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center`}
-      >
+    <div className={`rounded-xl border ${borderColor} ${bgColor} p-4 flex items-center gap-4`}>
+      <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center`}>
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
       <div>
