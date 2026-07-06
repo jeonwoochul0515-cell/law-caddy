@@ -10,6 +10,8 @@ export interface User {
   role: "lawyer" | "admin";
   status: "pending" | "approved" | "rejected";
   plan: "free" | "starter" | "pro" | "team";
+  /** 유료 플랜 만료일 (단건 결제 기반 — 없으면 만료 없음: 관리자 수동 부여 등) */
+  planExpiresAt?: Timestamp;
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   approvedBy?: string;

@@ -346,6 +346,15 @@ export default function SettingsPage() {
             docsUsed={docsUsed}
             docsLimit={docsLimit}
           />
+          {user?.planExpiresAt && (
+            <p className="text-sm text-text-dim">
+              현재 플랜 이용 기간:{" "}
+              <span className="text-text-primary font-medium">
+                {user.planExpiresAt.toDate().toLocaleDateString("ko-KR")}까지
+              </span>
+              {" "}(자동 갱신 없음 — 만료 후 연장 결제)
+            </p>
+          )}
           <PlanSelector
             currentPlan={user?.plan ?? "free"}
             onSelectPlan={(planId) => {
@@ -364,7 +373,6 @@ export default function SettingsPage() {
             }}
             planId={selectedPlan?.id ?? ""}
             planName={selectedPlan?.name ?? ""}
-            planPrice={selectedPlan?.price ?? ""}
           />
         </div>
       )}

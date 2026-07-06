@@ -1,46 +1,60 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, AlertCircle } from "lucide-react";
 import { loadPaymentWidget, type PaymentWidgetInstance } from "@tosspayments/payment-widget-sdk";
 import useAuth from "../../hooks/useAuth";
 import { PLANS } from "../../config/constants";
-import { createOrderId, getTossClientKey } from "../../services/payment";
+import {
+  createOrderId,
+  getTossClientKey,
+  YEARLY_MULTIPLIER,
+  type BillingPeriod,
+} from "../../services/payment";
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   planId: string;
   planName: string;
-  planPrice: string;
 }
+
+/** 결제수단 위젯 핸들 (기간 전환 시 금액 갱신용) */
+type MethodsWidget = ReturnType<PaymentWidgetInstance["renderPaymentMethods"]>;
 
 export default function PaymentModal({
   isOpen,
   onClose,
   planId,
   planName,
-  planPrice,
 }: PaymentModalProps) {
   const user = useAuth((s) => s.user);
   const [widget, setWidget] = useState<PaymentWidgetInstance | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [period, setPeriod] = useState<BillingPeriod>("m");
+  const methodsWidgetRef = useRef<MethodsWidget | null>(null);
 
-  const amount = PLANS.find((p) => p.id === planId)?.amount ?? 0;
+  const monthlyAmount = PLANS.find((p) => p.id === planId)?.amount ?? 0;
+  const yearlyAmount = monthlyAmount * YEARLY_MULTIPLIER;
+  const amount = period === "y" ? yearlyAmount : monthlyAmount;
 
   useEffect(() => {
-    if (!isOpen || !user || amount <= 0) return;
+    if (!isOpen || !user || monthlyAmount <= 0) return;
 
     let cancelled = false;
     setReady(false);
     setError(null);
+    setPeriod("m");
 
     (async () => {
       try {
         const paymentWidget = await loadPaymentWidget(getTossClientKey(), user.uid);
         if (cancelled) return;
 
-        paymentWidget.renderPaymentMethods("#toss-payment-methods", amount);
+        methodsWidgetRef.current = paymentWidget.renderPaymentMethods(
+          "#toss-payment-methods",
+          monthlyAmount,
+        );
         paymentWidget.renderAgreement("#toss-agreement");
         setWidget(paymentWidget);
         setReady(true);
@@ -53,11 +67,18 @@ export default function PaymentModal({
 
     return () => {
       cancelled = true;
+      methodsWidgetRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, user?.uid, amount]);
+  }, [isOpen, user?.uid, monthlyAmount]);
 
   if (!isOpen) return null;
+
+  const handlePeriodChange = (next: BillingPeriod) => {
+    setPeriod(next);
+    const nextAmount = next === "y" ? yearlyAmount : monthlyAmount;
+    methodsWidgetRef.current?.updateAmount(nextAmount);
+  };
 
   const handlePay = async () => {
     if (!widget || !user) return;
@@ -66,8 +87,8 @@ export default function PaymentModal({
 
     try {
       await widget.requestPayment({
-        orderId: createOrderId(planId, user.uid),
-        orderName: `Law-Caddy ${planName} 플랜`,
+        orderId: createOrderId(planId, period, user.uid),
+        orderName: `Law-Caddy ${planName} 플랜 (${period === "y" ? "연결제 12개월" : "월결제 1개월"})`,
         customerEmail: user.email,
         customerName: user.name,
         successUrl: `${window.location.origin}/payment/success`,
@@ -103,12 +124,52 @@ export default function PaymentModal({
 
         {/* 선택한 플랜 요약 */}
         <div className="px-6 py-5">
+          {/* 월/연 결제 선택 */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <button
+              onClick={() => handlePeriodChange("m")}
+              className={`py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                period === "m"
+                  ? "border-gold/60 bg-gold-dim/50 text-gold"
+                  : "border-border text-text-dim hover:border-border-hover"
+              }`}
+            >
+              월결제
+              <span className="block mt-0.5 text-xs font-normal">
+                ₩{monthlyAmount.toLocaleString()}/월
+              </span>
+            </button>
+            <button
+              onClick={() => handlePeriodChange("y")}
+              className={`relative py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                period === "y"
+                  ? "border-gold/60 bg-gold-dim/50 text-gold"
+                  : "border-border text-text-dim hover:border-border-hover"
+              }`}
+            >
+              <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded bg-gold text-navy text-[10px] font-bold">
+                2개월 무료
+              </span>
+              연결제
+              <span className="block mt-0.5 text-xs font-normal">
+                ₩{yearlyAmount.toLocaleString()}/년
+              </span>
+            </button>
+          </div>
+
           <div className="flex items-center justify-between p-4 bg-gold-dim/50 border border-gold/20 rounded-xl mb-6">
             <div>
               <p className="text-sm text-text-dim">선택한 플랜</p>
-              <p className="text-lg font-semibold text-gold">{planName}</p>
+              <p className="text-lg font-semibold text-gold">
+                {planName} · {period === "y" ? "연결제 (12개월)" : "월결제 (1개월)"}
+              </p>
+              {period === "y" && (
+                <p className="text-xs text-text-dim mt-0.5">
+                  10개월 요금으로 12개월 이용 (월 환산 ₩{Math.round(yearlyAmount / 12).toLocaleString()})
+                </p>
+              )}
             </div>
-            <p className="text-xl font-bold text-text-primary">{planPrice}</p>
+            <p className="text-xl font-bold text-text-primary">₩{amount.toLocaleString()}</p>
           </div>
 
           {error && (
@@ -126,6 +187,11 @@ export default function PaymentModal({
               결제 수단을 불러오는 중...
             </div>
           )}
+
+          <p className="mt-3 text-[11px] text-text-dim leading-relaxed">
+            자동 갱신이 아닙니다. 이용 기간이 끝나면 결제가 반복되지 않으며, 연장하려면 다시
+            결제하시면 됩니다.
+          </p>
         </div>
 
         {/* 하단 버튼 */}
@@ -141,7 +207,7 @@ export default function PaymentModal({
             disabled={!ready || submitting}
             className="flex-1 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {submitting ? "결제 요청 중..." : "결제하기"}
+            {submitting ? "결제 요청 중..." : `₩${amount.toLocaleString()} 결제하기`}
           </button>
         </div>
       </div>

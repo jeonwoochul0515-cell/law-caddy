@@ -44,7 +44,11 @@ function getFirstDayOfMonth(): Timestamp {
  */
 export default function usePlanLimits(): UsePlanLimitsResult {
   const user = useAuth((s) => s.user);
-  const plan = user?.plan ?? "free";
+  // 단건 결제 기반 만료 처리: planExpiresAt이 지났으면 free 취급.
+  // planExpiresAt이 없으면 만료 없음(관리자 수동 부여 등 기존 사용자 보호).
+  const expired =
+    !!user?.planExpiresAt && user.planExpiresAt.toDate().getTime() < Date.now();
+  const plan = expired ? "free" : (user?.plan ?? "free");
   const limits: PlanLimits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
 
   const [recordingsUsed, setRecordingsUsed] = useState(0);

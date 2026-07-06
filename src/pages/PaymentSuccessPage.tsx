@@ -9,6 +9,7 @@ export default function PaymentSuccessPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<"confirming" | "done" | "error">("confirming");
   const [error, setError] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
   useEffect(() => {
     const paymentKey = searchParams.get("paymentKey");
@@ -24,7 +25,10 @@ export default function PaymentSuccessPage() {
     }
 
     confirmPayment({ paymentKey, orderId, amount: Number(amount) })
-      .then(() => setState("done"))
+      .then((result) => {
+        setExpiresAt(result.expiresAt || null);
+        setState("done");
+      })
       .catch((err: unknown) => {
         setState("error");
         setError(err instanceof Error ? err.message : "결제 승인에 실패했습니다.");
@@ -45,7 +49,15 @@ export default function PaymentSuccessPage() {
           <>
             <CheckCircle2 className="w-10 h-10 text-[#01261f] mx-auto mb-4" />
             <h1 className="text-lg font-semibold text-[#1b1c1a] mb-2">결제가 완료되었습니다</h1>
-            <p className="text-sm text-[#414846] mb-6">플랜이 즉시 적용되었습니다.</p>
+            <p className="text-sm text-[#414846] mb-6">
+              플랜이 즉시 적용되었습니다.
+              {expiresAt && (
+                <>
+                  <br />
+                  이용 기간: {new Date(expiresAt).toLocaleDateString("ko-KR")}까지
+                </>
+              )}
+            </p>
             <button
               onClick={() => navigate("/settings")}
               className="w-full py-2.5 rounded-xl bg-[#01261f] text-white font-semibold hover:bg-[#1a3c34] transition-colors"
