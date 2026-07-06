@@ -33,3 +33,11 @@ stt-backend/.env
 *.sw?
 scripts/config.py
 .claude/settings.local.json
+
+# 작업 중 캡처·개인정보 포함 파일 (커밋 금지)
+/image*.png
+/*.pdf
+docs/image.png
+docs/screenshots/
+.backup/
+stitch.zip
