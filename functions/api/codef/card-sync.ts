@@ -133,7 +133,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
         body: encodeURIComponent(JSON.stringify(requestBody)),

@@ -317,11 +317,11 @@ class CodefClient {
   async getTaxInvoices(
     params: TaxInvoiceParams,
   ): Promise<CodefTaxInvoice[]> {
-    // 매출/매입에 따라 API 경로 분기
+    // 매출/매입에 따라 API 경로 분기 (CODEF 표준은 -list 접미사)
     const path =
       params.invoiceType === "매출"
-        ? "/v1/kr/public/nt/tax-invoice/sales"
-        : "/v1/kr/public/nt/tax-invoice/purchase";
+        ? "/v1/kr/public/nt/tax-invoice/sales-list"
+        : "/v1/kr/public/nt/tax-invoice/purchase-list";
 
     const body = {
       connectedId: params.connectedId,
@@ -358,12 +358,13 @@ class CodefClient {
   ): Promise<unknown> {
     const token = await this.getAccessToken();
 
-    // CODEF는 URL-encoded JSON body를 요구 (SDK 동일 방식)
+    // CODEF 공식 SDK 패턴: Content-Type=application/json + body=URL-encoded JSON
+    // (헤더와 인코딩이 비대칭이지만 CODEF 서버 요구사항)
     const response = await fetch(`${CODEF_BASE_URL}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": "application/json",
       },
       body: encodeURIComponent(JSON.stringify(body)),
     });

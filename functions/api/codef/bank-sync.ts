@@ -43,7 +43,7 @@ interface CodefResponse {
     resAccountDeposit: string;
     resAccountName: string;
     resAccountBalance: string;
-    resAccountTrHistoryList: CodefTransaction[];
+    resTrHistoryList: CodefTransaction[];
   };
 }
 
@@ -141,7 +141,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
         body: encodeURIComponent(JSON.stringify(requestBody)),
@@ -181,7 +181,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 3) 거래내역을 프론트엔드 친화적 형식으로 변환
     const transactions = (
-      codefData.data.resAccountTrHistoryList ?? []
+      codefData.data.resTrHistoryList ?? []
     ).map((tx) => {
       const inAmount = parseInt(tx.resAccountIn, 10) || 0;
       const outAmount = parseInt(tx.resAccountOut, 10) || 0;

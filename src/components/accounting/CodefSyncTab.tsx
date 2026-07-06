@@ -29,15 +29,11 @@ import {
 import CodefAccountSetup from "./CodefAccountSetup";
 
 // ─── Services ──────────────────────────────
-import {
-  syncBankTransactions,
-  syncCardTransactions,
-} from "../../services/codefApi";
+import { runBankSyncAndMatch } from "../../services/bankMatcher";
+import { runCardSyncAndClassify } from "../../services/cardClassifier";
 import {
   getCodefAccountsByOwner,
   updateCodefAccount,
-  createBankTransaction,
-  createCardTransaction,
   getPendingMatchesByOwner,
   updatePendingMatch,
   updateBankTransaction,
@@ -62,14 +58,6 @@ interface CodefSyncTabProps {
 /** 금액 포맷: 1234567 → "1,234,567원" */
 function formatWon(amount: number): string {
   return `${amount.toLocaleString("ko-KR")}원`;
-}
-
-/** CODEF 날짜 형식 (YYYYMMDD) */
-function formatCodefDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}${m}${d}`;
 }
 
 /** YYYYMMDD → YYYY-MM-DD */
@@ -126,17 +114,6 @@ function accountTypeIcon(type: "bank" | "card" | "hometax") {
     case "hometax":
       return FileText;
   }
-}
-
-/** 간단한 해시 생성 (중복 방지용) */
-function simpleHash(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
 }
 
 // ─── 컴포넌트 ────────────────────────────────
@@ -236,78 +213,22 @@ export default function CodefSyncTab({ ownerId }: CodefSyncTabProps) {
           ),
         );
 
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-
-        const startStr = formatCodefDate(startDate);
-        const endStr = formatCodefDate(endDate);
-
         if (account.type === "bank") {
-          // 은행 거래내역 동기화
-          const transactions = await syncBankTransactions({
-            connectedId: account.connectedId,
-            organization: account.institutionCode,
-            account: account.accountNumber ?? "",
-            startDate: startStr,
-            endDate: endStr,
-          });
+          // 은행 거래내역 동기화 + AI 입금 매칭
+          const result = await runBankSyncAndMatch(ownerId, account);
 
-          // Firestore에 저장
-          for (const tx of transactions) {
-            const hashInput = `${tx.transactionDate}${tx.transactionTime}${tx.amount}${tx.balance}${tx.counterpartyName}`;
-            const transactionHash = simpleHash(hashInput);
-
-            await createBankTransaction({
-              ownerId,
-              codefAccountId: account.id,
-              transactionDate: tx.transactionDate,
-              transactionTime: tx.transactionTime,
-              type: tx.type as "입금" | "출금",
-              amount: tx.amount,
-              balance: tx.balance,
-              counterpartyName: tx.counterpartyName,
-              memo: tx.memo,
-              transactionHash,
-              matchStatus: "unmatched",
-            });
-          }
-
-          // 동기화 완료 상태 갱신
           await updateCodefAccount(account.id, {
             syncStatus: "idle",
             lastSyncAt: serverTimestamp() as unknown as undefined,
           });
 
           showToast(
-            `${account.institutionName} 동기화 완료 (${transactions.length}건)`,
+            `${account.institutionName} 동기화 완료 (신규 ${result.synced}건, 자동매칭 ${result.autoMatched}건, 확인대기 ${result.pendingReview}건)`,
             "success",
           );
         } else if (account.type === "card") {
-          // 카드 거래내역 동기화
-          const transactions = await syncCardTransactions({
-            connectedId: account.connectedId,
-            organization: account.institutionCode,
-            cardNumber: account.accountNumber ?? "",
-            startDate: startStr,
-            endDate: endStr,
-          });
-
-          // Firestore에 저장
-          for (const tx of transactions) {
-            await createCardTransaction({
-              ownerId,
-              codefAccountId: account.id,
-              approvalDate: tx.approvalDate,
-              approvalTime: tx.approvalTime,
-              approvalNumber: tx.approvalNumber,
-              merchantName: tx.merchantName,
-              merchantCategory: tx.merchantCategory,
-              amount: tx.amount,
-              cardNumberMasked: tx.cardNumberMasked,
-              classificationStatus: "unclassified",
-            });
-          }
+          // 카드 거래내역 동기화 + AI 경비 분류
+          const result = await runCardSyncAndClassify(ownerId, account);
 
           await updateCodefAccount(account.id, {
             syncStatus: "idle",
@@ -315,7 +236,7 @@ export default function CodefSyncTab({ ownerId }: CodefSyncTabProps) {
           });
 
           showToast(
-            `${account.institutionName} 동기화 완료 (${transactions.length}건)`,
+            `${account.institutionName} 동기화 완료 (신규 ${result.synced}건, 자동분류 ${result.autoClassified}건, 확인대기 ${result.pendingReview}건)`,
             "success",
           );
         }

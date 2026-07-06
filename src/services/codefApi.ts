@@ -53,38 +53,59 @@ async function codefPost<T>(
 // CODEF 계좌 연결
 // ─────────────────────────────────────────────
 
-/** 계좌 연결 요청 파라미터 */
+/** 간편인증 2단계 추가 정보 (1차 응답 → 2차 호출) */
+export interface TwoWayInfo {
+  jti?: string;
+  twoWayTimestamp?: string | number;
+  jobIndex?: string | number;
+  threeWayTimestamp?: string | number;
+  /** CODEF 1차 응답에서 받은 임시 connectedId */
+  connectedId?: string;
+}
+
+/** 계좌 연결 요청 파라미터 (간편인증 + 인증서 통합) */
 export interface ConnectAccountParams {
   type: "bank" | "card" | "hometax";
   organization: string;    // CODEF 기관코드
-  loginType: string;       // 인증 방식 (공동인증서, ID/PW 등)
-  id: string;              // 로그인 ID
-  password: string;        // 로그인 비밀번호 (암호화 전송)
+  loginType: string;       // "0"=인증서, "5"=간편인증
+  /** 간편인증 인증사 (1=카카오, 2=페이코, ...) */
+  loginTypeLevel?: string;
+  /** 사용자 본인 정보 (간편인증 필수) */
+  userName?: string;
+  birthDate?: string;      // YYYYMMDD
+  phoneNo?: string;        // 01012345678 (- 없이)
+  /** 인증서 모드 시 사용 */
+  id?: string;
+  password?: string;
+  /** 2차 호출 시 1차 응답값 그대로 전달 */
+  twoWayInfo?: TwoWayInfo;
 }
 
-/** 계좌 연결 응답 */
-interface ConnectAccountResponse {
-  connectedId: string;
+/** 계좌 연결 응답 — 1차에서는 pending2Way + twoWayInfo 반환, 2차에서 connectedId 확정 */
+export interface ConnectAccountResponse {
+  /** 2단계 인증 대기 여부 */
+  pending2Way?: boolean;
+  /** 2단계 인증 정보 (외부 앱 동의 후 그대로 2차 호출에 전달) */
+  twoWayInfo?: TwoWayInfo;
+  /** 외부 앱 인증 안내 메시지 */
+  message?: string;
+  /** 최종 connectedId (2차 호출 후 발급) */
+  connectedId?: string;
 }
 
 /**
  * CODEF에 은행/카드/홈택스 계정을 연결합니다.
+ * 간편인증의 경우 1차 호출(외부 앱 푸시) → 사용자 동의 → 2차 호출 흐름입니다.
  *
  * @param params - 연결 요청 파라미터
- * @returns connectedId (이후 동기화에 사용)
+ * @returns 1차: { pending2Way: true, twoWayInfo }, 2차: { connectedId }
  * @throws 연결 실패 시 한국어 에러 메시지
  */
 export async function connectCodefAccount(
   params: ConnectAccountParams,
 ): Promise<ConnectAccountResponse> {
   try {
-    return await codefPost<ConnectAccountResponse>("/api/codef/connect", {
-      type: params.type,
-      organization: params.organization,
-      loginType: params.loginType,
-      id: params.id,
-      password: params.password,
-    });
+    return await codefPost<ConnectAccountResponse>("/api/codef/connect", params as unknown as Record<string, unknown>);
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`CODEF 계정 연결 실패: ${error.message}`);

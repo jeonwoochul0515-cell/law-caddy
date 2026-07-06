@@ -4,11 +4,10 @@
 import type { Env } from "../_shared/types";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 4096;
 const API_VERSION = "2023-06-01";
 const ANTHROPIC_BETA = "context-1m-2025-08-07";
-const TEMPERATURE = 0;
 
 /** 분류할 카드 거래 */
 interface CardTransactionInput {
@@ -194,7 +193,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
         system: "당신은 법률사무소 경비 분류 전문가입니다. 카드 사용 내역을 분석하여 정확한 계정과목으로 분류합니다. 반드시 JSON 배열로만 응답하세요.",
         messages: [
           { role: "user", content: userPrompt },
