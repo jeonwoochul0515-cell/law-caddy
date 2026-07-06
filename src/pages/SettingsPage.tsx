@@ -577,7 +577,7 @@ export default function SettingsPage() {
             <div className="space-y-3 text-sm">
               {[
                 ["서비스", "LAW-CADDY v1.0"],
-                ["AI 모델", "Claude claude-sonnet-4-20250514"],
+                ["AI 모델", "Claude claude-sonnet-5"],
                 ["STT 엔진", "RTZR Sommers (한국어)"],
                 ["프레임워크", "React 18 + TypeScript + Vite"],
                 ["백엔드", "Firebase (Auth + Firestore + Storage)"],

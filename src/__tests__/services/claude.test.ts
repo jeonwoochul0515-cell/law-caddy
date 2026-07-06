@@ -8,7 +8,7 @@ function makeResponse(content: ClaudeApiResponse['content']): ClaudeApiResponse 
     type: 'message',
     role: 'assistant',
     content,
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-5',
     stop_reason: 'end_turn',
     usage: { input_tokens: 10, output_tokens: 20 },
   };

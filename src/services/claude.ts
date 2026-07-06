@@ -52,11 +52,10 @@ const isDev = import.meta.env.DEV;
 const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEV_PROXY_URL = "/api/anthropic/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
 const ANTHROPIC_BETA = "context-1m-2025-08-07";
-const TEMPERATURE = 0.2;
 
 /**
  * Claude API 응답에서 텍스트를 추출합니다.
@@ -134,7 +133,6 @@ async function callClaudeDirect(
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
       system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -304,7 +302,6 @@ async function callClaudeChatDirect(
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      temperature: TEMPERATURE,
       // Prompt Caching: 멀티턴 채팅에서 system prompt + 누적 메시지 캐시
       system: [
         {

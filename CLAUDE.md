@@ -58,7 +58,7 @@ RTZR STT Backend (Node.js Express 프록시)
 
 ### 2.3 외부 API
 ```
-1. Anthropic Claude API (claude-sonnet-4-20250514)
+1. Anthropic Claude API (claude-sonnet-5)
    - 6개 병렬 에이전트 처리
    - 체크포인트 질문 생성
    - 법률 문서 초안 작성

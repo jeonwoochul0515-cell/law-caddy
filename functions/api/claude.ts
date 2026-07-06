@@ -1,11 +1,10 @@
 import type { Env } from "./_shared/types";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 16384;
 const API_VERSION = "2023-06-01";
 const ANTHROPIC_BETA = "context-1m-2025-08-07";
-const TEMPERATURE = 0.2;
 
 /** 텍스트 또는 Vision(이미지+텍스트) content를 지원하는 메시지 타입 */
 interface ChatMessage {
@@ -80,7 +79,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
         system: systemBlocks,
         messages,
       }),
