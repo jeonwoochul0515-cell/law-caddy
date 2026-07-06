@@ -1,10 +1,12 @@
 import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import * as Sentry from "@sentry/react";
 import useAuth from "./hooks/useAuth";
 import LoginPage from "./pages/LoginPage";
 import LandingPage from "./pages/LandingPage";
 import ErrorFallback from "./components/ui/ErrorFallback";
+import seoRoutes from "./data/seoRoutes.json";
 
 /**
  * 배포 후 캐시된 이전 청크 파일을 요청할 때 발생하는 로드 에러를 처리합니다.
@@ -53,8 +55,17 @@ const CasesPage = lazyWithRetry(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazyWithRetry(() => import("./pages/CaseDetailPage"));
 const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
 const AdminPage = lazyWithRetry(() => import("./pages/AdminPage"));
+const PaymentSuccessPage = lazyWithRetry(() => import("./pages/PaymentSuccessPage"));
+const PaymentFailPage = lazyWithRetry(() => import("./pages/PaymentFailPage"));
 const FinancePage = lazyWithRetry(() => import("./pages/FinancePage"));
 const SigningPage = lazyWithRetry(() => import("./pages/SigningPage"));
+
+// 검색 유입용 SEO 서브페이지
+const WorkflowPage = lazyWithRetry(() => import("./pages/seo/WorkflowPage"));
+const AiAgentsPage = lazyWithRetry(() => import("./pages/seo/AiAgentsPage"));
+const AutomationPage = lazyWithRetry(() => import("./pages/seo/AutomationPage"));
+const PricingPage = lazyWithRetry(() => import("./pages/seo/PricingPage"));
+const FaqPage = lazyWithRetry(() => import("./pages/seo/FaqPage"));
 
 function LazyFallback() {
   return (
@@ -160,6 +171,29 @@ function RequireProfileSetup({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// 공개 검색 유입 페이지(seoRoutes.json에 등록된 라우트)만 색인 허용, 나머지는 로그인 게이트 뒤라 색인 제외
+function SeoDefaults() {
+  const { pathname } = useLocation();
+  // Cloudflare Pages는 /pricing → /pricing/ 로 308 리다이렉트하므로 끝 슬래시를 정규화해서 조회한다
+  const normalizedPath = pathname !== "/" && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const meta = (seoRoutes as Record<string, { title: string; description: string }>)[normalizedPath];
+
+  return (
+    <Helmet>
+      <title>{meta ? meta.title : "Law-Caddy"}</title>
+      {meta && <meta name="description" content={meta.description} />}
+      <meta name="robots" content={meta ? "index, follow" : "noindex, follow"} />
+      {/* Cloudflare Pages가 서브페이지는 끝 슬래시 URL로 리다이렉트하므로, canonical도 그 최종 URL과 맞춘다 */}
+      {meta && (
+        <link
+          rel="canonical"
+          href={`https://law-caddy.com${normalizedPath === "/" ? "/" : `${normalizedPath}/`}`}
+        />
+      )}
+    </Helmet>
+  );
+}
+
 // 미인증 전용 라우트 (이미 로그인된 경우 대시보드로)
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth((s) => s.user);
@@ -192,6 +226,7 @@ export default function App() {
   return (
     <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
     <BrowserRouter>
+      <SeoDefaults />
       <Suspense fallback={<LazyFallback />}>
         <Routes>
           {/* 완전 공개 라우트 (인증 불요) */}
@@ -201,6 +236,13 @@ export default function App() {
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route path="/profile-setup" element={<RequireProfileSetup><ProfileSetupPage /></RequireProfileSetup>} />
           <Route path="/pending" element={<RequirePending><PendingPage /></RequirePending>} />
+
+          {/* 검색 유입용 SEO 서브페이지 (인증 불요) */}
+          <Route path="/workflow" element={<WorkflowPage />} />
+          <Route path="/ai-agents" element={<AiAgentsPage />} />
+          <Route path="/automation" element={<AutomationPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/faq" element={<FaqPage />} />
 
           {/* 인증 필요 라우트 */}
           <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
@@ -214,6 +256,8 @@ export default function App() {
           <Route path="/finance" element={<RequireAuth><FinancePage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+          <Route path="/payment/success" element={<RequireAuth><PaymentSuccessPage /></RequireAuth>} />
+          <Route path="/payment/fail" element={<RequireAuth><PaymentFailPage /></RequireAuth>} />
 
           {/* 랜딩 + 기본 라우트 */}
           <Route path="/" element={<PublicOnly><LandingPage /></PublicOnly>} />

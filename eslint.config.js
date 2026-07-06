@@ -20,4 +20,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // 빌드 시점 SSR 전용 진입점: 실제 앱에 임포트되지 않아 Fast Refresh 규칙 대상이 아님
+    files: ['src/entry-server.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

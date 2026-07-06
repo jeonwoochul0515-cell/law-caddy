@@ -1,0 +1,26 @@
+{
+  "/": {
+    "title": "Law-Caddy | 변호사 상담부터 정산까지, 하나의 캐디로",
+    "description": "변호사 상담 녹음 AI 분석, 판례 검색·법률 문서 작성·수임계약서·성공보수 관리 자동화"
+  },
+  "/workflow": {
+    "title": "AI 상담 녹음 분석 워크플로우 | Law-Caddy",
+    "description": "상담 녹음 한 번으로 AI 분석부터 법률 문서 완성까지, 실제 업무 흐름을 확인하세요"
+  },
+  "/ai-agents": {
+    "title": "판례 검색 AI 에이전트 | Law-Caddy",
+    "description": "판례 검색부터 문서 검토까지, 6명의 전문 AI 에이전트가 하는 일을 소개합니다"
+  },
+  "/automation": {
+    "title": "변호사 업무 자동화 | Law-Caddy",
+    "description": "수임계약서·성공보수·소송비용까지, 변호사 사무소 업무 자동화 기능을 안내합니다"
+  },
+  "/pricing": {
+    "title": "요금제 안내 | Law-Caddy",
+    "description": "Law-Caddy 요금제, 사무소 규모별 월 49,000원부터. 플랜별 기능을 비교하세요"
+  },
+  "/faq": {
+    "title": "자주 묻는 질문 | Law-Caddy",
+    "description": "상담 녹음 적법성부터 전자서명 효력까지, Law-Caddy 자주 묻는 질문에 답합니다"
+  }
+}

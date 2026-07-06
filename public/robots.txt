@@ -1,0 +1,54 @@
+# 검색엔진 공통 허용, 로그인 게이트 뒤 페이지는 크롤 예산 낭비 방지를 위해 제외
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /record
+Disallow: /freeform
+Disallow: /cases
+Disallow: /finance
+Disallow: /settings
+Disallow: /admin
+Disallow: /profile-setup
+Disallow: /pending
+Disallow: /sign/
+
+# 네이버 검색로봇 명시 허용
+User-agent: Yeti
+Allow: /
+Disallow: /dashboard
+Disallow: /record
+Disallow: /freeform
+Disallow: /cases
+Disallow: /finance
+Disallow: /settings
+Disallow: /admin
+Disallow: /profile-setup
+Disallow: /pending
+Disallow: /sign/
+
+# AI 검색/RAG 크롤러 명시 허용 (생성형 엔진 인용 대상 확보)
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: bingbot
+Allow: /
+
+Sitemap: https://law-caddy.com/sitemap.xml
