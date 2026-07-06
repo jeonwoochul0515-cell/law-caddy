@@ -464,7 +464,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
           (p) => (p.caseNumber && p.caseNumber.trim()) || (p.statute && p.statute.trim()),
         ),
         generatedAt: mockTimestamp(new Date()),
-        modelName: "claude-sonnet-4-20250514",
+        modelName: "claude-sonnet-5",
       };
 
       const patch: Partial<CaseRecord> = {

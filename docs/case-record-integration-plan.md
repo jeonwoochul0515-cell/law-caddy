@@ -2,7 +2,7 @@
 
 - 최종 업데이트: 2026-04-19
 - 작성 계기: 사법정보공유포털(openapi.scourt.go.kr) API 경로 사망 확인(2026-04-19 법원행정처 회신) 후, "상대방 서면 자동 분석 → 반박 초안 생성" 킬러 피처를 다른 루트로 재설계하기 위함
-- 연관 문서: `docs/scourt-api-integration-plan.md`(이전 계획, 이 문서로 대체), `docs/supabase-db-review.md`(판례·법령 RAG 서버 현황), `CLAUDE.md`(루트 명세)
+- 연관 문서: `docs/archive/scourt-api-integration-plan.md`(이전 계획 archived — 2026-04-23, 이 문서로 대체), `docs/supabase-db-review.md`(판례·법령 RAG 서버 현황), `CLAUDE.md`(루트 명세)
 
 ---
 

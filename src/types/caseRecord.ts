@@ -110,7 +110,7 @@ export interface CaseRecordAnalysis {
   suggestedPrecedents: SuggestedPrecedent[];
 
   // 메타
-  modelName: string;                     // 예: "claude-sonnet-4-20250514"
+  modelName: string;                     // 예: "claude-sonnet-5"
   tokensUsed?: number;
   generatedAt: Timestamp;
   /** 변호사가 "이 분석 신뢰함/수정함/폐기함" 으로 표시한 결과 */
