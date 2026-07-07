@@ -115,7 +115,16 @@ export interface PdfExtractResult {
  */
 export async function extractPdfText(file: File): Promise<PdfExtractResult> {
   const arrayBuffer = await file.arrayBuffer();
-  const pdfDoc = await getDocument({ data: arrayBuffer }).promise;
+  let pdfDoc;
+  try {
+    pdfDoc = await getDocument({ data: arrayBuffer }).promise;
+  } catch (err) {
+    // 암호화·DRM PDF 명시 감지 — 호출부(useCaseDetail)가 메시지의 "drm"으로 drm_blocked 판정
+    if (err instanceof Error && (err.name === "PasswordException" || /password|encrypt/i.test(err.message))) {
+      throw new Error(`DRM/암호화된 PDF입니다 (drm): ${file.name}`);
+    }
+    throw err;
+  }
   const totalPages = pdfDoc.numPages;
 
   // 1차: 텍스트 레이어 추출 시도

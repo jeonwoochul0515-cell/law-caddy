@@ -362,14 +362,17 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
       }
 
       try {
-        const { text, usedOcr } = await extractPdfText(file);
+        const { text: rawText, usedOcr } = await extractPdfText(file);
+        // 개인정보 마스킹 후 저장 (주민번호·전화·이메일·계좌 — 변호사법 §26 가드레일)
+        const { maskPII } = await import("../utils/piiMask");
+        const { masked: text } = maskPII(rawText);
         const summary = text.trim().slice(0, 300);
         const updates: Partial<CaseRecord> = {
           parsedText: text,
           parsedTextSummary: summary,
           ocrStatus: "parsed",
           ocrEngine: usedOcr ? "clova-ocr" : "pdf-text",
-          maskedPII: false,
+          maskedPII: true,
         };
         if (!isDemoMode) await updateCaseRecord(recordId, updates);
         applyLocal(updates);

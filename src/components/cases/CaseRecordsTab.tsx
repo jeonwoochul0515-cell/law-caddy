@@ -13,10 +13,15 @@ import {
   ScanLine,
   XCircle,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Scale,
+  ShieldAlert,
 } from "lucide-react";
 import useDropZone from "../../hooks/useDropZone";
 import type {
   CaseRecord,
+  CaseRecordEmbeddedAnalysis,
   RecordDocType,
   RecordSubmittedBy,
   OcrStatus,
@@ -100,6 +105,7 @@ export default function CaseRecordsTab({
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isDragging, dropZoneProps } = useDropZone(
@@ -141,6 +147,8 @@ export default function CaseRecordsTab({
     setAnalyzingId(recordId);
     try {
       await onAnalyze(recordId);
+      // 분석이 끝나면 결과를 바로 펼쳐서 보여줌
+      setExpandedId(recordId);
     } finally {
       setAnalyzingId(null);
     }
@@ -372,10 +380,144 @@ export default function CaseRecordsTab({
                     </button>
                   </div>
                 </div>
+
+                {/* 분석 결과 토글 바 */}
+                {record.analysis && (
+                  <button
+                    onClick={() =>
+                      setExpandedId((prev) => (prev === record.id ? null : record.id))
+                    }
+                    className="w-full flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-gold hover:bg-gold-dim/30 transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      AI 분석 결과 — 주장 {record.analysis.claims.length}개 · 판례 제안{" "}
+                      {record.analysis.suggestedPrecedents.length}건
+                    </span>
+                    {expandedId === record.id ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+                )}
+
+                {/* 분석 결과 본문 */}
+                {record.analysis && expandedId === record.id && (
+                  <AnalysisResult analysis={record.analysis} />
+                )}
               </div>
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 분석 결과 렌더링 ---------- */
+
+function AnalysisResult({ analysis }: { analysis: CaseRecordEmbeddedAnalysis }) {
+  const generatedDate = analysis.generatedAt?.toDate?.()
+    ? analysis.generatedAt.toDate().toLocaleString("ko-KR")
+    : "";
+
+  return (
+    <div className="border-t border-border px-4 py-4 space-y-4 bg-navy-light/30">
+      {/* AI 초안 고지 배너 (법적 가드레일 — 상시 고정) */}
+      <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber/10 border border-amber/20">
+        <ShieldAlert className="w-4 h-4 text-amber flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-amber/90 leading-relaxed">
+          AI가 생성한 분석 초안입니다. 법률적 판단이 아니며, 변호사의 검토·수정을 반드시
+          거쳐야 합니다. 원문 인용이 없는 항목은 표시하지 않습니다.
+        </p>
+      </div>
+
+      {/* 상대방 주장 분석 */}
+      {analysis.claims.length > 0 && (
+        <div>
+          <h5 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">
+            상대방 주장 분석
+          </h5>
+          <div className="space-y-3">
+            {analysis.claims.map((claim) => (
+              <div
+                key={claim.index}
+                className="rounded-lg border border-border bg-surface p-3 space-y-2"
+              >
+                <p className="text-sm text-text-primary font-medium">
+                  {claim.index}. {claim.summary}
+                </p>
+                {claim.citation && (
+                  <blockquote className="border-l-2 border-gold/40 pl-3 text-xs text-text-dim italic">
+                    "{claim.citation}"
+                    {claim.citationPage != null && ` (p.${claim.citationPage})`}
+                  </blockquote>
+                )}
+                {claim.basis && (
+                  <p className="text-xs text-text-dim">
+                    <span className="text-text-dim/60">근거</span> {claim.basis}
+                  </p>
+                )}
+                {claim.weakness && (
+                  <p className="text-xs text-error/80">
+                    <span className="text-error/50">약점</span> {claim.weakness}
+                  </p>
+                )}
+                {claim.rebuttalPoint && (
+                  <p className="text-xs text-emerald-400/90">
+                    <span className="text-emerald-400/50">반박</span> {claim.rebuttalPoint}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 반박 준비서면 골격 */}
+      {analysis.rebuttalOutline.length > 0 && (
+        <div>
+          <h5 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">
+            반박 준비서면 골격
+          </h5>
+          <ol className="list-decimal list-inside space-y-1">
+            {analysis.rebuttalOutline.map((line, i) => (
+              <li key={i} className="text-xs text-text-dim">
+                {line}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* 제안 판례·법조문 */}
+      {analysis.suggestedPrecedents.length > 0 && (
+        <div>
+          <h5 className="text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">
+            참고 판례·법조문
+          </h5>
+          <div className="space-y-2">
+            {analysis.suggestedPrecedents.map((p, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <Scale className="w-3.5 h-3.5 text-gold flex-shrink-0 mt-0.5" />
+                <p className="text-text-dim">
+                  <span className="text-text-primary font-medium">
+                    {[p.caseNumber, p.statute].filter(Boolean).join(" · ")}
+                  </span>
+                  {p.relevance && <> — {p.relevance}</>}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {generatedDate && (
+        <p className="text-[11px] text-text-dim/60">
+          {generatedDate} 생성 · {analysis.modelName ?? "AI"} · 판례·법조문은 실제 존재
+          여부를 반드시 원문으로 확인하세요.
+        </p>
       )}
     </div>
   );
