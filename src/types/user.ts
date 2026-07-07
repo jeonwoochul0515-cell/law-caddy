@@ -12,6 +12,8 @@ export interface User {
   plan: "free" | "starter" | "pro" | "team";
   /** 유료 플랜 만료일 (단건 결제 기반 — 없으면 만료 없음: 관리자 수동 부여 등) */
   planExpiresAt?: Timestamp;
+  /** 만료 임박 문자를 마지막으로 보낸 시각 (같은 만료 주기 중복 발송 방지) */
+  expiryNotifiedAt?: Timestamp;
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   approvedBy?: string;

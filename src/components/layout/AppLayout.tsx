@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import PlanExpiryBanner from "./PlanExpiryBanner";
 import BugReportButton from "../ui/BugReportButton";
 import ApiStatusMonitor from "../ui/ApiStatusMonitor";
 import useAuth from "../../hooks/useAuth";
@@ -37,6 +38,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
       <div className={`${marginClass} flex flex-1 flex-col transition-all duration-300`}>
         {/* 헤더 */}
         <Header title={title} subtitle={subtitle} />
+
+        {/* 플랜 만료 임박/만료 안내 */}
+        <PlanExpiryBanner />
 
         {/* 콘텐츠 */}
         <main role="main" aria-label={title} className="flex-1 overflow-y-auto p-6">

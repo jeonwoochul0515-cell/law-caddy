@@ -35,3 +35,16 @@ export async function notifyApproved(uid: string): Promise<void> {
     // 알림 실패는 무시 — 승인 자체는 이미 완료된 상태
   }
 }
+
+/**
+ * 플랜 만료 임박 문자 발송을 요청합니다. 발송 조건·중복 방지는 서버가 판정하므로
+ * 만료 배너가 뜰 때 fire-and-forget으로 호출하면 됩니다.
+ */
+export async function notifyPlanExpiry(): Promise<void> {
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    await fetch(`${API_BASE}/api/notify/expiry`, { method: "POST", headers });
+  } catch {
+    // 알림 실패는 무시 — 배너는 계속 표시됨
+  }
+}

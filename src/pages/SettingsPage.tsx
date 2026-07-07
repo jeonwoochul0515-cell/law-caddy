@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User as UserIcon,
   CreditCard,
@@ -12,6 +12,7 @@ import {
   MapPin,
   FileCheck,
   BadgeCheck,
+  Receipt,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -21,6 +22,7 @@ import { PLANS } from "../config/constants";
 import UsageSummary from "../components/payment/UsageSummary";
 import PlanSelector from "../components/payment/PlanSelector";
 import PaymentModal from "../components/payment/PaymentModal";
+import { getPaymentHistory, type PaymentRecord } from "../services/payment";
 
 export default function SettingsPage() {
   const user = useAuth((s) => s.user);
@@ -37,6 +39,29 @@ export default function SettingsPage() {
   // 요금제 모달
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ id: string; name: string; price: string } | null>(null);
+
+  // 결제 내역
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab !== "plan" || !user || isDemoMode) return;
+    let canceled = false;
+    setPaymentHistoryLoading(true);
+    getPaymentHistory(user.uid)
+      .then((records) => {
+        if (!canceled) setPaymentHistory(records);
+      })
+      .catch(() => {
+        // 이력 조회 실패는 화면을 막지 않음 (빈 목록 유지)
+      })
+      .finally(() => {
+        if (!canceled) setPaymentHistoryLoading(false);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [tab, user]);
 
   // 비밀번호 변경
   const [currentPw, setCurrentPw] = useState("");
@@ -374,6 +399,55 @@ export default function SettingsPage() {
             planId={selectedPlan?.id ?? ""}
             planName={selectedPlan?.name ?? ""}
           />
+
+          {/* 결제 내역 */}
+          <div className="bg-surface border border-border rounded-2xl p-6">
+            <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
+              <Receipt className="w-4 h-4" />
+              결제 내역
+            </h3>
+            {paymentHistoryLoading ? (
+              <div className="flex items-center justify-center py-8 text-text-dim">
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+            ) : paymentHistory.length === 0 ? (
+              <p className="text-sm text-text-dim py-4">결제 내역이 없습니다.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {paymentHistory.map((p) => {
+                  const planName = PLANS.find((pl) => pl.id === p.planId)?.name ?? p.planId;
+                  const confirmedDate = p.confirmedAt?.toDate?.()
+                    ? p.confirmedAt.toDate().toLocaleDateString("ko-KR")
+                    : "-";
+                  const expiresDate = p.expiresAt?.toDate?.()
+                    ? p.expiresAt.toDate().toLocaleDateString("ko-KR")
+                    : null;
+                  return (
+                    <div key={p.id} className="py-3 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary">
+                          {planName} 플랜
+                          {p.period && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[11px] font-medium bg-gold-dim text-gold">
+                              {p.period === "yearly" ? "연결제" : "월결제"}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-text-dim mt-0.5">
+                          {confirmedDate} 결제
+                          {expiresDate && ` · ${expiresDate}까지 이용`}
+                          {p.method && ` · ${p.method}`}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-text-primary whitespace-nowrap">
+                        ₩{p.amount.toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

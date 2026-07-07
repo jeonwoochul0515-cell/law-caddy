@@ -195,6 +195,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── 결제 기록 (Toss 단건 결제 — 서버 REST가 기록, 문서 ID = orderId) ──
+    match /payments/{orderId} {
+      allow read: if isAuthenticated()
+        && resource.data.uid == request.auth.uid;
+      allow read: if isAdmin();
+
+      // 클라이언트 쓰기 차단 — 서버(서비스 계정 REST)에서만 기록
+      allow write: if false;
+    }
+
     // ── 서명 요청 (전자계약) ──
     match /signing_requests/{requestId} {
       // 변호사: 본인 사건 서명 요청 생성/조회
