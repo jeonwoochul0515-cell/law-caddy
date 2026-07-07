@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Scale,
   ShieldAlert,
+  MessageSquare,
 } from "lucide-react";
 import useDropZone from "../../hooks/useDropZone";
 import type {
@@ -56,6 +57,10 @@ interface CaseRecordsTabProps {
   onUpload: (file: File, meta: CaseRecordUploadMeta) => Promise<void>;
   onRemove: (recordId: string) => Promise<void>;
   onAnalyze: (recordId: string) => Promise<void>;
+  /** 분석 결과 기반 반박 준비서면 초안 생성 (문서 목록에 저장됨) */
+  onGenerateRebuttal: (recordId: string) => Promise<void>;
+  /** 의뢰인용 쉬운 요약 메시지 생성 — 본문을 반환(클립보드 복사용) */
+  onClientSummary: (recordId: string) => Promise<string>;
 }
 
 interface StatusBadgeStyle {
@@ -97,6 +102,8 @@ export default function CaseRecordsTab({
   onUpload,
   onRemove,
   onAnalyze,
+  onGenerateRebuttal,
+  onClientSummary,
 }: CaseRecordsTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -106,6 +113,8 @@ export default function CaseRecordsTab({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ctaBusyId, setCtaBusyId] = useState<string | null>(null);
+  const [ctaMessage, setCtaMessage] = useState<{ recordId: string; text: string; isError: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isDragging, dropZoneProps } = useDropZone(
@@ -151,6 +160,57 @@ export default function CaseRecordsTab({
       setExpandedId(recordId);
     } finally {
       setAnalyzingId(null);
+    }
+  };
+
+  const handleRebuttal = async (recordId: string) => {
+    setCtaBusyId(recordId);
+    setCtaMessage(null);
+    try {
+      await onGenerateRebuttal(recordId);
+      setCtaMessage({
+        recordId,
+        text: "반박 준비서면 초안이 생성되어 사건 문서 목록(개요 탭)에 저장되었습니다. 변호사 검토 후 사용하세요.",
+        isError: false,
+      });
+    } catch (err) {
+      setCtaMessage({
+        recordId,
+        text: err instanceof Error ? err.message : "초안 생성에 실패했습니다.",
+        isError: true,
+      });
+    } finally {
+      setCtaBusyId(null);
+    }
+  };
+
+  const handleClientSummary = async (recordId: string) => {
+    setCtaBusyId(recordId);
+    setCtaMessage(null);
+    try {
+      const content = await onClientSummary(recordId);
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(content);
+        copied = true;
+      } catch {
+        // 클립보드 권한 거부 시에도 의뢰인 케어 저장은 완료된 상태
+      }
+      setCtaMessage({
+        recordId,
+        text: copied
+          ? "의뢰인 요약 메시지가 클립보드에 복사되고 의뢰인 케어 탭에 저장되었습니다."
+          : "의뢰인 요약 메시지가 의뢰인 케어 탭에 저장되었습니다. (클립보드 복사는 실패)",
+        isError: false,
+      });
+    } catch (err) {
+      setCtaMessage({
+        recordId,
+        text: err instanceof Error ? err.message : "요약 생성에 실패했습니다.",
+        isError: true,
+      });
+    } finally {
+      setCtaBusyId(null);
     }
   };
 
@@ -404,7 +464,47 @@ export default function CaseRecordsTab({
 
                 {/* 분석 결과 본문 */}
                 {record.analysis && expandedId === record.id && (
-                  <AnalysisResult analysis={record.analysis} />
+                  <>
+                    <AnalysisResult analysis={record.analysis} />
+                    {/* 후속 작업 CTA */}
+                    <div className="border-t border-border px-4 py-3 bg-navy-light/30">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleRebuttal(record.id)}
+                          disabled={ctaBusyId === record.id}
+                          className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg text-xs hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {ctaBusyId === record.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5" />
+                          )}
+                          반박 준비서면 초안 생성
+                        </button>
+                        <button
+                          onClick={() => handleClientSummary(record.id)}
+                          disabled={ctaBusyId === record.id}
+                          className="flex items-center gap-1.5 px-3.5 py-2 border border-border text-text-dim rounded-lg text-xs hover:border-gold/30 hover:text-gold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {ctaBusyId === record.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          )}
+                          의뢰인 요약 메시지
+                        </button>
+                      </div>
+                      {ctaMessage?.recordId === record.id && (
+                        <p
+                          className={`mt-2 text-xs ${
+                            ctaMessage.isError ? "text-error/90" : "text-emerald-400/90"
+                          }`}
+                        >
+                          {ctaMessage.text}
+                        </p>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             );

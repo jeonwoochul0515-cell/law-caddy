@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc, deleteCase as firestoreDeleteCase, getCaseRecords, createCaseRecord, deleteCaseRecord, updateCaseRecord } from "../services/firebase/firestore";
+import { getCase, getDocuments, getRecordings, getOpponentDocs, updateCase, addTimelineEvent, createOpponentDoc, deleteOpponentDoc, deleteCase as firestoreDeleteCase, getCaseRecords, createCaseRecord, deleteCaseRecord, updateCaseRecord, createDocument, createClientCareMessage } from "../services/firebase/firestore";
 import { uploadOpponentDocFile, uploadCaseRecordFile } from "../services/firebase/storage";
 import { isDemoMode, mockTimestamp } from "../config/demo";
 import useAuth from "./useAuth";
 import { extractPdfText } from "../services/pdf";
 import { callClaude } from "../services/claude";
-import { buildOpponentBriefAnalyzerPrompt } from "../services/prompts";
+import { buildOpponentBriefAnalyzerPrompt, buildRebuttalDraftPrompt, buildClientMessagePrompt } from "../services/prompts";
 import { classifyByFileName, classifyByLLM, needsLLMRefinement } from "../services/caseRecordClassifier";
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../types/case";
 import type { CaseRecord, RecordDocType, RecordSubmittedBy, OcrStatus, AnalyzedClaim, SuggestedPrecedent, CaseRecordEmbeddedAnalysis } from "../types/caseRecord";
@@ -48,6 +48,10 @@ interface UseCaseDetailReturn {
   ) => Promise<void>;
   removeCaseRecord: (recordId: string) => Promise<void>;
   analyzeCaseRecord: (recordId: string) => Promise<void>;
+  /** 분석 결과를 토대로 반박 준비서면 초안을 생성해 문서 목록에 저장한다. */
+  generateRebuttalDraft: (recordId: string) => Promise<void>;
+  /** 분석 결과를 의뢰인용 쉬운 메시지로 변환해 의뢰인 케어에 저장하고 본문을 반환한다. */
+  generateClientRecordSummary: (recordId: string) => Promise<string>;
   removeCase: () => Promise<void>;
   updateContractPayment: (data: ContractPayment) => Promise<void>;
   addCostItem: (item: Omit<CostItem, "id">) => Promise<void>;
@@ -491,6 +495,123 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     [caseData, caseRecords, caseId],
   );
 
+  // 반박 준비서면 초안 생성 (분석 결과 범위 안에서만 서술 → documents 컬렉션 저장)
+  const generateRebuttalDraft = useCallback(
+    async (recordId: string) => {
+      if (!caseData) return;
+      const target = caseRecords.find((r) => r.id === recordId);
+      if (!target?.analysis) {
+        throw new Error("AI 분석을 먼저 실행해야 초안을 생성할 수 있습니다.");
+      }
+
+      const prompt = buildRebuttalDraftPrompt({
+        caseBrief: [
+          `의뢰인: ${caseData.clientName}`,
+          `사건 유형: ${caseData.caseType}`,
+          `사건 개요: ${caseData.description}`,
+        ].join("\n"),
+        caseType: caseData.caseType,
+        opponentDocTypeLabel: target.docType,
+        analysisJson: JSON.stringify(
+          {
+            claims: target.analysis.claims,
+            rebuttalOutline: target.analysis.rebuttalOutline,
+            suggestedPrecedents: target.analysis.suggestedPrecedents,
+          },
+          null,
+          2,
+        ),
+        opponentBriefExcerpt: (target.parsedText ?? "").slice(0, 8000),
+      });
+
+      const draft = await callClaude(prompt, "위 지시대로 준비서면 초안 전문만 출력하세요.");
+      if (!draft.trim()) {
+        throw new Error("초안 생성 결과가 비어 있습니다. 다시 시도해 주세요.");
+      }
+
+      const newDoc: Omit<LegalDocument, "id" | "createdAt"> = {
+        caseId,
+        recordingId: "",
+        ownerId: caseData.ownerId,
+        docType: "준비서면",
+        agentResults: {
+          precedent: "",
+          legal: "",
+          rag_precedent: "",
+          analysis: "",
+          docgen: draft,
+          review: "",
+        },
+        checkQuestions: [],
+        answeredChecks: {},
+        finalDocument: draft,
+        status: "completed",
+      };
+
+      let docId = `demo-doc-${Date.now()}`;
+      if (!isDemoMode) {
+        docId = await createDocument(newDoc);
+        await addTimelineEvent(caseId, {
+          type: "doc",
+          label: "반박 준비서면 초안 생성",
+          detail: `사건기록 "${target.fileName}" 분석 결과 기반 초안. 변호사 검토 필요.`,
+        });
+      }
+
+      setDocuments((prev) => [
+        { ...newDoc, id: docId, createdAt: mockTimestamp(new Date()) },
+        ...prev,
+      ]);
+    },
+    [caseData, caseRecords, caseId],
+  );
+
+  // 의뢰인용 쉬운 요약 메시지 생성 (의뢰인 케어에 저장 + 본문 반환)
+  const generateClientRecordSummary = useCallback(
+    async (recordId: string): Promise<string> => {
+      if (!caseData) throw new Error("사건 정보를 불러오지 못했습니다.");
+      const target = caseRecords.find((r) => r.id === recordId);
+      if (!target?.analysis) {
+        throw new Error("AI 분석을 먼저 실행해야 요약을 생성할 수 있습니다.");
+      }
+
+      const analysisSummary = target.analysis.claims
+        .map((c) => `- 상대방 주장: ${c.summary} / 우리 대응 방향: ${c.rebuttalPoint}`)
+        .join("\n");
+
+      const prompt = buildClientMessagePrompt({
+        firmName: user?.firmName ?? "법률사무소",
+        lawyerName: user?.name ?? "담당",
+        docType: "준비서면",
+        caseDesc: [
+          caseData.description,
+          `\n[상대방 ${target.docType} 요지와 대응 방향]`,
+          analysisSummary,
+        ].join("\n"),
+      });
+
+      const content = await callClaude(
+        prompt,
+        "상대방 서면이 접수되어 검토를 마쳤고 대응을 준비 중이라는 취지의 안심 메시지를 작성하세요.",
+      );
+      if (!content.trim()) {
+        throw new Error("메시지 생성 결과가 비어 있습니다. 다시 시도해 주세요.");
+      }
+
+      if (!isDemoMode) {
+        await createClientCareMessage({
+          caseId,
+          ownerId: caseData.ownerId,
+          stage: "progress_update",
+          content,
+        });
+      }
+
+      return content;
+    },
+    [caseData, caseRecords, caseId, user],
+  );
+
   // 사건 삭제
   const removeCase = useCallback(async () => {
     if (!caseId) return;
@@ -593,6 +714,8 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     uploadCaseRecord,
     removeCaseRecord,
     analyzeCaseRecord,
+    generateRebuttalDraft,
+    generateClientRecordSummary,
     removeCase,
     updateContractPayment,
     addCostItem,

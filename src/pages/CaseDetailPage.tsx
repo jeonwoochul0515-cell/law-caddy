@@ -64,6 +64,8 @@ export default function CaseDetailPage() {
     uploadCaseRecord,
     removeCaseRecord,
     analyzeCaseRecord,
+    generateRebuttalDraft,
+    generateClientRecordSummary,
     removeCase,
     updateContractPayment,
     addCostItem,
@@ -563,6 +565,8 @@ export default function CaseDetailPage() {
           onUpload={uploadCaseRecord}
           onRemove={removeCaseRecord}
           onAnalyze={analyzeCaseRecord}
+          onGenerateRebuttal={generateRebuttalDraft}
+          onClientSummary={generateClientRecordSummary}
         />
       )}
 

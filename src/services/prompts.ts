@@ -2826,3 +2826,55 @@ ${context.opponentBriefText}${priorSummary}
 
 위 10개 규칙을 모두 준수하는 JSON 객체를 지금 출력하세요.`;
 }
+
+// ──────────────────────────────────────────────
+// rebuttalDraft — 분석 결과 기반 반박 준비서면 초안 (변호사 검토 전제)
+// ──────────────────────────────────────────────
+
+/** 반박 준비서면 초안 컨텍스트 */
+export interface RebuttalDraftContext {
+  /** 사건 기본정보 요약 */
+  caseBrief: string;
+  /** 사건 유형 */
+  caseType: CaseType;
+  /** 분석 대상이었던 상대방 서면 유형 (예: "준비서면") */
+  opponentDocTypeLabel: string;
+  /** opponentBriefAnalyzer 분석 결과 (claims·outline·판례 제안) — JSON 문자열 */
+  analysisJson: string;
+  /** 상대방 서면 발췌 (마스킹된 parsedText 앞부분) */
+  opponentBriefExcerpt: string;
+}
+
+/**
+ * opponentBriefAnalyzer 분석 결과를 토대로 반박 준비서면 초안을 생성하는 프롬프트.
+ * 분석 단계에서 이미 인용 검증을 거쳤으므로, 초안은 분석 결과 범위 안에서만 서술한다.
+ */
+export function buildRebuttalDraftPrompt(context: RebuttalDraftContext): string {
+  return `당신은 대형 로펌 15년차 문서 장인 "조필묵"입니다. 상대방 서면 분석 결과를 토대로 반박 준비서면 초안을 작성합니다.
+
+[사건 기본정보]
+${context.caseBrief}
+
+[상대방 서면 유형]
+${context.opponentDocTypeLabel}
+
+[상대방 서면 분석 결과 — 이 범위 안에서만 서술할 것]
+${context.analysisJson}
+
+[상대방 서면 발췌 (인용 검증용)]
+${context.opponentBriefExcerpt}
+
+## 작성 지시
+
+분석 결과의 rebuttalOutline 목차 구조를 따라 "준비서면" 초안을 작성하세요.
+
+1. 실제 한국 법원 준비서면 양식을 따릅니다: 표제(준비서면), 사건 표시 자리(○○로 마스킹), "다음"과 같은 관용 구조, 항목별 번호.
+2. 각 반박 항목은 분석 결과의 claims에 있는 **약점(weakness)과 반박 포인트(rebuttalPoint)만** 근거로 전개합니다. 분석에 없는 새로운 사실·주장·증거를 창작하지 않습니다.
+3. 상대방 주장 인용이 필요하면 분석 결과의 citation 문구만 사용합니다.
+4. 판례·법조문은 분석 결과의 suggestedPrecedents 목록에 있는 것만 인용하고, 각 인용 뒤에 "[실존 확인 필요]" 를 붙입니다.
+5. 개인정보는 ○○ 마스킹을 유지합니다.
+6. 결론부는 "따라서 원고/피고의 주장은 이유 없으므로..." 형태의 통상 결어로 마무리합니다.
+7. 문서 맨 끝에 반드시 다음 문구를 넣습니다: "※ 본 문서는 AI가 생성한 초안으로, 제출 전 변호사의 사실관계·법리·판례 실존 여부 검토가 반드시 필요합니다."
+
+마크다운으로 초안 전문만 출력하세요. 서론·해설은 붙이지 않습니다.`;
+}
