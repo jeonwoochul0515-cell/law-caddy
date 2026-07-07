@@ -1,7 +1,7 @@
 // 상단 헤더 바
-// 페이지 제목 + 부제목 (브레드크럼 스타일) + 알림 벨 + 사용자 드롭다운 자리
+// 페이지 제목 + 부제목 (브레드크럼 스타일) + 알림 벨
 
-import { Bell } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 interface HeaderProps {
   title: string;
@@ -22,20 +22,9 @@ export default function Header({ title, subtitle }: HeaderProps) {
         )}
       </div>
 
-      {/* 우측: 알림 + 사용자 드롭다운 */}
+      {/* 우측: 알림 벨 */}
       <div className="flex items-center gap-4">
-        {/* 알림 벨 */}
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-text-dim transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary"
-          aria-label="알림"
-        >
-          <Bell size={20} />
-          {/* 알림 뱃지 (읽지 않은 알림이 있을 때 표시, 추후 구현) */}
-        </button>
-
-        {/* 사용자 드롭다운 자리 (추후 구현) */}
-        <div className="h-8 w-8 rounded-full bg-surface-hover" />
+        <NotificationBell />
       </div>
     </header>
   );
