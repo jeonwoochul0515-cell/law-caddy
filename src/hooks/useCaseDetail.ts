@@ -7,6 +7,7 @@ import { extractPdfText } from "../services/pdf";
 import { callClaude } from "../services/claude";
 import { buildOpponentBriefAnalyzerPrompt, buildRebuttalDraftPrompt, buildClientMessagePrompt } from "../services/prompts";
 import { classifyByFileName, classifyByLLM, needsLLMRefinement } from "../services/caseRecordClassifier";
+import { buildPriorBriefSummaries } from "../utils/priorBriefs";
 import type { Case, TimelineEvent, OpponentDoc, ContractPayment, CostItem } from "../types/case";
 import type { CaseRecord, RecordDocType, RecordSubmittedBy, OcrStatus, AnalyzedClaim, SuggestedPrecedent, CaseRecordEmbeddedAnalysis } from "../types/caseRecord";
 import type { CaseType } from "../types/agent";
@@ -24,6 +25,7 @@ function extractJsonBlock(raw: string): string | null {
   if (first < 0 || last < 0 || last <= first) return null;
   return raw.slice(first, last + 1);
 }
+
 
 interface UseCaseDetailReturn {
   caseData: Case | null;
@@ -436,6 +438,9 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         throw new Error("파싱이 완료되지 않은 기록은 분석할 수 없습니다.");
       }
 
+      // 같은 사건의 다른 서면 요약을 맥락으로 주입 (분석 정확도 향상)
+      const priorBriefSummaries = buildPriorBriefSummaries(caseRecords, recordId);
+
       const prompt = buildOpponentBriefAnalyzerPrompt({
         caseBrief: [
           `의뢰인: ${caseData.clientName}`,
@@ -445,6 +450,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
         caseType: caseData.caseType,
         docTypeLabel: target.docType,
         opponentBriefText: target.parsedText.slice(0, 18000),
+        priorBriefSummaries,
       });
 
       const raw = await callClaude(
