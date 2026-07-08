@@ -9,22 +9,38 @@ import {
   CheckCircle,
   Copy,
   Check,
+  Bug,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
-import { getUnverifiedUsers, verifyUser, deactivateUser } from "../services/firebase/firestore";
+import {
+  getUnverifiedUsers,
+  verifyUser,
+  deactivateUser,
+  getBugReports,
+  updateBugReportStatus,
+} from "../services/firebase/firestore";
 import { notifyApproved } from "../services/notify";
 import { isDemoMode, DEMO_ADMIN_PENDING_USERS } from "../config/demo";
 import type { User } from "../types/user";
+import type { BugReport } from "../types/bugReport";
+
+type AdminTab = "users" | "bugs";
 
 export default function AdminPage() {
   const currentUser = useAuth((s) => s.user);
+  const [adminTab, setAdminTab] = useState<AdminTab>("users");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [verifiedCount, setVerifiedCount] = useState(0);
   const [copiedUid, setCopiedUid] = useState<string | null>(null);
+
+  // 버그 리포트
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
+  const [bugsLoading, setBugsLoading] = useState(false);
+  const [bugsLoaded, setBugsLoaded] = useState(false);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -45,6 +61,43 @@ export default function AdminPage() {
     };
     fetchUsers();
   }, []);
+
+  // 버그 탭 최초 진입 시 로드
+  useEffect(() => {
+    if (adminTab !== "bugs" || bugsLoaded || isDemoMode) return;
+    let canceled = false;
+    setBugsLoading(true);
+    getBugReports()
+      .then((result) => {
+        if (!canceled) {
+          setBugReports(result);
+          setBugsLoaded(true);
+        }
+      })
+      .catch((err) => console.error("버그 리포트 로딩 실패:", err))
+      .finally(() => {
+        if (!canceled) setBugsLoading(false);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [adminTab, bugsLoaded]);
+
+  const handleToggleBugStatus = async (report: BugReport) => {
+    const next: BugReport["status"] = report.status === "open" ? "resolved" : "open";
+    setBugReports((prev) =>
+      prev.map((b) => (b.id === report.id ? { ...b, status: next } : b)),
+    );
+    try {
+      await updateBugReportStatus(report.id, next);
+    } catch (err) {
+      console.error("버그 상태 변경 실패:", err);
+      // 롤백
+      setBugReports((prev) =>
+        prev.map((b) => (b.id === report.id ? { ...b, status: report.status } : b)),
+      );
+    }
+  };
 
   const handleVerify = async (uid: string) => {
     if (!currentUser) return;
@@ -109,9 +162,44 @@ export default function AdminPage() {
     );
   }
 
+  const openBugCount = bugReports.filter((b) => b.status === "open").length;
+
   return (
-    <AppLayout title="관리자" subtitle="변호사 등록번호 검증">
+    <AppLayout title="관리자" subtitle="변호사 검증 · 버그 리포트">
       <div className="max-w-3xl space-y-6">
+        {/* 탭 */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAdminTab("users")}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              adminTab === "users"
+                ? "bg-gold-dim text-gold border border-gold/30"
+                : "bg-surface text-text-dim border border-border hover:text-text-primary"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            가입 승인
+          </button>
+          <button
+            onClick={() => setAdminTab("bugs")}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              adminTab === "bugs"
+                ? "bg-gold-dim text-gold border border-gold/30"
+                : "bg-surface text-text-dim border border-border hover:text-text-primary"
+            }`}
+          >
+            <Bug className="w-4 h-4" />
+            버그 리포트
+            {bugsLoaded && openBugCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-error text-white text-[10px] font-bold">
+                {openBugCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {adminTab === "users" && (
+        <>
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-surface border border-border rounded-2xl p-4">
@@ -233,6 +321,86 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+        </>
+        )}
+
+        {adminTab === "bugs" && (
+          <div className="bg-surface border border-border rounded-2xl backdrop-blur-sm">
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-text-primary">
+                버그 리포트 ({bugReports.length})
+              </h3>
+              {bugsLoaded && (
+                <span className="text-xs text-text-dim">
+                  미처리 {openBugCount} · 처리완료 {bugReports.length - openBugCount}
+                </span>
+              )}
+            </div>
+
+            {bugsLoading ? (
+              <div className="p-8 text-center text-text-dim">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                로딩 중...
+              </div>
+            ) : bugReports.length === 0 ? (
+              <div className="p-8 text-center text-text-dim">접수된 버그 리포트가 없습니다.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {bugReports.map((b) => {
+                  const dateStr = b.createdAt?.toDate?.()
+                    ? b.createdAt.toDate().toLocaleString("ko-KR")
+                    : "";
+                  return (
+                    <div key={b.id} className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-md border ${
+                                b.status === "open"
+                                  ? "bg-error/10 text-error border-error/20"
+                                  : "bg-success/10 text-success border-success/20"
+                              }`}
+                            >
+                              {b.status === "open" ? "미처리" : "처리완료"}
+                            </span>
+                            <span className="text-xs text-text-dim font-mono">{b.page}</span>
+                          </div>
+                          <p className="text-sm text-text-primary whitespace-pre-wrap break-words">
+                            {b.description}
+                          </p>
+                          <p className="text-xs text-text-dim mt-1.5">
+                            {b.reporterName ?? "익명"}
+                            {b.reporterEmail ? ` · ${b.reporterEmail}` : ""}
+                            {dateStr ? ` · ${dateStr}` : ""}
+                            {b.screenSize ? ` · ${b.screenSize}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleToggleBugStatus(b)}
+                          className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                            b.status === "open"
+                              ? "bg-success/10 text-success border-success/30 hover:bg-success/20"
+                              : "bg-surface text-text-dim border-border hover:text-text-primary"
+                          }`}
+                        >
+                          {b.status === "open" ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              완료
+                            </>
+                          ) : (
+                            "되돌리기"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

@@ -27,6 +27,7 @@ import type { ClientCareMessage } from "../../types/clientCare";
 import type { Recording } from "../../types/recording";
 import type { LegalDocument } from "../../types/document";
 import type { User } from "../../types/user";
+import type { BugReport } from "../../types/bugReport";
 
 // ──────────────────────────────────────────────
 // Cases (사건)
@@ -744,5 +745,42 @@ export async function deactivateUser(uid: string): Promise<void> {
       throw new Error(`사용자 탈퇴 실패: ${error.message}`);
     }
     throw new Error("사용자 탈퇴 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+// ──────────────────────────────────────────────
+// Bug Reports (버그 리포트 — 관리자 조회)
+// ──────────────────────────────────────────────
+
+/** 버그 리포트 목록을 최신순으로 조회합니다. (관리자 전용) */
+export async function getBugReports(): Promise<BugReport[]> {
+  try {
+    const snapshot = await getDocs(
+      query(collection(db!, "bug_reports"), orderBy("createdAt", "desc")),
+    );
+    return snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as BugReport[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`버그 리포트 조회 실패: ${error.message}`);
+    }
+    throw new Error("버그 리포트 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/** 버그 리포트 처리 상태를 변경합니다. (관리자 전용) */
+export async function updateBugReportStatus(
+  reportId: string,
+  status: BugReport["status"],
+): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "bug_reports", reportId), { status });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`버그 리포트 상태 변경 실패: ${error.message}`);
+    }
+    throw new Error("버그 리포트 상태 변경 중 알 수 없는 오류가 발생했습니다.");
   }
 }

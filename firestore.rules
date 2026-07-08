@@ -254,6 +254,9 @@ service cloud.firestore {
     match /bug_reports/{reportId} {
       allow create: if isAuthenticated();
       allow read: if isAdmin();
+      // 관리자: 처리 상태(open/resolved) 변경
+      allow update: if isAdmin()
+        && request.resource.data.status in ["open", "resolved"];
     }
   }
 }

@@ -49,6 +49,13 @@ export default function BugReportButton() {
           createdAt: serverTimestamp(),
           status: "open",
         });
+        // 관리자에게 문자 알림 (fire-and-forget — 실패해도 저장·전송 플로우 유지)
+        const { notifyBugReport } = await import("../../services/notify");
+        notifyBugReport({
+          page: window.location.pathname,
+          reporterName: user?.name || undefined,
+          snippet: description.trim(),
+        });
       }
     } catch {
       // Firestore 저장 실패해도 카카오톡 전송은 진행

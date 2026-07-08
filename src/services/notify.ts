@@ -48,3 +48,24 @@ export async function notifyPlanExpiry(): Promise<void> {
     // 알림 실패는 무시 — 배너는 계속 표시됨
   }
 }
+
+/**
+ * 신규 버그 리포트 접수를 관리자에게 문자로 알립니다.
+ * fire-and-forget: 실패해도 버그 리포트 저장 자체는 유지됩니다.
+ */
+export async function notifyBugReport(params: {
+  page: string;
+  reporterName?: string;
+  snippet: string;
+}): Promise<void> {
+  try {
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    await fetch(`${API_BASE}/api/notify/bug`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(params),
+    });
+  } catch {
+    // 알림 실패는 무시
+  }
+}
