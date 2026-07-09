@@ -1,15 +1,5 @@
-import type { Timestamp } from "firebase/firestore";
-
-export interface Subscription {
-  uid: string;
-  planId: "free" | "starter" | "pro" | "team";
-  status: "active" | "canceled" | "past_due" | "trialing";
-  currentPeriodStart: Timestamp;
-  currentPeriodEnd: Timestamp;
-  canceledAt?: Timestamp;
-  billingKey?: string;
-  paymentMethod?: string;
-}
+// 단건 결제 기반으로 전환하며 Subscription(자동갱신 구독) 타입은 제거됨.
+// 현재 플랜 상태는 users.plan + users.planExpiresAt 로 관리한다.
 
 export interface PlanLimits {
   recordings: number; // -1 = unlimited

@@ -29,7 +29,6 @@
     "@tosspayments/payment-widget-sdk": "^0.12.2",
     "diff": "^9.0.0",
     "docx": "^9.6.0",
-    "easycodef-node": "^1.0.4",
     "fflate": "^0.8.3",
     "file-saver": "^2.0.5",
     "firebase": "^12.9.0",

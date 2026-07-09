@@ -10,11 +10,10 @@ import {
   Settings,
   Shield,
   LogOut,
-  Crown,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import useSidebarCollapse from "../../hooks/useSidebarCollapse";
 
 interface SidebarUser {
@@ -32,7 +31,6 @@ interface NavItem {
   icon: ReactNode;
   label: string;
   adminOnly?: boolean;
-  premium?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -53,18 +51,11 @@ function getInitials(name: string): string {
 }
 
 export default function Sidebar({ user, onLogout }: SidebarProps) {
-  const [showPremiumToast, setShowPremiumToast] = useState(false);
   const { isCollapsed, toggleSidebar } = useSidebarCollapse();
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.adminOnly || user?.role === "admin",
   );
-
-  const handlePremiumClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowPremiumToast(true);
-    setTimeout(() => setShowPremiumToast(false), 2500);
-  };
 
   // 접힘 상태에 따른 너비 클래스
   const widthClass = isCollapsed ? "w-16" : "w-16 lg:w-60";
@@ -109,77 +100,38 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
         }`}
       >
         <ul className="flex flex-col gap-1">
-          {visibleItems.map((item) =>
-            item.premium ? (
-              <li key={item.to}>
-                <button
-                  onClick={handlePremiumClick}
-                  aria-label={item.label}
-                  title={isCollapsed ? item.label : undefined}
-                  className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#01261f]/25 cursor-not-allowed transition-colors ${
+          {visibleItems.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                aria-label={item.label}
+                title={isCollapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  [
+                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
                     isCollapsed
                       ? "justify-center"
-                      : "justify-center lg:justify-start"
-                  }`}
-                >
-                  {item.icon}
-                  {!isCollapsed && (
-                    <span className="hidden lg:inline">{item.label}</span>
-                  )}
-                  {!isCollapsed && (
-                    <Crown size={14} className="hidden lg:inline text-[#735c00]/40" />
-                  )}
-                  {/* 접힘 상태 툴팁 */}
-                  {isCollapsed && (
-                    <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
-                      {item.label}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ) : (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  aria-label={item.label}
-                  title={isCollapsed ? item.label : undefined}
-                  className={({ isActive }) =>
-                    [
-                      "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
-                      isCollapsed
-                        ? "justify-center"
-                        : "justify-center lg:justify-start",
-                      isActive
-                        ? "bg-[#01261f] text-[#faf9f5]"
-                        : "text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f]",
-                    ].join(" ")
-                  }
-                >
-                  {item.icon}
-                  {!isCollapsed && (
-                    <span className="hidden lg:inline">{item.label}</span>
-                  )}
-                  {/* 접힘 상태 툴팁 */}
-                  {isCollapsed && (
-                    <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
-                      {item.label}
-                    </span>
-                  )}
-                </NavLink>
-              </li>
-            ),
-          )}
+                      : "justify-center lg:justify-start",
+                    isActive
+                      ? "bg-[#01261f] text-[#faf9f5]"
+                      : "text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f]",
+                  ].join(" ")
+                }
+              >
+                {item.icon}
+                {!isCollapsed && (
+                  <span className="hidden lg:inline">{item.label}</span>
+                )}
+                {/* 접힘 상태 툴팁 */}
+                {isCollapsed && (
+                  <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
+                    {item.label}
+                  </span>
+                )}
+              </NavLink>
+            </li>
+          ))}
         </ul>
-
-        {showPremiumToast && !isCollapsed && (
-          <div className="mx-1 mt-3 rounded-lg bg-[#735c00]/8 border border-[#735c00]/15 p-3 text-xs text-[#735c00]">
-            <div className="flex items-center gap-2 mb-1">
-              <Crown size={12} />
-              <span className="font-semibold">프리미엄 기능</span>
-            </div>
-            <p className="text-[#414846]">재무 관리는 프리미엄 플랜에서 이용 가능합니다.</p>
-          </div>
-        )}
       </nav>
 
       {/* 하단: 사용자 정보 */}
