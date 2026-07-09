@@ -41,3 +41,6 @@ docs/image.png
 docs/screenshots/
 .backup/
 stitch.zip
+
+# Supabase CLI 로컬 상태
+supabase/.temp/
