@@ -13,13 +13,11 @@ import {
   LayoutDashboard,
   FileSpreadsheet,
   Calculator,
-  RefreshCw,
 } from "lucide-react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import AppLayout from "../components/layout/AppLayout";
 import MonthlyReportTab from "../components/accounting/MonthlyReportTab";
 import TaxReportTab from "../components/accounting/TaxReportTab";
-import CodefSyncTab from "../components/accounting/CodefSyncTab";
 import useAuth from "../hooks/useAuth";
 import { db } from "../config/firebase";
 import type { Fee } from "../types/accounting";
@@ -27,7 +25,7 @@ import type { Transaction } from "../types/accounting";
 import type { OfficeExpense } from "../types/accounting";
 import type { Deposit } from "../types/accounting";
 
-type FinanceTab = "dashboard" | "monthly-report" | "tax-report" | "auto-sync";
+type FinanceTab = "dashboard" | "monthly-report" | "tax-report";
 
 
 // ─────────────────────────────────────────────
@@ -320,17 +318,10 @@ export default function FinancePage() {
     );
   }
 
-  // CODEF 자동 연동: 변호사법 §26 비밀유지의무 재위탁 이슈로 베타 출시 시점에서는 숨김.
-  // 활성화하려면 .env에 VITE_ENABLE_CODEF=true 추가 (법무 검토 완료 후).
-  const enableCodef = import.meta.env.VITE_ENABLE_CODEF === "true";
-
   const TABS: { key: FinanceTab; label: string; icon: typeof LayoutDashboard }[] = [
     { key: "dashboard", label: "현황 대시보드", icon: LayoutDashboard },
     { key: "monthly-report", label: "월별 정산", icon: FileSpreadsheet },
     { key: "tax-report", label: "세무 자료", icon: Calculator },
-    ...(enableCodef
-      ? [{ key: "auto-sync" as const, label: "자동 수집", icon: RefreshCw }]
-      : []),
   ];
 
   return (
@@ -367,11 +358,6 @@ export default function FinancePage() {
       {/* ── 세무 자료 탭 ── */}
       {activeTab === "tax-report" && user && (
         <TaxReportTab ownerId={user.uid} />
-      )}
-
-      {/* ── 자동 수집 탭 (CODEF) ── 법무 검토 후 활성화 */}
-      {enableCodef && activeTab === "auto-sync" && user && (
-        <CodefSyncTab ownerId={user.uid} />
       )}
 
       {/* ── 현황 대시보드 탭 ── */}

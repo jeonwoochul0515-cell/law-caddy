@@ -215,41 +215,6 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
-    // ── CODEF 연결 계정 ──
-    match /codef_accounts/{accountId} {
-      allow create: if isOwnerOnCreate();
-      allow read, update, delete: if isOwner();
-      allow read: if isAdmin();
-    }
-
-    // ── 은행 거래내역 ──
-    match /bank_transactions/{txId} {
-      allow create: if isOwnerOnCreate();
-      allow read, update, delete: if isOwner();
-      allow read: if isAdmin();
-    }
-
-    // ── 카드 거래내역 ──
-    match /card_transactions/{txId} {
-      allow create: if isOwnerOnCreate();
-      allow read, update, delete: if isOwner();
-      allow read: if isAdmin();
-    }
-
-    // ── AI 매칭 대기 ──
-    match /pending_matches/{matchId} {
-      allow create: if isOwnerOnCreate();
-      allow read, update, delete: if isOwner();
-      allow read: if isAdmin();
-    }
-
-    // ── 홈택스 세금계산서 ──
-    match /tax_invoices/{invoiceId} {
-      allow create: if isOwnerOnCreate();
-      allow read, update, delete: if isOwner();
-      allow read: if isAdmin();
-    }
-
     // ── 버그 리포트 (베타 테스트) ──
     match /bug_reports/{reportId} {
       allow create: if isAuthenticated();
