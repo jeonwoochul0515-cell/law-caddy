@@ -1,8 +1,18 @@
 import type { Env } from "./_shared/types";
+import { requirePaidPlan } from "./_shared/plan";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-5";
+/** 비스트리밍 상한 — 이 이상은 응답 대기 중 연결이 끊길 수 있다 */
 const MAX_TOKENS = 16384;
+/**
+ * 스트리밍 상한.
+ *
+ * max_tokens는 생각(thinking) 토큰과 본문을 **함께** 덮는다. Sonnet 5는 thinking을
+ * 지정하지 않으면 effort=high로 생각이 켜지므로, 16384로는 긴 서면에서 본문이 잘린다.
+ * 스트리밍은 연결이 계속 살아있어 상한을 올려도 안전하다.
+ */
+const MAX_TOKENS_STREAM = 32000;
 const API_VERSION = "2023-06-01";
 const ANTHROPIC_BETA = "context-1m-2025-08-07";
 
@@ -16,8 +26,10 @@ interface ClaudeRequest {
   systemPrompt: string;
   userMessage?: string;
   messages?: ChatMessage[];
-  /** Phase 2 Prompt Caching: 6개 에이전트가 공유하는 큰 공통 prefix (선택). */
+  /** Phase 2 Prompt Caching: 에이전트가 공유하는 큰 공통 prefix (선택). */
   sharedPrefix?: string;
+  /** true면 SSE 스트리밍으로 응답한다 (긴 문서 생성 시 연결 끊김 방지). */
+  stream?: boolean;
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -30,6 +42,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 503 },
       );
     }
+
+    // 요금제 확인 — 무료 플랜이 API를 직접 호출해 무제한으로 쓰는 것을 막는다
+    const uid = (context.data as Record<string, unknown>).uid as string | undefined;
+    const denied = await requirePaidPlan(context.env, uid);
+    if (denied) return denied;
 
     const body = (await context.request.json()) as ClaudeRequest;
 
@@ -67,6 +84,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           },
         ];
 
+    const wantsStream = body.stream === true;
+
     // 원본 요청의 컨텍스트를 완전히 격리한 새 Request 생성
     const anthropicRequest = new Request(ANTHROPIC_API_URL, {
       method: "POST",
@@ -78,9 +97,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: MAX_TOKENS,
+        max_tokens: wantsStream ? MAX_TOKENS_STREAM : MAX_TOKENS,
         system: systemBlocks,
         messages,
+        ...(wantsStream ? { stream: true } : {}),
       }),
     });
 
@@ -104,6 +124,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         },
         { status: response.status },
       );
+    }
+
+    // 스트리밍: SSE 본문을 그대로 흘려보낸다.
+    // Workers는 response.body를 버퍼링 없이 통과시키므로 연결이 계속 살아있다.
+    if (wantsStream) {
+      return new Response(response.body, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+        },
+      });
     }
 
     const data = await response.json();

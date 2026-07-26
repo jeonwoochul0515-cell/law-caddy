@@ -66,7 +66,14 @@ const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefi
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEV_PROXY_URL = "/api/anthropic/v1/messages";
 const MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 16384;
+/**
+ * 출력 상한.
+ *
+ * max_tokens는 생각(thinking) 토큰과 본문을 **함께** 덮는다. Sonnet 5는 thinking을
+ * 지정하지 않으면 effort=high로 생각이 켜지므로, 16384로는 긴 서면에서 본문이 잘렸다.
+ * 스트리밍으로 전환하면서 연결 끊김 걱정이 사라져 상한을 올렸다.
+ */
+const MAX_TOKENS = 32000;
 const API_VERSION = "2023-06-01";
 const ANTHROPIC_BETA = "context-1m-2025-08-07";
 
@@ -139,10 +146,136 @@ function logUsage(label: string, data: ClaudeApiResponse): void {
   }
 }
 
-/** 사용량 기록 + 텍스트 추출 */
-function handleResponse(label: string, data: ClaudeApiResponse): string {
-  logUsage(label, data);
-  return extractText(data);
+// ─────────────────────────────────────────────
+// SSE 스트리밍
+// ─────────────────────────────────────────────
+
+/** 스트리밍 이벤트에서 뽑아낼 것들 */
+export interface StreamResult {
+  text: string;
+  stopReason: string;
+  usage: ClaudeApiResponse["usage"];
+}
+
+/**
+ * Anthropic SSE 스트림을 끝까지 읽어 텍스트를 누적합니다.
+ *
+ * 스트리밍을 쓰는 이유는 화면에 글자를 흘리기 위해서가 아니라,
+ * **연결을 살려두기 위해서**입니다. 비스트리밍으로 max_tokens를 크게 잡으면
+ * 모델이 생각하는 동안 아무 바이트도 오지 않아 연결이 끊깁니다.
+ *
+ * onDelta를 넘기면 진행 중인 텍스트를 받아볼 수 있습니다(선택).
+ */
+export async function readClaudeStream(
+  response: Response,
+  onDelta?: (chunk: string) => void,
+): Promise<StreamResult> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Claude API 응답 스트림을 열 수 없습니다.");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let stopReason = "end_turn";
+  const usage: ClaudeApiResponse["usage"] = {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  };
+
+  const handleEvent = (payload: string): void => {
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(payload) as Record<string, unknown>;
+    } catch {
+      return; // 부분 수신/주석 라인은 무시
+    }
+
+    switch (event.type) {
+      case "message_start": {
+        const msg = event.message as { usage?: Record<string, number> } | undefined;
+        const u = msg?.usage;
+        if (u) {
+          usage.input_tokens = u.input_tokens ?? 0;
+          usage.cache_creation_input_tokens = u.cache_creation_input_tokens ?? 0;
+          usage.cache_read_input_tokens = u.cache_read_input_tokens ?? 0;
+        }
+        break;
+      }
+      case "content_block_delta": {
+        const delta = event.delta as { type?: string; text?: string } | undefined;
+        if (delta?.type === "text_delta" && delta.text) {
+          text += delta.text;
+          onDelta?.(delta.text);
+        }
+        break;
+      }
+      case "message_delta": {
+        const delta = event.delta as { stop_reason?: string } | undefined;
+        if (delta?.stop_reason) stopReason = delta.stop_reason;
+        const u = event.usage as Record<string, number> | undefined;
+        if (u?.output_tokens) usage.output_tokens = u.output_tokens;
+        break;
+      }
+      case "error": {
+        const err = event.error as { message?: string } | undefined;
+        throw new Error(`Claude API 스트림 오류: ${err?.message ?? "알 수 없음"}`);
+      }
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE 이벤트는 빈 줄로 구분된다
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const block = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload) handleEvent(payload);
+      }
+    }
+  }
+
+  return { text, stopReason, usage };
+}
+
+/** 스트림 결과를 기존 응답 형태로 맞춰 사용량 기록 + 잘림 경고까지 처리합니다. */
+function handleStreamResult(label: string, result: StreamResult): string {
+  logUsage(label, {
+    id: "",
+    type: "message",
+    role: "assistant",
+    content: [{ type: "text", text: result.text }],
+    model: MODEL,
+    stop_reason: result.stopReason as ClaudeApiResponse["stop_reason"],
+    usage: result.usage,
+  });
+
+  if (!result.text) {
+    throw new Error("Claude API에서 빈 응답을 반환했습니다.");
+  }
+
+  if (result.stopReason === "max_tokens") {
+    console.warn(
+      `[Claude API] 응답이 max_tokens(${MAX_TOKENS})에 도달하여 잘렸습니다. output_tokens: ${result.usage.output_tokens}`,
+    );
+    return (
+      result.text +
+      "\n\n⚠️ [문서가 토큰 제한으로 잘렸습니다. 채팅에서 \"이어서 작성해 주세요\"라고 요청하세요.]"
+    );
+  }
+
+  return result.text;
 }
 
 /**
@@ -197,6 +330,7 @@ async function callClaudeDirect(
       max_tokens: MAX_TOKENS,
       system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
+      stream: true,
     }),
   });
 
@@ -209,8 +343,7 @@ async function callClaudeDirect(
     throw new Error(`Claude API 호출 실패: ${errorMessage}`);
   }
 
-  const data = (await response.json()) as ClaudeApiResponse;
-  return handleResponse("direct", data);
+  return handleStreamResult("direct", await readClaudeStream(response));
 }
 
 /**
@@ -232,7 +365,7 @@ async function callClaudeProxy(
     const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ systemPrompt, userMessage, sharedPrefix }),
+      body: JSON.stringify({ systemPrompt, userMessage, sharedPrefix, stream: true }),
     });
 
     if (!response.ok) {
@@ -247,8 +380,7 @@ async function callClaudeProxy(
       throw new Error(`Claude API 호출 실패: ${errorMessage}`);
     }
 
-    const data = (await response.json()) as ClaudeApiResponse;
-    return handleResponse("proxy", data);
+    return handleStreamResult("proxy", await readClaudeStream(response));
   });
 }
 
@@ -373,6 +505,7 @@ async function callClaudeChatDirect(
         },
       ],
       messages,
+      stream: true,
     }),
   });
 
@@ -385,8 +518,7 @@ async function callClaudeChatDirect(
     throw new Error(`Claude API 호출 실패: ${errorMessage}`);
   }
 
-  const data = (await response.json()) as ClaudeApiResponse;
-  return handleResponse("direct", data);
+  return handleStreamResult("direct", await readClaudeStream(response));
 }
 
 async function callClaudeChatProxy(
@@ -398,7 +530,7 @@ async function callClaudeChatProxy(
     const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ systemPrompt, messages }),
+      body: JSON.stringify({ systemPrompt, messages, stream: true }),
     });
 
     if (!response.ok) {
@@ -410,7 +542,6 @@ async function callClaudeChatProxy(
       throw new Error(`Claude API 호출 실패: ${errorMessage}`);
     }
 
-    const data = (await response.json()) as ClaudeApiResponse;
-    return handleResponse("proxy", data);
+    return handleStreamResult("proxy", await readClaudeStream(response));
   });
 }
