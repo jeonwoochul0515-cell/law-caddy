@@ -51,14 +51,14 @@
 - [x] `monthly_summary` 규칙 추가 → 세무 모듈 복구
 - [x] `signing_requests`의 `allow read, update: if true` 제거 → 서버 토큰 검증으로 전환
 - [x] `callClaudeDirect` 재시도 + 오류 메시지에 HTTP 상태 보존
-- [x] Cloudflare에 서비스 계정 키 등록 (프로덕션) — **결제 복구**
+- [x] 서비스 계정 키를 평문 환경변수 → Secret으로 승격 (프로덕션). 결제는 원래 정상이었음
 - [x] 프로덕션 배포 + Firestore 규칙 배포 + 검증
+- [x] 배포 헬스체크가 실제 배포 대상을 보도록 수정 + 서비스 계정 검사 추가
 
-## 🔴 수동 확인 필요 (대표님)
+## 확인 필요 (대표님)
 
-- [ ] **토스 대시보드 대조** — 승인된 결제가 있는데 `users/{uid}.plan`이 `free`면 수동 보정.
-      서비스 계정 키가 없어 결제 승인이 실패해왔다. `payments` 컬렉션에도 기록이 없으므로
-      토스 내역이 유일한 근거. 자세한 내용은 context-notes.md 참고
+- [ ] Cloudflare 대시보드 → 같은 이름의 **평문 환경변수**(`FIREBASE_CLIENT_EMAIL`,
+      `FIREBASE_PRIVATE_KEY`)가 아직 남아 있는지. Secret과 중복이면 평문 쪽 삭제
 - [ ] 프로덕션에서 문서 생성 1건 → 잘림 경고가 사라졌는지 확인
 - [ ] 콘솔 `window.__lawCaddyUsage` → `cacheRead`가 계속 0이면 캐시 미작동 확정
 - [ ] 세무 탭 월별 요약이 되는지 확인

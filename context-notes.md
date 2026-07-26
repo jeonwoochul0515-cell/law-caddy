@@ -128,27 +128,33 @@ Pro 요금제 ₩89,000/월 무제한 기준 손익분기는 전량 Opus 시 **�
 
 # 2026-07-26 (오후) — 보안·결제·배포
 
-## 🔴 결제가 깨져 있었다 (해결됨, 다만 후속 조치 필요)
+## ⚠️ 오독 주의 — "Creating the secret"은 "값이 없었다"는 뜻이 아니다
 
-Cloudflare Pages에 **`FIREBASE_CLIENT_EMAIL`·`FIREBASE_PRIVATE_KEY`가 등록돼 있지 않았다.**
-`wrangler pages secret put` 실행 시 "Creating the secret"이 떴다 = 기존에 없었다는 뜻.
+**결론부터: 프로덕션 결제는 정상 작동하고 있었다.** 아래는 한 번 잘못 판단했던 기록이라
+같은 실수를 반복하지 않도록 남긴다.
 
-`_shared/firestore.ts`는 이 둘로 서비스 계정 토큰을 만든다. 없으면 서버에서 Firestore를
-쓰는 기능이 전부 실패한다. `payment/confirm.ts`가 여기에 걸려 있었다:
+Cloudflare Pages는 **평문 환경변수(Environment variables)** 와 **Secret**을 따로 관리한다.
 
-```
-1) Toss 승인 fetch      → 성공 (카드가 실제로 결제됨)
-2) firestorePatchDocument → 예외 (plan/planExpiresAt 못 씀)
-3) catch → 500 반환
-```
+- `wrangler pages secret list` → **Secret만** 보여준다. 평문 환경변수는 안 나온다
+- `wrangler pages secret put` → 같은 이름의 평문 환경변수가 있어도 **"Creating the secret"** 이라고 뜬다
 
-**돈은 나가고 요금제는 안 올라가는** 최악의 실패 모드였다.
+`FIREBASE_CLIENT_EMAIL`·`FIREBASE_PRIVATE_KEY`가 `secret list`에 안 보이길래 "없다"고
+판단했지만, 실제로는 **평문 환경변수로 프로덕션에 들어 있었다.** 프리뷰 환경에만 없어서
+프리뷰가 500을 뱉은 것이고, 그 신호를 프로덕션까지 확대 해석한 것이 오류였다.
 
-→ **후속 조치**: 토스 대시보드에 승인된 결제가 있는데 해당 사용자의 `users/{uid}.plan`이
-`free`로 남아 있다면 수동 보정이 필요하다. `payments` 컬렉션에도 기록이 안 남았으므로
-토스 쪽 내역이 유일한 근거다.
+**환경변수 존재 여부는 `secret list`가 아니라 Cloudflare 대시보드에서 확인할 것.**
+(Settings → Environment variables / Secrets 두 곳을 모두 봐야 한다)
 
-키는 `.dev.vars`에 있었고(gitignore 처리됨), 로컬에서 Google 토큰 발급까지 확인한 뒤 등록했다.
+### 실제로 한 일
+
+`.dev.vars`의 키를 로컬에서 검증(Google 토큰 발급 HTTP 200)한 뒤 프로덕션에 **Secret으로**
+등록했다. 값은 동일하므로 동작 변화는 없고, **개인키가 평문으로 저장돼 있던 것을 암호화
+저장으로 승격**한 셈이라 보안상으로는 개선이다.
+(전역 메모의 2026-04-23 "평문 → Secret 재등록" 건이 실제로는 반영돼 있지 않았던 것으로 보인다)
+
+→ **남은 확인**: 대시보드에 같은 이름의 **평문 환경변수가 아직 남아 있는지** 볼 것.
+남아 있다면 Secret과 중복이므로 평문 쪽을 지우는 게 깔끔하다.
+
 프리뷰 환경은 wrangler 4.68.1이 `--environment` 플래그를 지원하지 않아 등록하지 못했다.
 **프리뷰에서 서버 Firestore 기능을 테스트하려면 wrangler 업그레이드가 먼저다.**
 
