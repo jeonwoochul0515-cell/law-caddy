@@ -29,7 +29,20 @@ export interface ClaudeApiResponse {
   usage: {
     input_tokens: number;
     output_tokens: number;
+    /** 캐시에 새로 기록된 토큰 (쓰기 요금 = 기본 입력가의 1.25배) */
+    cache_creation_input_tokens?: number;
+    /** 캐시에서 읽어온 토큰 (읽기 요금 = 기본 입력가의 0.1배) */
+    cache_read_input_tokens?: number;
   };
+}
+
+/** 세션 누적 토큰 사용량 */
+export interface UsageTotals {
+  calls: number;
+  input: number;
+  output: number;
+  cacheWrite: number;
+  cacheRead: number;
 }
 
 /** Claude API 에러 응답 타입 */
@@ -81,6 +94,55 @@ export function extractText(data: ClaudeApiResponse): string {
   }
 
   return textContent;
+}
+
+/**
+ * 세션 누적 사용량. 브라우저 콘솔에서 `window.__lawCaddyUsage`로 확인할 수 있다.
+ *
+ * 확인 요령:
+ *  - cacheRead가 계속 0이면 프롬프트 캐시가 전혀 안 걸리고 있다는 뜻이다.
+ *    (6개 에이전트를 동시에 쏘면 서로가 만드는 캐시를 못 읽어 전원이 쓰기 요금만 낸다)
+ *  - cacheWrite만 쌓이고 cacheRead가 안 늘면 같은 증상이다.
+ *  - 전체 프롬프트 크기 = input + cacheWrite + cacheRead. input만 보면 과소평가된다.
+ */
+const usageTotals: UsageTotals = {
+  calls: 0,
+  input: 0,
+  output: 0,
+  cacheWrite: 0,
+  cacheRead: 0,
+};
+
+/** 응답의 토큰 사용량을 누적하고 콘솔에 한 줄로 남긴다. */
+function logUsage(label: string, data: ClaudeApiResponse): void {
+  const u = data.usage;
+  if (!u) return;
+
+  const write = u.cache_creation_input_tokens ?? 0;
+  const read = u.cache_read_input_tokens ?? 0;
+
+  usageTotals.calls += 1;
+  usageTotals.input += u.input_tokens ?? 0;
+  usageTotals.output += u.output_tokens ?? 0;
+  usageTotals.cacheWrite += write;
+  usageTotals.cacheRead += read;
+
+  console.log(
+    `[사용량/${label}] 입력 ${u.input_tokens} · 출력 ${u.output_tokens} · ` +
+      `캐시쓰기 ${write} · 캐시읽기 ${read} · stop=${data.stop_reason} ` +
+      `| 누적 ${usageTotals.calls}회 → 입력 ${usageTotals.input} · 출력 ${usageTotals.output} · ` +
+      `캐시쓰기 ${usageTotals.cacheWrite} · 캐시읽기 ${usageTotals.cacheRead}`,
+  );
+
+  if (typeof window !== "undefined") {
+    (window as unknown as { __lawCaddyUsage?: UsageTotals }).__lawCaddyUsage = usageTotals;
+  }
+}
+
+/** 사용량 기록 + 텍스트 추출 */
+function handleResponse(label: string, data: ClaudeApiResponse): string {
+  logUsage(label, data);
+  return extractText(data);
 }
 
 /**
@@ -148,7 +210,7 @@ async function callClaudeDirect(
   }
 
   const data = (await response.json()) as ClaudeApiResponse;
-  return extractText(data);
+  return handleResponse("direct", data);
 }
 
 /**
@@ -186,7 +248,7 @@ async function callClaudeProxy(
     }
 
     const data = (await response.json()) as ClaudeApiResponse;
-    return extractText(data);
+    return handleResponse("proxy", data);
   });
 }
 
@@ -324,7 +386,7 @@ async function callClaudeChatDirect(
   }
 
   const data = (await response.json()) as ClaudeApiResponse;
-  return extractText(data);
+  return handleResponse("direct", data);
 }
 
 async function callClaudeChatProxy(
@@ -349,6 +411,6 @@ async function callClaudeChatProxy(
     }
 
     const data = (await response.json()) as ClaudeApiResponse;
-    return extractText(data);
+    return handleResponse("proxy", data);
   });
 }
