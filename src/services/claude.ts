@@ -335,12 +335,14 @@ async function callClaudeDirect(
   });
 
   if (!response.ok) {
-    let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+    // 상태 코드를 반드시 메시지에 남긴다 — withRetry가 이걸로 재시도 여부를 판단한다.
+    // (예전엔 본문 파싱에 성공하면 "HTTP 529"가 지워져서 과부하가 재시도되지 않았다)
+    let detail = response.statusText;
     try {
       const errorBody = (await response.json()) as ClaudeApiError;
-      errorMessage = errorBody?.error?.message ?? errorMessage;
+      detail = errorBody?.error?.message ?? detail;
     } catch { /* non-JSON error body */ }
-    throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+    throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`);
   }
 
   return handleStreamResult("direct", await readClaudeStream(response));
@@ -369,15 +371,15 @@ async function callClaudeProxy(
     });
 
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
+      let detail = "";
       try {
         const errorBody = (await response.json()) as ProxyErrorResponse & { status?: number; apiKeyPrefix?: string };
-        errorMessage = errorBody?.detail ?? errorBody?.error ?? errorMessage;
+        detail = errorBody?.detail ?? errorBody?.error ?? "";
         if (errorBody?.apiKeyPrefix) {
-          errorMessage += ` [key: ${errorBody.apiKeyPrefix}]`;
+          detail += ` [key: ${errorBody.apiKeyPrefix}]`;
         }
       } catch { /* non-JSON error body */ }
-      throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+      throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`.trim());
     }
 
     return handleStreamResult("proxy", await readClaudeStream(response));
@@ -421,8 +423,11 @@ export async function callClaude(
 ): Promise<string> {
   try {
     // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
+    // (프록시 경로와 마찬가지로 재시도를 건다 — 529 과부하 같은 일시적 오류를 사용자가 보지 않도록)
     if (DIRECT_API_KEY) {
-      return await callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY, sharedPrefix);
+      return await withRetry(() =>
+        callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY, sharedPrefix),
+      );
     }
 
     // 폴백: Cloudflare Functions 프록시
@@ -454,9 +459,11 @@ export async function callClaudeChat(
   messages: ChatMessage[],
 ): Promise<string> {
   try {
-    // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
+    // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출 (재시도 포함)
     if (DIRECT_API_KEY) {
-      return await callClaudeChatDirect(systemPrompt, messages, DIRECT_API_KEY);
+      return await withRetry(() =>
+        callClaudeChatDirect(systemPrompt, messages, DIRECT_API_KEY),
+      );
     }
 
     // 폴백: Cloudflare Functions 프록시
@@ -510,12 +517,14 @@ async function callClaudeChatDirect(
   });
 
   if (!response.ok) {
-    let errorMessage = `HTTP ${response.status} ${response.statusText}`;
+    // 상태 코드를 반드시 메시지에 남긴다 — withRetry가 이걸로 재시도 여부를 판단한다.
+    // (예전엔 본문 파싱에 성공하면 "HTTP 529"가 지워져서 과부하가 재시도되지 않았다)
+    let detail = response.statusText;
     try {
       const errorBody = (await response.json()) as ClaudeApiError;
-      errorMessage = errorBody?.error?.message ?? errorMessage;
+      detail = errorBody?.error?.message ?? detail;
     } catch { /* non-JSON error body */ }
-    throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+    throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`);
   }
 
   return handleStreamResult("direct", await readClaudeStream(response));
@@ -534,12 +543,12 @@ async function callClaudeChatProxy(
     });
 
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
+      let detail = "";
       try {
         const errorBody = (await response.json()) as ProxyErrorResponse;
-        errorMessage = errorBody?.detail ?? errorBody?.error ?? errorMessage;
+        detail = errorBody?.detail ?? errorBody?.error ?? "";
       } catch { /* non-JSON error body */ }
-      throw new Error(`Claude API 호출 실패: ${errorMessage}`);
+      throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`.trim());
     }
 
     return handleStreamResult("proxy", await readClaudeStream(response));
