@@ -38,8 +38,17 @@ service cloud.firestore {
         && request.resource.data.status in ["pending", "approved"];
 
       // 본인 문서 수정 (role 변경 금지, status는 프로필 완성 시 pending→approved만 허용)
+      //
+      // plan / planExpiresAt은 클라이언트가 절대 바꿀 수 없다.
+      // 결제 승인(/api/payment/confirm)이 서비스 계정 REST로 쓰므로 규칙을 우회한다.
+      // 이 두 줄이 없으면 브라우저 콘솔에서 plan:"pro"를 써서 결제를 우회할 수 있다.
       allow update: if isAuthenticated() && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
+        && request.resource.data.plan == resource.data.plan
+        && (
+          (!("planExpiresAt" in request.resource.data) && !("planExpiresAt" in resource.data))
+          || request.resource.data.planExpiresAt == resource.data.planExpiresAt
+        )
         && (
           request.resource.data.status == resource.data.status
           || (resource.data.status == "pending" && request.resource.data.status == "approved"
@@ -168,6 +177,15 @@ service cloud.firestore {
 
     // ── 예수금 (Deposits) ──
     match /deposits/{depositId} {
+      allow create: if isOwnerOnCreate();
+      allow read, update, delete: if isOwner();
+      allow read: if isAdmin();
+    }
+
+    // ── 월별 요약 (Monthly Summary) — 문서 ID = {ownerId}_{YYYY-MM} ──
+    // services/firebase/accounting.ts와 services/reportGenerator.ts가 읽고 쓴다.
+    // 이 규칙이 없어 세무/월별 리포트 기능이 전부 permission-denied 상태였다.
+    match /monthly_summary/{summaryId} {
       allow create: if isOwnerOnCreate();
       allow read, update, delete: if isOwner();
       allow read: if isAdmin();
