@@ -10,6 +10,7 @@ import { checkRateLimit } from "./_shared/rate-limit";
 const PUBLIC_PATHS = [
   "/api/health",
   "/api/verify-business", // 회원가입 시 사업자등록증 검증 (미인증 상태)
+  "/api/signing", // 전자계약 서명 (의뢰인은 로그인하지 않는다 — 토큰으로 서버가 검증)
 ];
 
 export const onRequest: PagesFunction<Env> = async (context) => {

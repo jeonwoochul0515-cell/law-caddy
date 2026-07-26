@@ -223,12 +223,16 @@ service cloud.firestore {
     }
 
     // ── 서명 요청 (전자계약) ──
+    //
+    // 의뢰인(미인증)의 조회·서명은 /api/signing/{token} 서버 엔드포인트가 처리한다.
+    // 서비스 계정으로 접근하므로 이 규칙의 영향을 받지 않는다.
+    //
+    // 이전에는 여기에 `allow read, update: if true`가 있었다. 주석은 "토큰으로 조회"였지만
+    // 규칙에는 토큰 검증이 없어서, 인증 없이 컬렉션 전체를 읽고 수정할 수 있었다.
+    // (수임계약서 전문 유출 + 제3자가 남의 계약을 서명 완료 처리 가능)
     match /signing_requests/{requestId} {
-      // 변호사: 본인 사건 서명 요청 생성/조회
       allow create: if isOwnerOnCreate();
-      allow read, update: if isOwner();
-      // 의뢰인: 토큰으로 서명 요청 조회/서명 완료 (인증 불필요)
-      allow read, update: if true;
+      allow read, update, delete: if isOwner();
       allow read: if isAdmin();
     }
 

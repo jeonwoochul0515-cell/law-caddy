@@ -3,16 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { db } from "../config/firebase";
-import { completeSigningRequest } from "../services/firebase/signing";
-import { getUserDoc } from "../services/firebase/auth";
-import type { SigningRequest } from "../types/signing";
+import { API_BASE } from "../services/apiBase";
 
 // ──────────────────────────────────────────────
 // 상태 타입
@@ -28,37 +19,41 @@ type PageState =
   | "complete";
 
 // ──────────────────────────────────────────────
-// 서명 요청 조회 (만료/서명 상태 구분)
+// 서명 요청 조회
+//
+// Firestore를 직접 읽지 않는다. 서버(/api/signing/{token})가 서비스 계정으로
+// 토큰을 검증하고 화면에 필요한 필드만 내려준다. 규칙에서 미인증 접근을 전부
+// 막았기 때문에, 링크를 모르는 사람은 계약서에 닿을 수 없다.
 // ──────────────────────────────────────────────
 
-async function fetchSigningRequest(
-  token: string
-): Promise<{ request: SigningRequest | null; state: PageState }> {
-  const q = query(
-    collection(db!, "signing_requests"),
-    where("token", "==", token)
-  );
-  const snapshot = await getDocs(q);
+/** 서버가 내려주는 서명 페이지 데이터 */
+interface SigningView {
+  state: PageState;
+  clientName: string;
+  contractText: string;
+  /** ISO 8601 문자열 */
+  signedAt: string | null;
+  firmName: string;
+  lawyerName: string;
+}
 
-  if (snapshot.empty) {
-    return { request: null, state: "not-found" };
-  }
+async function fetchSigningRequest(token: string): Promise<SigningView> {
+  const resp = await fetch(`${API_BASE}/api/signing/${encodeURIComponent(token)}`);
+  const data = (await resp.json()) as Partial<SigningView> & { state?: string };
 
-  const docSnap = snapshot.docs[0];
-  const data = { ...docSnap.data(), id: docSnap.id } as SigningRequest;
+  // 서버는 "error"도 보낼 수 있다. 화면이 아는 상태만 통과시키고 나머지는 not-found로 접는다.
+  const KNOWN: readonly string[] = ["ready", "already-signed", "expired", "not-found"];
+  const raw = data.state ?? "not-found";
+  const state = (KNOWN.includes(raw) ? raw : "not-found") as PageState;
 
-  if (data.status === "signed") {
-    return { request: data, state: "already-signed" };
-  }
-
-  if (
-    data.status === "expired" ||
-    (data.expiresAt && data.expiresAt.toMillis() < Date.now())
-  ) {
-    return { request: data, state: "expired" };
-  }
-
-  return { request: data, state: "ready" };
+  return {
+    state,
+    clientName: data.clientName ?? "",
+    contractText: data.contractText ?? "",
+    signedAt: data.signedAt ?? null,
+    firmName: data.firmName ?? "",
+    lawyerName: data.lawyerName ?? "",
+  };
 }
 
 // ──────────────────────────────────────────────
@@ -69,7 +64,7 @@ export default function SigningPage() {
   const { token } = useParams<{ token: string }>();
 
   const [pageState, setPageState] = useState<PageState>("loading");
-  const [request, setRequest] = useState<SigningRequest | null>(null);
+  const [request, setRequest] = useState<SigningView | null>(null);
   const [firmName, setFirmName] = useState("");
   const [lawyerName, setLawyerName] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -90,24 +85,13 @@ export default function SigningPage() {
 
     (async () => {
       try {
-        const { request: req, state } = await fetchSigningRequest(validToken);
+        const view = await fetchSigningRequest(validToken);
         if (cancelled) return;
 
-        setRequest(req);
-        setPageState(state);
-
-        // 변호사 정보 조회
-        if (req?.ownerId) {
-          try {
-            const user = await getUserDoc(req.ownerId);
-            if (user && !cancelled) {
-              setFirmName(user.firmName || "");
-              setLawyerName(user.name || "");
-            }
-          } catch {
-            // 변호사 정보 조회 실패는 무시
-          }
-        }
+        setRequest(view);
+        setPageState(view.state);
+        setFirmName(view.firmName);
+        setLawyerName(view.lawyerName);
       } catch {
         if (!cancelled) setPageState("not-found");
       }
@@ -236,20 +220,26 @@ export default function SigningPage() {
     try {
       const signatureDataUrl = getSignatureDataUrl();
 
-      // IP 주소 조회
-      let ip = "unknown";
-      try {
-        const res = await fetch("https://api.ipify.org?format=json");
-        const json = (await res.json()) as { ip: string };
-        ip = json.ip;
-      } catch {
-        ip = "browser";
-      }
+      // 서명자 IP는 서버가 CF-Connecting-IP로 직접 잡는다.
+      // 클라이언트가 보낸 IP는 조작 가능하므로 감사 추적 자료로 쓸 수 없다.
+      const resp = await fetch(
+        `${API_BASE}/api/signing/${encodeURIComponent(validToken)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            signatureDataUrl,
+            userAgent: navigator.userAgent,
+          }),
+        },
+      );
 
-      await completeSigningRequest(request.id, signatureDataUrl, {
-        ip,
-        userAgent: navigator.userAgent,
-      });
+      if (!resp.ok) {
+        const body = (await resp.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? "서명 처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
+        setPageState("ready");
+        return;
+      }
 
       setPageState("complete");
     } catch {
@@ -259,9 +249,9 @@ export default function SigningPage() {
   };
 
   // ── 서명일 포맷 ──
-  const formatSignedDate = (req: SigningRequest) => {
+  const formatSignedDate = (req: SigningView) => {
     if (!req.signedAt) return "";
-    const d = req.signedAt.toDate();
+    const d = new Date(req.signedAt);
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
   };
 
