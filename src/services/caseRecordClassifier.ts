@@ -164,6 +164,8 @@ export async function classifyByLLM(params: {
   const raw = await callClaude(
     prompt,
     "위 스키마를 지켜 JSON 한 줄만 출력하세요.",
+    undefined,
+    "low", // 사건기록 분류 — 정해진 스키마에 맞추는 기계적 작업
   );
   const parsed = extractAndParse(raw);
   if (!parsed) return fallback;

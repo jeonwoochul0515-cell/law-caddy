@@ -154,6 +154,8 @@ export default function useClientCare({
       const content = await callClaude(
         prompt,
         `${STAGE_LABELS[stage]} 카카오톡 메시지를 작성해 주세요.`,
+        undefined,
+        "low", // 의뢰인에게 보낼 안내 문자 — 법률 판단이 아니다
       );
 
       // Firestore에 저장

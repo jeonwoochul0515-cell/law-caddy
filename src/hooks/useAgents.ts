@@ -56,6 +56,8 @@ async function extractSearchKeywordsWithAI(caseDesc: string, caseType?: string):
 
 반드시 아래 JSON 배열 형식으로만 응답하세요:
 ["키워드1", "키워드2", "키워드3"]`,
+      undefined,
+      "low", // 검색어 2~3개 추출 — 실패해도 규칙 기반 폴백이 있다
     );
 
     const match = result.match(/\[[\s\S]*?\]/);
@@ -563,7 +565,13 @@ export default function useAgents(): UseAgentsReturn {
         setIsClassifying(true);
         try {
           const prompt = buildCaseTypeClassificationPrompt(context.caseDesc, classificationInput);
-          const result = await callClaude(prompt, "이 사건의 유형을 분류해 주세요.");
+          // 단어 하나를 고르는 분류 — 최고 사고력을 쓸 이유가 없다
+          const result = await callClaude(
+            prompt,
+            "이 사건의 유형을 분류해 주세요.",
+            undefined,
+            "low",
+          );
           const trimmed = result.trim();
           const matched = CASE_TYPES.find((t) => trimmed.includes(t));
           caseType = matched ?? "기타";

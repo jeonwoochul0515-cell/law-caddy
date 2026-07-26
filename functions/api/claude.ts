@@ -30,7 +30,12 @@ interface ClaudeRequest {
   sharedPrefix?: string;
   /** true면 SSE 스트리밍으로 응답한다 (긴 문서 생성 시 연결 끊김 방지). */
   stream?: boolean;
+  /** 생각 깊이. 미지정 시 모델 기본값(high). 분류·요약 같은 기계적 호출은 low로 내린다. */
+  effort?: string;
 }
+
+/** 허용된 effort 값 — 클라이언트가 보낸 값을 그대로 Anthropic에 넘기지 않는다 */
+const VALID_EFFORT = ["low", "medium", "high", "xhigh", "max"];
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
@@ -101,6 +106,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         system: systemBlocks,
         messages,
         ...(wantsStream ? { stream: true } : {}),
+        ...(body.effort && VALID_EFFORT.includes(body.effort)
+          ? { output_config: { effort: body.effort } }
+          : {}),
       }),
     });
 

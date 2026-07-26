@@ -235,7 +235,7 @@ export default function AgentsPage() {
       "",
       state.typedNotes ?? "",
     );
-    callClaude(prompt, "사건 개요를 요약해 주세요.")
+    callClaude(prompt, "사건 개요를 요약해 주세요.", undefined, "low")
       .then((desc) => setGeneratedDesc(desc.trim()))
       .catch(() => setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`));
   // eslint-disable-next-line react-hooks/exhaustive-deps

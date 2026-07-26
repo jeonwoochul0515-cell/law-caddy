@@ -18,6 +18,15 @@ export interface ContentBlock {
   text: string;
 }
 
+/**
+ * 생각 깊이. 지정하지 않으면 모델 기본값(high)으로 동작한다.
+ *
+ * 생각 토큰은 **출력으로 과금되고 max_tokens 안에 포함**되므로, 사실상 비용을 가장
+ * 크게 좌우하는 값이다. 분류·요약·문자 작성처럼 법률 판단이 아닌 호출은 낮춰도 된다.
+ * 판례·쟁점·문서 생성은 기본값(high)을 유지할 것.
+ */
+export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
 /** Claude API 응답 타입 */
 export interface ClaudeApiResponse {
   id: string;
@@ -25,7 +34,7 @@ export interface ClaudeApiResponse {
   role: "assistant";
   content: ContentBlock[];
   model: string;
-  stop_reason: "end_turn" | "max_tokens" | "stop_sequence";
+  stop_reason: "end_turn" | "max_tokens" | "stop_sequence" | "refusal";
   usage: {
     input_tokens: number;
     output_tokens: number;
@@ -261,6 +270,15 @@ function handleStreamResult(label: string, result: StreamResult): string {
     usage: result.usage,
   });
 
+  // 안전 분류기가 요청을 거절한 경우. 오류가 아니라 정상 응답(HTTP 200)으로 오고
+  // content가 비어 있거나 일부만 온다. stop_reason을 먼저 보지 않으면 "빈 응답"으로
+  // 오인해 원인을 못 찾는다. (형사·보안 주제에서 드물게 발생)
+  if (result.stopReason === "refusal") {
+    throw new Error(
+      "요청이 안전 정책에 의해 거절되었습니다. 사건 내용의 표현을 조정해 다시 시도해 주세요.",
+    );
+  }
+
   if (!result.text) {
     throw new Error("Claude API에서 빈 응답을 반환했습니다.");
   }
@@ -288,6 +306,7 @@ async function callClaudeDirect(
   userMessage: string,
   apiKey: string,
   sharedPrefix?: string,
+  effort?: Effort,
 ): Promise<string> {
   const url = isDev ? DEV_PROXY_URL : ANTHROPIC_API_URL;
   const headers: Record<string, string> = {
@@ -331,6 +350,7 @@ async function callClaudeDirect(
       system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
       stream: true,
+      ...(effort ? { output_config: { effort } } : {}),
     }),
   });
 
@@ -361,13 +381,14 @@ async function callClaudeProxy(
   systemPrompt: string,
   userMessage: string,
   sharedPrefix?: string,
+  effort?: Effort,
 ): Promise<string> {
   return withRetry(async () => {
     const headers = await authHeaders({ "Content-Type": "application/json" });
     const response = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ systemPrompt, userMessage, sharedPrefix, stream: true }),
+      body: JSON.stringify({ systemPrompt, userMessage, sharedPrefix, stream: true, effort }),
     });
 
     if (!response.ok) {
@@ -420,18 +441,19 @@ export async function callClaude(
   systemPrompt: string,
   userMessage: string,
   sharedPrefix?: string,
+  effort?: Effort,
 ): Promise<string> {
   try {
     // API 키가 빌드에 포함되어 있으면 브라우저에서 직접 호출
     // (프록시 경로와 마찬가지로 재시도를 건다 — 529 과부하 같은 일시적 오류를 사용자가 보지 않도록)
     if (DIRECT_API_KEY) {
       return await withRetry(() =>
-        callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY, sharedPrefix),
+        callClaudeDirect(systemPrompt, userMessage, DIRECT_API_KEY, sharedPrefix, effort),
       );
     }
 
     // 폴백: Cloudflare Functions 프록시
-    return await callClaudeProxy(systemPrompt, userMessage, sharedPrefix);
+    return await callClaudeProxy(systemPrompt, userMessage, sharedPrefix, effort);
   } catch (error: unknown) {
     Sentry.captureException(error);
     const errMsg = error instanceof Error ? error.message : "알 수 없는 오류";
