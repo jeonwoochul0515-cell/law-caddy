@@ -145,6 +145,9 @@ export default function DocumentPage() {
         caseType: state.caseType,
         caseDesc: state.caseDesc,
         docType: state.docType,
+        // ⚠️ 이 슬롯은 에이전트 결과가 아니라 체크포인트 첨부파일 텍스트를 나르는 통로다.
+        //    (CheckpointPage에서 PDF/이미지 OCR 추출 결과를 여기에 이어붙인다)
+        //    이름이 실제 용도와 달라 혼란스럽다 — attachedFileContents로 개명 예정. checklist.md 참고.
         transcript: (state.agentResults?.rag_precedent ?? ""),
         lawyerName: state.lawyerName,
         firmName: state.firmName,
@@ -155,7 +158,6 @@ export default function DocumentPage() {
         precedentResult: state.agentResults.precedent ?? "",
         analysisResult: state.agentResults.analysis ?? "",
         legalResult: state.agentResults.legal ?? "",
-        reviewResult: state.agentResults.review ?? "",
       },
       state.checkQuestions ?? [],
       state.checkpointAnswers ?? [],

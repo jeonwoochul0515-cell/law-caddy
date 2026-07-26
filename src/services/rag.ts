@@ -382,17 +382,9 @@ export const AGENT_SEARCH_CONFIG: Record<
     tables: ["legal_forms", "statutes", "legal_judgments", "legal_terms", "legal_commentary"],
     limit: 3,
   },
-  // 검토: statutes + aihub_legal_qa + cases + legal_judgments + legal_commentary
-  review: {
-    tables: ["statutes", "aihub_legal_qa", "cases", "legal_judgments", "legal_commentary"],
-    limit: 3,
-  },
-  // RAG 판례 검색 (사전 호출용): cases + legal_judgments + aihub_legal_qa
-  rag_precedent: {
-    tables: ["cases", "legal_judgments", "aihub_legal_qa"],
-    limit: 8,
-  },
 };
+// (2026-07-26) review·rag_precedent 항목 삭제 — 두 에이전트를 실행 목록에서 뺐다.
+// 사유는 context-notes.md 참고.
 
 // ──────────────────────────────────────────────
 // Voyage AI 임베딩 함수

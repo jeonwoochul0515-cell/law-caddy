@@ -355,7 +355,7 @@ export default function AgentsPage() {
       </div>
 
       {/* 에이전트 상태 그리드 */}
-      <div role="tablist" aria-label="에이전트 결과 탭" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div role="tablist" aria-label="에이전트 결과 탭" className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 mb-6">
         {AGENTS.map((agent) => {
           const agentState = agents[agent.id];
           const isActive = activeTab === agent.id;

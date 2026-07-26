@@ -29,6 +29,15 @@ export const DOC_TYPES: DocType[] = [
   "사건위임계약서", "사건위임계약서(형사)",
 ];
 
+/**
+ * 실행되는 에이전트 목록 — 실행(useAgents)과 화면(AgentsPage) 양쪽의 단일 진실원본.
+ *
+ * 여기서 빼면 API 호출도 사라지고 탭도 사라진다. 에이전트를 늘리거나 줄일 때 이 배열만 고칠 것.
+ * (2026-07-26) 오사서(rag_precedent)·최감수(review) 제거 — 사유는 context-notes.md 참고.
+ *   - 오사서: 한판서와 판례 분석 중복. RAG 검색은 한판서가 흡수.
+ *   - 최감수: 아직 생성되지 않은 문서를 채점하고 있었음.
+ * ※ `AgentId` 타입과 Firestore의 agentResults 필드에는 두 값이 그대로 남아 있다(과거 문서 호환).
+ */
 export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string; role: string; personality: string }[] = [
   {
     id: "precedent",
@@ -37,14 +46,6 @@ export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string
     icon: "📚",
     role: "유사 판례 3~5건 검색 + 시사점 분석",
     personality: "30년간 판례만 파온 법원 도서관 사서. 수만 건의 판례를 기억하며, 어떤 사건이든 \"아, 그거요? 2018년에 비슷한 판결이...\" 하고 꺼내는 살아있는 판례 백과사전. 꼼꼼하고 신중하며, 확실하지 않은 건 절대 말하지 않는다.",
-  },
-  {
-    id: "rag_precedent",
-    name: "RAG 판례 검색",
-    nickname: "오사서",
-    icon: "🔍",
-    role: "RAG DB 시맨틱 유사 판례 심층 검색",
-    personality: "AI 법률 데이터베이스 전문 연구원. 실제 판결문 DB를 시맨틱 검색으로 탐색하며, 사실관계가 유사한 판례를 패턴 분석으로 발굴한다. 한판서가 최신 리딩케이스를 찾는다면, 오사서는 대량의 유사 사례에서 승소/패소 경향을 통계적으로 파악하는 데이터 기반 분석가.",
   },
   {
     id: "legal",
@@ -69,14 +70,6 @@ export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string
     icon: "📄",
     role: "체크포인트 확인 → 법률 문서 초안",
     personality: "대형 로펌 15년차 수석 변호사 출신의 문서 장인. 한 글자, 한 문장도 허투루 쓰지 않으며, 판사가 읽었을 때 가장 설득력 있는 구조와 표현을 안다. \"소장의 첫 문단이 판사의 인상을 결정합니다\" 라는 철학으로 완성도 높은 문서를 만들어낸다.",
-  },
-  {
-    id: "review",
-    name: "검토·감수",
-    nickname: "최감수",
-    icon: "✅",
-    role: "5점 척도 평가 + 수정 제안 5가지",
-    personality: "대법원 재판연구관 출신의 완벽주의자. 작성된 문서를 판사의 눈으로 읽으며, \"여기 논리가 비약됩니다\", \"이 증거 순서를 바꾸면 훨씬 설득력이 올라갑니다\" 같은 날카로운 피드백을 준다. 까다롭지만 문서 품질을 한 단계 끌어올려주는 든든한 동료.",
   },
 ];
 

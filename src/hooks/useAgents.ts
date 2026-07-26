@@ -1,5 +1,6 @@
-// 6개 AI 에이전트 병렬 실행 훅
-// 판례 검색, RAG 판례, 적법성 검증, 쟁점 분석, 문서 작성, 검토·감수
+// AI 에이전트 병렬 실행 훅
+// 판례 검색(법제처+RAG), 적법성 검증, 쟁점 분석, 문서 작성
+// 실행 목록은 config/constants.ts의 AGENTS가 단일 진실원본이다.
 
 import { useState, useCallback } from "react";
 import { callClaude, callClaudeWithCachedPrefix } from "../services/claude";
@@ -35,7 +36,7 @@ import type { PrecedentCase, ConstitutionalDecision } from "../services/preceden
 import type { AgentContext } from "../services/prompts";
 import type { AgentId, AgentState, CaseType } from "../types/agent";
 import type { CaseRef } from "../types/document";
-import { CASE_TYPES } from "../config/constants";
+import { CASE_TYPES, AGENTS } from "../config/constants";
 import { SearchPool } from "../services/search-pool";
 import { formatRAGContext } from "../services/rag";
 
@@ -168,15 +169,14 @@ interface UseAgentsReturn {
   restoreFromCache: (clientName: string) => boolean;
 }
 
-/** 에이전트 ID 목록 */
-const AGENT_IDS: AgentId[] = [
-  "precedent",
-  "rag_precedent",
-  "legal",
-  "analysis",
-  "docgen",
-  "review",
-];
+/**
+ * 실행할 에이전트 ID 목록.
+ *
+ * AGENTS(config/constants.ts)에서 파생한다. 예전에는 두 목록을 따로 관리했는데,
+ * AgentsPage는 AGENTS를 순회하고 여기서는 AGENT_IDS를 순회하는 구조라
+ * 둘이 어긋나면 실행되지 않는 카드가 영원히 로딩 상태로 남는다.
+ */
+const AGENT_IDS: AgentId[] = AGENTS.map((a) => a.id);
 
 /** 초기 에이전트 상태 생성 */
 function createInitialAgentState(id: AgentId): AgentState {
@@ -201,7 +201,7 @@ function createInitialStates(): Record<AgentId, AgentState> {
 // ---------------------------------------------------------------------------
 
 /**
- * 단일 에이전트 실행 (rag_precedent 에이전트 특수 처리 포함)
+ * 단일 에이전트 실행 (에이전트별 외부 검색 주입 포함)
  */
 async function runSingleAgent(
   agentId: AgentId,
@@ -212,7 +212,9 @@ async function runSingleAgent(
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   // ─── RAG 검색 (SearchPool 활용, 실패해도 Claude만으로 동작) ───
-  if (["rag_precedent", "legal", "analysis", "docgen", "review"].includes(agentId)) {
+  // 한판서(precedent)는 법제처 API 검색에 더해 RAG 결과도 받는다.
+  // (2026-07-26) 오사서(rag_precedent)를 없애면서 그 역할을 한판서가 흡수했다.
+  if (["precedent", "legal", "analysis", "docgen"].includes(agentId)) {
     try {
       const pool = new SearchPool(context.caseDesc, context.caseType);
       const ragResult = await pool.getForAgent(agentId);

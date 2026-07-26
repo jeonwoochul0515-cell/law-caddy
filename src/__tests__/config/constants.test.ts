@@ -26,8 +26,15 @@ describe('DOC_TYPES', () => {
 });
 
 describe('AGENTS', () => {
-  it('has exactly 6 agents', () => {
-    expect(AGENTS).toHaveLength(6);
+  it('has exactly 4 agents', () => {
+    // 2026-07-26 오사서(rag_precedent)·최감수(review) 제거 — context-notes.md 참고
+    expect(AGENTS).toHaveLength(4);
+  });
+
+  it('no longer runs the removed agents', () => {
+    const ids = AGENTS.map((a) => a.id);
+    expect(ids).not.toContain('rag_precedent');
+    expect(ids).not.toContain('review');
   });
 
   it('each agent has required fields: id, name, icon, role', () => {
