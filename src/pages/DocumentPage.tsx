@@ -45,6 +45,12 @@ interface DocumentState {
   agentResults: Record<string, string>;
   checkQuestions: CheckQuestion[];
   checkpointAnswers: CheckpointAnswer[];
+  /** STT 상담 대화록 */
+  transcript?: string;
+  /** 녹음 화면 업로드 파일에서 추출한 텍스트 */
+  fileContents?: string;
+  /** 체크포인트 첨부 파일에서 추출한 텍스트 */
+  attachedFileContents?: string;
   caseId?: string;
   documentId?: string;
   existingDocument?: boolean;       // true when opening existing doc from 서류철
@@ -145,10 +151,13 @@ export default function DocumentPage() {
         caseType: state.caseType,
         caseDesc: state.caseDesc,
         docType: state.docType,
-        // ⚠️ 이 슬롯은 에이전트 결과가 아니라 체크포인트 첨부파일 텍스트를 나르는 통로다.
-        //    (CheckpointPage에서 PDF/이미지 OCR 추출 결과를 여기에 이어붙인다)
-        //    이름이 실제 용도와 달라 혼란스럽다 — attachedFileContents로 개명 예정. checklist.md 참고.
-        transcript: (state.agentResults?.rag_precedent ?? ""),
+        // 상담 대화록. 예전에는 agentResults.rag_precedent(첨부파일 텍스트)가 이 자리에
+        // 들어가 있어서, 정작 문서를 쓰는 필묵이 대화록을 못 받고 있었다.
+        transcript: state.transcript ?? "",
+        // 녹음 화면 업로드 파일 + 체크포인트 첨부 파일에서 추출한 텍스트
+        fileContents: [state.fileContents, state.attachedFileContents]
+          .filter(Boolean)
+          .join("\n\n---\n\n"),
         lawyerName: state.lawyerName,
         firmName: state.firmName,
         barLicenseNumber: state.barLicenseNumber,

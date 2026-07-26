@@ -80,6 +80,12 @@ interface CheckpointState {
   agentResults: Record<string, string>;
   caseId?: string;
   documentId?: string;
+  /** STT 상담 대화록 — 문서 생성까지 전달된다 */
+  transcript?: string;
+  /** 녹음 화면에서 업로드한 파일에서 추출한 텍스트 */
+  fileContents?: string;
+  /** 체크포인트 답변에 첨부한 파일(PDF/이미지 OCR)에서 추출한 텍스트 */
+  attachedFileContents?: string;
 }
 
 export default function CheckpointPage() {
@@ -349,10 +355,10 @@ export default function CheckpointPage() {
         const pdfText = pdfResult.text;
         const attachedContents = [pdfText, imageText].filter(Boolean).join("\n\n---\n\n");
         if (attachedContents) {
-          state.agentResults = {
-            ...state.agentResults,
-            rag_precedent: (state.agentResults.rag_precedent ?? "") + `\n\n[체크포인트 첨부 파일 내용]\n${attachedContents}`,
-          };
+          // 예전에는 agentResults.rag_precedent 슬롯에 밀어 넣고, DocumentPage가
+          // 그것을 transcript(대화록) 자리로 넘겼다. 이름과 실제 용도가 달라
+          // 혼란스러웠고 대화록이 들어갈 자리를 차지하고 있었다.
+          state.attachedFileContents = attachedContents;
         }
       } finally {
         setUploading(false);

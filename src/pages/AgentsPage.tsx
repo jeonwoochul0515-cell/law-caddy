@@ -74,6 +74,11 @@ export default function AgentsPage() {
   const [createdCaseId, setCreatedCaseId] = useState<string | null>(state?.caseId ?? null);
   const [caseError, setCaseError] = useState<string | null>(null);
   const [prepStatus, setPrepStatus] = useState<string>("");
+  // STT 대화록과 첨부파일 추출 텍스트를 보관한다.
+  // 예전에는 지역 변수로만 두어 에이전트에게만 전달되고, 정작 문서를 쓰는
+  // 필묵(docgen)에는 넘어가지 않았다. 체크포인트 → 문서 단계까지 실어 보낸다.
+  const [sttTranscript, setSttTranscript] = useState<string>("");
+  const [extractedFileContents, setExtractedFileContents] = useState<string>("");
   const hasExistingCase = Boolean(state?.caseId);
 
   useEffect(() => {
@@ -165,6 +170,7 @@ export default function AgentsPage() {
       // PDF + 이미지 OCR + Excel + PPTX + DOCX + HWPX + HWP 결과 합산
       const allExtractions = [pdfContents, imageContents, excelResult.text, pptxResult.text, docxResult, hwpxResult, hwpResult].filter(Boolean);
       const fileContents = allExtractions.join("\n\n---\n\n");
+      setExtractedFileContents(fileContents);
 
       // OCR로 추출한 파일만 텍스트로 저장 (텍스트 레이어 추출은 저장 안 함)
       const ocrSaveTargets = [
@@ -197,6 +203,7 @@ export default function AgentsPage() {
         try {
           setPrepStatus("음성 파일 변환 중...");
           transcript = (await transcribeAndWait(audioFiles[0])) ?? undefined;
+          setSttTranscript(transcript ?? "");
         } catch (err) {
           console.error("[AgentsPage] STT 변환 실패:", err);
         }
@@ -548,7 +555,7 @@ export default function AgentsPage() {
                   await addTimelineEvent(createdCaseId, {
                     type: "doc",
                     label: "AI 에이전트 분석 완료",
-                    detail: `6개 에이전트 분석 완료. ${selectedDocType} 문서 유형 선택.`,
+                    detail: `${AGENTS.length}개 에이전트 분석 완료. ${selectedDocType} 문서 유형 선택.`,
                   }).catch(console.error);
 
                   navigate("/record/checkpoint", {
@@ -559,6 +566,9 @@ export default function AgentsPage() {
                       caseType: classifiedCaseType ?? "기타",
                       docType: selectedDocType,
                       agentResults,
+                      // 문서 생성 단계까지 실어 보낸다 (예전에는 여기서 끊겼다)
+                      transcript: sttTranscript,
+                      fileContents: extractedFileContents,
                     },
                   });
                 } catch (err) {
