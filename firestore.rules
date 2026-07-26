@@ -42,13 +42,12 @@ service cloud.firestore {
       // plan / planExpiresAt은 클라이언트가 절대 바꿀 수 없다.
       // 결제 승인(/api/payment/confirm)이 서비스 계정 REST로 쓰므로 규칙을 우회한다.
       // 이 두 줄이 없으면 브라우저 콘솔에서 plan:"pro"를 써서 결제를 우회할 수 있다.
+      // get(key, default)을 쓰는 이유: 필드가 없는 기존 문서에서 resource.data.plan을
+      // 직접 참조하면 규칙이 오류로 평가돼 수정이 통째로 막힌다.
       allow update: if isAuthenticated() && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
-        && request.resource.data.plan == resource.data.plan
-        && (
-          (!("planExpiresAt" in request.resource.data) && !("planExpiresAt" in resource.data))
-          || request.resource.data.planExpiresAt == resource.data.planExpiresAt
-        )
+        && request.resource.data.get("plan", "free") == resource.data.get("plan", "free")
+        && request.resource.data.get("planExpiresAt", null) == resource.data.get("planExpiresAt", null)
         && (
           request.resource.data.status == resource.data.status
           || (resource.data.status == "pending" && request.resource.data.status == "approved"
