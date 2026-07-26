@@ -123,3 +123,60 @@ Pro 요금제 ₩89,000/월 무제한 기준 손익분기는 전량 Opus 시 **�
    정작 반복되는 대화록·첨부파일·RAG 결과는 캐시 안 되는 두 번째 블록에 들어간다.
 4. **`stop_reason: "refusal"` 미처리** — `extractText()`가 빈 content를 만나 예외를 던진다.
    Opus 5는 거절을 정상 응답(HTTP 200)으로 돌려주므로 전환 전 반드시 처리.
+
+---
+
+# 2026-07-26 (오후) — 보안·결제·배포
+
+## 🔴 결제가 깨져 있었다 (해결됨, 다만 후속 조치 필요)
+
+Cloudflare Pages에 **`FIREBASE_CLIENT_EMAIL`·`FIREBASE_PRIVATE_KEY`가 등록돼 있지 않았다.**
+`wrangler pages secret put` 실행 시 "Creating the secret"이 떴다 = 기존에 없었다는 뜻.
+
+`_shared/firestore.ts`는 이 둘로 서비스 계정 토큰을 만든다. 없으면 서버에서 Firestore를
+쓰는 기능이 전부 실패한다. `payment/confirm.ts`가 여기에 걸려 있었다:
+
+```
+1) Toss 승인 fetch      → 성공 (카드가 실제로 결제됨)
+2) firestorePatchDocument → 예외 (plan/planExpiresAt 못 씀)
+3) catch → 500 반환
+```
+
+**돈은 나가고 요금제는 안 올라가는** 최악의 실패 모드였다.
+
+→ **후속 조치**: 토스 대시보드에 승인된 결제가 있는데 해당 사용자의 `users/{uid}.plan`이
+`free`로 남아 있다면 수동 보정이 필요하다. `payments` 컬렉션에도 기록이 안 남았으므로
+토스 쪽 내역이 유일한 근거다.
+
+키는 `.dev.vars`에 있었고(gitignore 처리됨), 로컬에서 Google 토큰 발급까지 확인한 뒤 등록했다.
+프리뷰 환경은 wrangler 4.68.1이 `--environment` 플래그를 지원하지 않아 등록하지 못했다.
+**프리뷰에서 서버 Firestore 기능을 테스트하려면 wrangler 업그레이드가 먼저다.**
+
+## 🔴 signing_requests가 전 세계에 열려 있었다 (해결됨)
+
+규칙에 `allow read, update: if true`가 있었다. 주석은 "토큰으로 조회"였지만 규칙에는
+토큰 검증이 없었다 — 검증은 앱 코드의 `where("token","==",...)`에만 있었으므로
+Firestore REST API를 직접 치면 무력화됐다. 수임계약서 전문 유출 + 제3자 변조가 가능했다.
+
+문서 ID를 토큰으로 바꾸는 방법(마이그레이션 필요) 대신 **서버 검증**을 택했다.
+`functions/api/signing/[token].ts`가 서비스 계정으로 조회/서명하고, 규칙에서는 `if true`를
+제거했다. 서명자 IP는 클라이언트가 보낸 값이 아니라 `CF-Connecting-IP`를 쓴다.
+
+## 배포에서 밟은 함정 두 개
+
+**1. 브랜치에서 `npm run deploy`하면 프리뷰로 간다.**
+`wrangler pages deploy`는 현재 git 브랜치로 프로덕션/프리뷰를 판단한다.
+프로덕션에 올리려면 `main`에서 배포해야 한다.
+
+**2. `scripts/post-deploy-check.sh`가 프로덕션 URL을 하드코딩하고 있다.**
+`PROD_URL="https://law-caddy.pages.dev"` — 브랜치에서 배포하면 **방금 올린 코드가 아니라
+구버전 프로덕션을 검사**하고 "모든 헬스체크 통과"를 띄운다. 초록 메시지를 믿으면 안 된다.
+→ 개선 여지: wrangler 출력의 배포 URL을 받아서 검사하도록 바꾸면 좋다.
+
+**3. 커스텀 도메인은 전파가 늦다.** 배포 직후 `law-caddy.com`은 구버전 Functions를
+잠시 더 서빙했다(신규 공개 경로가 401). 1~2분 뒤 정상화됐다. 배포 검증 시 감안할 것.
+
+## 배포 순서 (외워둘 것)
+
+앱 코드 → **그다음** 규칙. 순서를 뒤집으면 아직 구버전이 떠 있는 프로덕션에서
+`if true`에 의존하던 서명이 즉시 깨진다.

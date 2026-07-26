@@ -36,10 +36,34 @@
 
 ---
 
-## 다음 단계 (미착수 — 3단계 실측 데이터 확보 후)
+## 4단계. 스트리밍 도입 ✅
 
-- [ ] **4단계. 스트리밍 도입** — `MAX_TOKENS 16384`가 생각+본문을 함께 덮고 있어 문서 잘림 발생 중.
-      통합 분석(B)은 이 한도를 넘으므로 스트리밍이 전제 조건.
+- [x] `functions/api/claude.ts` — `stream` 플래그 수신 시 SSE 본문 통과
+- [x] `readClaudeStream()` — 텍스트 누적 + 사용량·중단사유 추출
+- [x] 4개 호출 경로 전부 스트리밍 전환 (`Promise<string>` 인터페이스 유지 → 호출부 변경 없음)
+- [x] `MAX_TOKENS` 16,384 → 32,000
+- [x] SSE 파서 테스트 11개 (청크 경계 분할·깨진 JSON 포함)
+
+## 보안·결제 (2026-07-26 오후) ✅
+
+- [x] `plan`/`planExpiresAt` 자가수정 차단 (`get(key, default)`로 기존 문서 호환)
+- [x] 서버 요금제 검사 `_shared/plan.ts` → `/api/claude`, `/api/transcribe`
+- [x] `monthly_summary` 규칙 추가 → 세무 모듈 복구
+- [x] `signing_requests`의 `allow read, update: if true` 제거 → 서버 토큰 검증으로 전환
+- [x] `callClaudeDirect` 재시도 + 오류 메시지에 HTTP 상태 보존
+- [x] Cloudflare에 서비스 계정 키 등록 (프로덕션) — **결제 복구**
+- [x] 프로덕션 배포 + Firestore 규칙 배포 + 검증
+
+## 🔴 수동 확인 필요 (대표님)
+
+- [ ] **토스 대시보드 대조** — 승인된 결제가 있는데 `users/{uid}.plan`이 `free`면 수동 보정.
+      서비스 계정 키가 없어 결제 승인이 실패해왔다. `payments` 컬렉션에도 기록이 없으므로
+      토스 내역이 유일한 근거. 자세한 내용은 context-notes.md 참고
+- [ ] 프로덕션에서 문서 생성 1건 → 잘림 경고가 사라졌는지 확인
+- [ ] 콘솔 `window.__lawCaddyUsage` → `cacheRead`가 계속 0이면 캐시 미작동 확정
+- [ ] 세무 탭 월별 요약이 되는지 확인
+
+## 다음 단계 (미착수)
 - [ ] **5단계. 통합 분석 1회로 전환** — 쟁점+판례+관할+전략+사건유형을 한 번의 호출로.
       `buildAgentResultsBlock()` 수동 접착 코드 제거.
 - [ ] **6단계. 모델 분리** — 분석·문서는 Opus 5, 체크포인트 질문은 Sonnet 5, 의뢰인 메시지는 Haiku 4.5
