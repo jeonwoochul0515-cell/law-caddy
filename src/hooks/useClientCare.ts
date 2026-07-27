@@ -45,8 +45,8 @@ function buildWorkBreakdown(
   if (documents.length > 0) {
     items.push({ label: "법률 문서 작성", count: documents.length });
   }
-  // 에이전트 분석 횟수 추정 (문서당 6개 에이전트)
-  const agentRuns = documents.length * 6;
+  // 에이전트 분석 횟수 추정 (문서당 4개 에이전트 — 2026-07-26 구조 개편 반영)
+  const agentRuns = documents.length * 4;
   if (agentRuns > 0) {
     items.push({ label: "AI 에이전트 분석", count: agentRuns });
   }
