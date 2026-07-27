@@ -221,7 +221,9 @@ export default function AgentsPage() {
   const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
 
   const completedCount = Object.values(agents).filter((a) => a.status === "completed").length;
-  const allCompleted = completedCount === 6 && !isRunning;
+  // 6인 → 4인 개편 후에도 하드코딩 6이 남아 완료 판정이 영원히 false가 되는 사고가 있었다.
+  // 반드시 AGENTS.length 기준으로 판정할 것.
+  const allCompleted = completedCount === AGENTS.length && !isRunning;
 
   // 에이전트 완료 후 사건 개요가 없으면 AI로 자동 생성
   useEffect(() => {
@@ -351,12 +353,12 @@ export default function AgentsPage() {
       <div className="mb-6" aria-live="polite" aria-atomic="true">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-text-dim">분석 진행률</span>
-          <span className="text-sm text-gold font-medium" aria-label={`6개 중 ${completedCount}개 완료`}>{completedCount}/6</span>
+          <span className="text-sm text-gold font-medium" aria-label={`${AGENTS.length}개 중 ${completedCount}개 완료`}>{completedCount}/{AGENTS.length}</span>
         </div>
         <div className="h-2 bg-surface rounded-full overflow-hidden">
           <div
             className={`h-full bg-gradient-to-r from-gold to-gold-bright rounded-full transition-all duration-500 ${isRunning ? "progress-stripe" : ""}`}
-            style={{ width: `${(completedCount / 6) * 100}%` }}
+            style={{ width: `${(completedCount / AGENTS.length) * 100}%` }}
           />
         </div>
       </div>
