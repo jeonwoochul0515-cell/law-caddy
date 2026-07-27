@@ -152,9 +152,17 @@ export type PromptAgentId =
   | "client_message";
 
 /**
- * 공통 컨텍스트 블록 생성
+ * 에이전트 공통 컨텍스트 블록 — 4개 에이전트에 **바이트 단위로 동일하게** 들어가는 부분.
+ *
+ * 프롬프트 캐시는 앞부분(prefix)이 완전히 같아야 걸린다. 예전에는 이 내용이
+ * 에이전트별 검색 결과와 한 덩어리(buildContextBlock)로 섞여 있어서, 대화록·첨부파일
+ * 같은 큰 자료가 4번 전부 제값으로 전송됐다. 지금은 이 블록을 캐시되는 첫 번째
+ * system 블록(sharedPrefix)에 싣고, 에이전트별 검색 결과만 두 번째 블록에 남긴다.
+ *
+ * ⚠️ 여기에 에이전트마다 달라지는 필드(ragContext, latestPrecedents 등)를 넣으면
+ * 프리픽스가 어긋나 캐시가 통째로 무효화된다. 그런 필드는 buildSearchResultsBlock으로.
  */
-function buildContextBlock(ctx: AgentContext): string {
+export function buildCommonContextBlock(ctx: AgentContext): string {
   const lines: string[] = [
     `의뢰인: ${ctx.clientName}`,
   ];
@@ -171,56 +179,6 @@ function buildContextBlock(ctx: AgentContext): string {
   lines.push(`사건 개요: ${ctx.caseDesc}`);
   if (ctx.docType) {
     lines.push(`문서 유형: ${ctx.docType}`);
-  }
-
-  // ─── 외부 참고 자료 주입 (토큰 예산 관리) ───
-  // Lost in the Middle 방지: 가장 관련도 높은 자료를 시작에 배치
-  // 이중 주입 방지: 법제처 판례가 있으면 RAG의 판례/판결문 섹션은 생략
-  const MAX_EXTERNAL_CONTEXT_CHARS = 12000; // ~6K 토큰
-  let externalChars = 0;
-
-  // 1순위: 법제처 판례 (가장 신뢰도 높음, 프롬프트 시작에 배치)
-  if (ctx.latestPrecedents) {
-    const section = `\n[최신 관련 판례 (법제처 실시간 검색)]\n${ctx.latestPrecedents}\n\n※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
-    lines.push(section);
-    externalChars += section.length;
-  }
-
-  // 2순위: 헌재결정례
-  if (ctx.constitutionalDecisions && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
-    const section = `\n[관련 헌재결정례 (법제처 실시간 검색)]\n${ctx.constitutionalDecisions}\n\n※ 위 헌재결정례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
-    lines.push(section);
-    externalChars += section.length;
-  }
-
-  // 3순위: RAG 컨텍스트 (법제처 판례가 있으면 판례/판결문 중복 제거됨)
-  if (ctx.ragContext && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
-    const remainingBudget = MAX_EXTERNAL_CONTEXT_CHARS - externalChars;
-    let ragText = ctx.ragContext;
-    // 토큰 예산 초과 시 RAG 결과를 잘라냄
-    if (ragText.length > remainingBudget) {
-      ragText = ragText.slice(0, remainingBudget) + "\n... (토큰 예산으로 일부 생략)";
-    }
-    lines.push("");
-    lines.push("## 참고 법률 자료 (AI 검색 결과)");
-    lines.push(ragText);
-    lines.push("");
-    lines.push("※ 위 참고 자료에 포함된 판례만 인용하세요. 자료에 없는 사건번호를 직접 작성하지 마세요.");
-    externalChars += ragText.length;
-  }
-
-  // 4순위: 법령해석례 (예산 내에서만)
-  if (ctx.legalInterpretations && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
-    const section = `\n[관련 법령해석례 (법제처 실시간 검색)]\n${ctx.legalInterpretations}\n\n※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.`;
-    lines.push(section);
-  }
-
-  if (ctx.statuteResults) {
-    lines.push(`\n[관련 현행법령 (법제처 검색)]\n${ctx.statuteResults}`);
-  }
-
-  if (ctx.legalTermResults) {
-    lines.push(`\n[관련 법령용어 (법제처 검색)]\n${ctx.legalTermResults}`);
   }
 
   if (ctx.identifiedIssues && ctx.identifiedIssues.length > 0) {
@@ -274,6 +232,98 @@ function buildContextBlock(ctx: AgentContext): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * 에이전트별 외부 검색 결과 블록 — 에이전트마다 내용이 다른 부분.
+ * (법제처 판례·헌재결정례·RAG·법령해석례·현행법령·법령용어)
+ *
+ * 캐시되지 않는 두 번째 system 블록에 들어간다. 검색 결과가 지시문 바로 앞에
+ * 놓이므로 위치상으로도 불리하지 않다.
+ */
+function buildSearchResultsBlock(ctx: AgentContext): string {
+  const lines: string[] = [];
+
+  // ─── 외부 참고 자료 주입 (토큰 예산 관리) ───
+  // 이중 주입 방지: 법제처 판례가 있으면 RAG의 판례/판결문 섹션은 생략
+  const MAX_EXTERNAL_CONTEXT_CHARS = 12000; // ~6K 토큰
+  let externalChars = 0;
+
+  // 1순위: 법제처 판례 (가장 신뢰도 높음)
+  if (ctx.latestPrecedents) {
+    const section = `\n[최신 관련 판례 (법제처 실시간 검색)]\n${ctx.latestPrecedents}\n\n※ 위 판례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
+    lines.push(section);
+    externalChars += section.length;
+  }
+
+  // 2순위: 헌재결정례
+  if (ctx.constitutionalDecisions && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const section = `\n[관련 헌재결정례 (법제처 실시간 검색)]\n${ctx.constitutionalDecisions}\n\n※ 위 헌재결정례는 법제처 공식 데이터입니다. 사건번호가 정확합니다.`;
+    lines.push(section);
+    externalChars += section.length;
+  }
+
+  // 3순위: RAG 컨텍스트 (법제처 판례가 있으면 판례/판결문 중복 제거됨)
+  if (ctx.ragContext && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const remainingBudget = MAX_EXTERNAL_CONTEXT_CHARS - externalChars;
+    let ragText = ctx.ragContext;
+    // 토큰 예산 초과 시 RAG 결과를 잘라냄
+    if (ragText.length > remainingBudget) {
+      ragText = ragText.slice(0, remainingBudget) + "\n... (토큰 예산으로 일부 생략)";
+    }
+    lines.push("");
+    lines.push("## 참고 법률 자료 (AI 검색 결과)");
+    lines.push(ragText);
+    lines.push("");
+    lines.push("※ 위 참고 자료에 포함된 판례만 인용하세요. 자료에 없는 사건번호를 직접 작성하지 마세요.");
+    externalChars += ragText.length;
+  }
+
+  // 4순위: 법령해석례 (예산 내에서만)
+  if (ctx.legalInterpretations && externalChars < MAX_EXTERNAL_CONTEXT_CHARS) {
+    const section = `\n[관련 법령해석례 (법제처 실시간 검색)]\n${ctx.legalInterpretations}\n\n※ 위 법령해석례는 법제처 공식 유권해석입니다. 법적 적법성 판단 시 참고하세요.`;
+    lines.push(section);
+  }
+
+  if (ctx.statuteResults) {
+    lines.push(`\n[관련 현행법령 (법제처 검색)]\n${ctx.statuteResults}`);
+  }
+
+  if (ctx.legalTermResults) {
+    lines.push(`\n[관련 법령용어 (법제처 검색)]\n${ctx.legalTermResults}`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * 전체 컨텍스트 블록 = 공통 + 검색 결과.
+ *
+ * 캐시 분리를 쓰지 않는 호출부(문서 생성, 준비서면, 자유양식 등)는 기존처럼
+ * 이 함수를 통해 모든 컨텍스트를 한 덩어리로 받는다. 동작 변화 없음.
+ */
+function buildContextBlock(ctx: AgentContext): string {
+  const common = buildCommonContextBlock(ctx);
+  const search = buildSearchResultsBlock(ctx);
+  return search ? `${common}\n${search}` : common;
+}
+
+/**
+ * 에이전트 병렬 실행용 캐시 프리픽스 = 운영 규칙 + 사건 공통 자료.
+ *
+ * 이 문자열을 cache_control이 붙는 첫 번째 system 블록으로 보낸다.
+ * 4개 에이전트 호출에서 완전히 동일하므로, 첫 호출이 캐시를 만들면
+ * 나머지가 ~90% 할인된 가격으로 읽는다. (동시 출발이면 서로 캐시를 못 읽으므로
+ * useAgents가 팬아웃 전에 예열 호출을 한 번 한다)
+ */
+export function buildAgentCachePrefix(ctx: AgentContext): string {
+  return `${SHARED_AGENT_PREFIX}
+# 사건 자료 (모든 에이전트 공통)
+
+${buildCommonContextBlock(ctx)}
+
+---
+`;
 }
 
 /**
@@ -360,8 +410,8 @@ function formatCheckpointAnswers(
 // 1. 판서 (precedent) — 판례번호를 목숨처럼 여기는 법원 조사관
 // ──────────────────────────────────────────────
 
-function buildPrecedentPrompt(ctx: AgentContext): string {
-  const context = buildContextBlock(ctx);
+function buildPrecedentPrompt(ctx: AgentContext, omitCommon = false): string {
+  const context = omitCommon ? buildSearchResultsBlock(ctx) : buildContextBlock(ctx);
   const hasLatestPrecedents = !!ctx.latestPrecedents;
   const hasRAG = !!ctx.ragContext;
   const hasExternalSources = hasLatestPrecedents || hasRAG;
@@ -511,8 +561,8 @@ ${contextBlock}
 // 2. 율무 (legal) — 소송 요건 검증관 + 관할법원의 달인
 // ──────────────────────────────────────────────
 
-function buildLegalPrompt(ctx: AgentContext): string {
-  const context = buildContextBlock(ctx);
+function buildLegalPrompt(ctx: AgentContext, omitCommon = false): string {
+  const context = omitCommon ? buildSearchResultsBlock(ctx) : buildContextBlock(ctx);
   const docTypeText = ctx.docType ? `"${ctx.docType}"` : "법률 문서";
 
   return `당신은 "율무"입니다. 법원행정처 사법정책실 출신으로 소송 요건 심사를 15년간 담당한 전문가입니다. 매년 수천 건의 소장을 각하/기각 사유 유무에 따라 분류한 경험이 있어, 어떤 소장이 접수 즉시 각하당하는지, 어떤 답변서가 항변으로 인정받지 못하는지를 속속들이 압니다. 특히 관할법원 판단에 있어 국내 최고의 전문성을 보유하고 있습니다.
@@ -579,8 +629,8 @@ ${docTypeText} 작성을 위한 법적 요건을 종합 점검하세요:
 // 4. 혜안 (analysis) — 전략 사령관 + 조문·법령 논증의 달인
 // ──────────────────────────────────────────────
 
-function buildAnalysisPrompt(ctx: AgentContext): string {
-  const context = buildContextBlock(ctx);
+function buildAnalysisPrompt(ctx: AgentContext, omitCommon = false): string {
+  const context = omitCommon ? buildSearchResultsBlock(ctx) : buildContextBlock(ctx);
   return `당신은 "혜안"입니다. 서울고등법원 수석재판연구관 출신의 전략가입니다. 대법원 상고심에서 파기환송 의견서를 작성하며, 양측 주장을 분석하고 사건의 핵심을 관통하는 한 줄을 찾아내는 데 타의 추종을 불허합니다. 냉철하고 분석적이지만, "판사가 이 사건을 어떻게 볼까?"를 항상 먼저 생각합니다.
 
 당신의 철학: "소송은 체스다. 상대의 수를 세 수 앞서 읽어야 한다. 가장 강력한 수는 판사가 스스로 결론을 내리게 만드는 수다. 그리고 조문 없는 법적 주장은 뿌리 없는 나무다. 판사는 조문으로 판결문을 쓴다."
@@ -672,8 +722,8 @@ Q2. {질문} → 조필묵에게: {서술 지시}
 // ──────────────────────────────────────────────
 
 /** 문서 작성 에이전트 - 체크포인트 질문 생성 프롬프트 */
-function buildDocgenQuestionsPrompt(ctx: AgentContext): string {
-  const context = buildContextBlock(ctx);
+function buildDocgenQuestionsPrompt(ctx: AgentContext, omitCommon = false): string {
+  const context = omitCommon ? buildSearchResultsBlock(ctx) : buildContextBlock(ctx);
   const docTypeText = ctx.docType ? `"${ctx.docType}"` : "법률 문서";
   return `당신은 "필묵"입니다. 대형 로펌 15년차 수석 변호사 출신의 문서 장인이자 20년 경력의 선배 변호사입니다. 한 글자, 한 문장도 허투루 쓰지 않으며, 소장의 첫 문단이 판사의 인상을 결정한다는 철학을 가지고 있습니다.
 후배 변호사가 의뢰인 상담을 마치기 직전입니다. 의뢰인이 아직 상담실에 있습니다.
@@ -2219,19 +2269,28 @@ ${context}
 
 /**
  * 에이전트 ID에 따라 시스템 프롬프트를 생성합니다.
+ *
+ * @param opts.omitCommonContext true면 사건 공통 자료(개요·대화록·첨부)를 프롬프트에서
+ *   뺀다. 병렬 에이전트 실행 경로 전용 — 공통 자료는 buildAgentCachePrefix()로 만든
+ *   캐시 블록에 이미 실려 있으므로 여기서 또 넣으면 이중 전송이다.
  */
-export function buildPrompt(agentId: PromptAgentId, context: AgentContext): string {
+export function buildPrompt(
+  agentId: PromptAgentId,
+  context: AgentContext,
+  opts?: { omitCommonContext?: boolean },
+): string {
+  const omit = opts?.omitCommonContext ?? false;
   switch (agentId) {
     case "precedent":
-      return buildPrecedentPrompt(context);
+      return buildPrecedentPrompt(context, omit);
     case "legal":
-      return buildLegalPrompt(context);
+      return buildLegalPrompt(context, omit);
     case "rag_precedent":
       return buildRagPrecedentPrompt(context);
     case "analysis":
-      return buildAnalysisPrompt(context);
+      return buildAnalysisPrompt(context, omit);
     case "docgen_questions":
-      return buildDocgenQuestionsPrompt(context);
+      return buildDocgenQuestionsPrompt(context, omit);
     case "docgen":
       return buildDocgenPrompt(context);
     case "review":

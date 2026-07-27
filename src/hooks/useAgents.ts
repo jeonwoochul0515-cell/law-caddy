@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from "react";
 import { callClaude, callClaudeWithCachedPrefix } from "../services/claude";
-import { buildPrompt, buildCaseTypeClassificationPrompt, SHARED_AGENT_PREFIX } from "../services/prompts";
+import { buildPrompt, buildCaseTypeClassificationPrompt, buildAgentCachePrefix } from "../services/prompts";
 import {
   searchLatestPrecedents,
   getPrecedentDetail,
@@ -391,7 +391,10 @@ async function runSingleAgent(
 
   // Claude API 호출
   const promptId = agentId === "docgen" ? "docgen_questions" : agentId;
-  const prompt = buildPrompt(promptId, enrichedContext);
+  // 공통 자료(개요·대화록·첨부)는 캐시 프리픽스에 실려 있으므로 프롬프트에서 뺀다.
+  // 프리픽스는 runAllAgents가 팬아웃 직전 예열해 둔 것과 바이트 단위로 같아야 한다 —
+  // 여기서 enrichedContext를 넘겨도 buildAgentCachePrefix는 공통 필드만 읽으므로 동일하다.
+  const prompt = buildPrompt(promptId, enrichedContext, { omitCommonContext: true });
 
   const userMessage =
     agentId === "docgen"
@@ -400,9 +403,7 @@ async function runSingleAgent(
         : "사건에 적합한 법률 문서 작성 전 확인 사항을 JSON으로 제시해 주세요."
       : `${context.clientName} 의뢰인의 사건에 대해 분석해 주세요.`;
 
-  // Phase 2 Prompt Caching: 6개 에이전트가 SHARED_AGENT_PREFIX를 공유 → 첫 호출에서 캐시 생성
-  // 이후 같은 5분 윈도우의 나머지 호출들은 prefix 부분에서 ~90% input 할인
-  return callClaudeWithCachedPrefix(SHARED_AGENT_PREFIX, prompt, userMessage);
+  return callClaudeWithCachedPrefix(buildAgentCachePrefix(enrichedContext), prompt, userMessage);
 }
 
 /**
@@ -483,8 +484,27 @@ export default function useAgents(): UseAgentsReturn {
       }
       setAgents(runningStates);
 
-      // ─── 6명 에이전트 전원 병렬 실행 ───
-      console.log("[에이전트] 6명 전원 병렬 실행:", AGENT_IDS.join(", "));
+      // ─── 캐시 예열 ───
+      // 캐시 항목은 첫 응답이 시작된 뒤에야 읽을 수 있다. 예열 없이 4개를 동시에
+      // 쏘면 서로가 만드는 캐시를 아무도 못 읽고 전원이 쓰기 요금(1.25배)만 낸다.
+      // 팬아웃 전에 같은 프리픽스로 초소형 호출을 한 번 완료시켜 캐시를 만들어 두면,
+      // 뒤따르는 4개가 전부 읽기 요금(0.1배)으로 프리픽스를 재사용한다.
+      // 실패해도 본 실행은 그대로 진행한다(캐시 할인만 포기).
+      try {
+        const t0 = Date.now();
+        await callClaude(
+          "당신은 준비 확인 봇입니다. 다른 말 없이 정확히 \"OK\"만 출력하세요.",
+          "OK만 출력하세요.",
+          buildAgentCachePrefix(context),
+          "low",
+        );
+        console.log(`[에이전트] 캐시 예열 완료 (${Date.now() - t0}ms)`);
+      } catch (err) {
+        console.warn("[에이전트] 캐시 예열 실패 — 할인 없이 진행:", err);
+      }
+
+      // ─── 에이전트 전원 병렬 실행 ───
+      console.log(`[에이전트] ${AGENT_IDS.length}명 전원 병렬 실행:`, AGENT_IDS.join(", "));
 
       const runAgent = async (agentId: AgentId, ctx: RunAgentsContext): Promise<AgentState> => {
         try {
