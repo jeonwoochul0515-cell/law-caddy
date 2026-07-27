@@ -3,7 +3,23 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
+  build: {
+    rollupOptions: {
+      // (2026-07-27) 클라이언트 빌드만 파일명 접두사를 app-으로 변경.
+      // 특정 브라우저에서 기존 해시 파일명(assets/index-*.js)에 대한 스크립트 로드가
+      // 지속 실패하는 사례가 있었다(오염된 캐시 항목 또는 확장프로그램 필터로 추정,
+      // fetch는 정상·쿼리 부착 시 통과). URL 자체를 바꾸면 어느 쪽이든 우회된다.
+      // SSR 빌드는 prerender.mjs가 dist-ssr/entry-server.js를 찾으므로 기본 이름 유지.
+      output: isSsrBuild
+        ? undefined
+        : {
+            entryFileNames: "assets/app-[hash].js",
+            chunkFileNames: "assets/app-[name]-[hash].js",
+            assetFileNames: "assets/app-[name]-[hash][extname]",
+          },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -49,4 +65,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
