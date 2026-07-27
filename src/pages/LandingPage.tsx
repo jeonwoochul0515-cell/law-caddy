@@ -571,17 +571,46 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ─── 만든 사람 ─── */}
-        <section className="py-16 sm:py-20 px-5 sm:px-8" style={{ background: INK }}>
+        {/* ─── 만든 사람 ───
+            경력은 chang-hee.kim 프로필 원문에서 그대로 옮겼다. 임의로 지어낸 인용문을
+            실명에 붙이지 않는다 — 사실 서술만. */}
+        <section className="py-16 sm:py-24 px-5 sm:px-8" style={{ background: INK }}>
           <FadeIn>
             <div className="max-w-3xl mx-auto">
-              <p className="text-xl sm:text-2xl leading-relaxed font-semibold" style={{ ...serif, color: "#EFEAE0" }}>
-                &ldquo;사무실을 운영하는 변호사가, 자신의 하루를 줄이려고 직접 만들었습니다.
-                지금도 매일 이 화면으로 사건을 처리합니다.&rdquo;
+              <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD }}>
+                만든 사람
               </p>
-              <p className="mt-5 text-sm" style={{ color: "rgba(239,234,224,0.45)" }}>
-                Law-Caddy는 현직 변호사가 설계하고 실무에서 다듬은 도구입니다.
+              <h2 className="text-2xl sm:text-3xl font-bold leading-snug mb-6" style={{ ...serif, color: "#EFEAE0" }}>
+                매일 쓰는 사람이 만들었습니다
+              </h2>
+              <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(239,234,224,0.62)" }}>
+                부산에서 법률사무소 청송을 운영하는 김창희 변호사가 자신의 하루를 줄이려
+                직접 설계했고, 지금도 매일 이 화면으로 사건을 처리합니다. 10년간 1,000건
+                이상의 사건을 수행하며 다듬은 실무 감각이 서식 하나, 질문 하나에 들어
+                있습니다.
               </p>
+              <div
+                className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pt-6 border-t"
+                style={{ borderColor: "rgba(239,234,224,0.14)" }}
+              >
+                <div>
+                  <p className="text-base font-bold" style={{ ...serif, color: "#EFEAE0" }}>
+                    김창희 변호사
+                  </p>
+                  <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "rgba(239,234,224,0.45)" }}>
+                    법률사무소 청송 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
+                  </p>
+                </div>
+                <a
+                  href="https://chang-hee.kim"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`shrink-0 text-sm transition-colors hover:text-[#C8A961] ${focusRing}`}
+                  style={{ ...serif, color: "rgba(239,234,224,0.6)" }}
+                >
+                  chang-hee.kim ↗
+                </a>
+              </div>
             </div>
           </FadeIn>
         </section>
