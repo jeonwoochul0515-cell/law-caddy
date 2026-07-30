@@ -11,7 +11,7 @@ export default function PricingPage() {
         Law-Caddy 요금제, 사무소 규모별로 얼마일까요?
       </h1>
       <p className="text-[#414846] text-lg leading-relaxed mb-12 max-w-3xl">
-        사무장 월급보다 저렴한 비용으로, 변호사 업무 전체를 자동화하세요. 사무소 규모에 맞는 3가지 플랜을 제공합니다.
+        1인 변호사 사무실을 위한 요금제입니다. 가입하면 Starter가 무료로 열리고, 더 필요해지면 Pro로 올리면 됩니다.
       </p>
       <div className="grid md:grid-cols-3 gap-6">
         {PLANS.map((plan) => (
@@ -35,9 +35,11 @@ export default function PricingPage() {
               {plan.name}
             </h2>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[#414846]"}`}>
-                &#8361;
-              </span>
+              {plan.price !== "무료" && (
+                <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[#414846]"}`}>
+                  &#8361;
+                </span>
+              )}
               <span className={`text-4xl font-bold ${plan.highlighted ? "text-white" : "text-[#14392b]"}`}>
                 {plan.price}
               </span>

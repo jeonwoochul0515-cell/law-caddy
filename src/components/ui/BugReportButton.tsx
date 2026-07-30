@@ -4,8 +4,7 @@
 import { useState } from "react";
 import { MessageCircleWarning, X, Send, Copy, Check } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
-
-const KAKAO_CHANNEL_CHAT = "https://pf.kakao.com/_zkzIX/chat";
+import { KAKAO_CHANNEL_CHAT } from "../../config/contact";
 
 export default function BugReportButton() {
   const user = useAuth((s) => s.user);

@@ -1,6 +1,7 @@
 // 검색 유입용 서브페이지(워크플로우·에이전트·자동화·요금제·FAQ)가 공유하는 심플 레이아웃
 import { Link } from "react-router-dom";
 import { Scale, ArrowRight } from "lucide-react";
+import KakaoChatButton from "./KakaoChatButton";
 
 export default function SeoPageLayout({
   children,
@@ -55,6 +56,7 @@ export default function SeoPageLayout({
           </Link>
         </div>
       </footer>
+      <KakaoChatButton />
     </div>
   );
 }

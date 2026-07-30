@@ -285,3 +285,24 @@ AgentsPage에 `allCompleted = completedCount === 6`이 하드코딩으로 남아
   (날짜가 "2026." 번호 목록으로 오인되는 함정 — 테스트로 고정).
 - 검증: hwpxExport.test.ts 7건 (폰트·크기·줄간격·정렬·여백). 견본 = 바탕화면 로케디_서식견본_준비서면.hwpx
 - 참고: docs/의 실제 서면 파일들은 의뢰인 실명·사건번호가 든 자료이므로 **깃에 커밋 금지** (.gitignore 확인 필요)
+
+## 2026-07-31 Starter 무료 개방 + 1인 사무실 포지셔닝 + 카카오 1:1 문의
+
+**Starter 무료화의 진짜 작업은 서버 검증이었다.**
+가격 표기만 바꾸면 무료 사용자가 AI를 못 쓴다 — `requirePaidPlan`이 free를 402로 막고 있었기 때문.
+그래서 판정을 두 갈래로 나눴다(functions/api/_shared/plan.ts):
+- `requireUsageQuota` — AI 분석(claude)·음성 변환(transcribe)용. 무료도 허용하되
+  **이번 달 documents 수**가 3건 이상이면 402(QUOTA_EXCEEDED). 조회 실패 시 통과(서비스 정지 방지).
+- `requirePaidPlan` — 문자 발송(notify/client)처럼 **실비가 나가는 기능은 유료 유지**.
+서버가 세는 기준은 문서 생성 수 하나뿐이다. 분석만 하고 문서를 안 만드는 경우는 통과시킨다
+(체험을 막지 않으면서 반복 남용은 막는 실용선). 한도 상수는 `PLAN_LIMITS.free`와 수동 동기화 필요.
+
+**결제 상품에서 starter 제거** — confirm.ts의 PLAN_MONTHLY_PRICE에서 빼면 parseOrderId가 거부해
+결제 자체가 차단된다(team과 같은 방식). 결제자 0명이라 안전.
+
+**포지셔닝**: "법률사무소 업무 자동화" → "1인 변호사 사무실 운영 SaaS".
+히어로 아이브로우·서브카피·SEO 메타 6개·크롤러 폴백 전부 동기화(클로킹 방지).
+
+**카카오 1:1 문의**: 채널 URL을 src/config/contact.ts로 공용화(BugReportButton도 이걸 사용).
+랜딩·SEO 페이지에 플로팅 버튼(KakaoChatButton). 카카오 노랑(#FEE500)은 이 버튼에만 쓴다 —
+페이지 유일 색이라 오히려 눈에 띄고, 기능 인지가 즉각적이다.

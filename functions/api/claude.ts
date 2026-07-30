@@ -1,5 +1,5 @@
 import type { Env } from "./_shared/types";
-import { requirePaidPlan } from "./_shared/plan";
+import { requireUsageQuota } from "./_shared/plan";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-5";
@@ -48,9 +48,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 요금제 확인 — 무료 플랜이 API를 직접 호출해 무제한으로 쓰는 것을 막는다
+    // 사용량 확인 — 무료 플랜도 한도 안에서는 쓸 수 있고, 초과분만 막는다
     const uid = (context.data as Record<string, unknown>).uid as string | undefined;
-    const denied = await requirePaidPlan(context.env, uid);
+    const denied = await requireUsageQuota(context.env, uid);
     if (denied) return denied;
 
     const body = (await context.request.json()) as ClaudeRequest;

@@ -13,6 +13,8 @@ interface PlanDef {
   recommended: boolean;
   /** true면 아직 판매하지 않는 플랜 — 선택 버튼 비활성화 (서버도 결제 승인을 거부한다) */
   comingSoon?: boolean;
+  /** true면 가입 시 기본 제공되는 무료 플랜 — 결제 없이 사용 */
+  free?: boolean;
   features: {
     recordings: string;
     documents: string;
@@ -28,9 +30,11 @@ const PLAN_DEFS: PlanDef[] = [
   {
     id: "starter",
     name: "Starter",
-    price: "₩49,000",
-    priceNote: "/월",
+    price: "무료",
+    priceNote: "",
     recommended: false,
+    /** 가입하면 기본 제공되는 플랜 — 결제 대상이 아니다 */
+    free: true,
     features: {
       recordings: "5건/월",
       documents: "3건/월",
@@ -187,6 +191,10 @@ export default function PlanSelector({ currentPlan, onSelectPlan }: PlanSelector
               {plan.comingSoon ? (
                 <div className="w-full py-2.5 border border-border text-text-dim/60 text-center rounded-xl text-sm font-medium cursor-not-allowed">
                   출시 예정
+                </div>
+              ) : plan.free ? (
+                <div className="w-full py-2.5 bg-surface border border-border text-text-dim text-center rounded-xl text-sm font-medium">
+                  가입 시 기본 제공
                 </div>
               ) : isCurrent ? (
                 <div className="w-full py-2.5 bg-gold-dim text-gold text-center rounded-xl text-sm font-medium">

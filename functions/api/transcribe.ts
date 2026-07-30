@@ -1,7 +1,7 @@
 import type { Env } from "./_shared/types";
 import { getAccessToken, RTZR_API_BASE } from "./_shared/rtzr-auth";
 import { RTZR_TRANSCRIBE_CONFIG } from "./_shared/rtzr-config";
-import { requirePaidPlan } from "./_shared/plan";
+import { requireUsageQuota } from "./_shared/plan";
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
@@ -16,7 +16,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 요금제 확인 — STT도 건당 비용이 발생하므로 무료 플랜을 막는다
     const uid = (context.data as Record<string, unknown>).uid as string | undefined;
-    const denied = await requirePaidPlan(context.env, uid);
+    const denied = await requireUsageQuota(context.env, uid);
     if (denied) return denied;
 
     // multipart/form-data 파싱 (multer 불필요)

@@ -16,6 +16,7 @@ import "@fontsource/noto-serif-kr/700.css";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { WORKFLOW_STEPS, AGENTS, PLATFORM_FEATURES, PLANS, FAQS } from "../data/landingContent";
 import FAQItem from "../components/landing/FAQItem";
+import KakaoChatButton from "../components/landing/KakaoChatButton";
 
 /* ────────────────────────────────────────────
    디자인 토큰 — 이른 아침 페어웨이
@@ -493,7 +494,7 @@ export default function LandingPage() {
           {/* 좌측 — 캐디의 약속 */}
           <div className="lg:col-span-6">
             <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD_DEEP }}>
-              법률사무소 업무 자동화
+              1인 변호사 사무실 운영 SaaS
             </p>
             <h1
               className="text-[2.1rem] sm:text-[2.6rem] lg:text-[2.9rem] font-bold leading-[1.34] mb-7"
@@ -504,8 +505,8 @@ export default function LandingPage() {
               스윙은 선수가 합니다
             </h1>
             <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(20,57,43,0.68)" }}>
-              상담 녹음 하나로 판례 검색, 쟁점 분석, 서면 초안, 수임계약, 정산까지.
-              준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
+              사무장 없이 혼자 하는 사무실을 위해 만들었습니다. 상담 녹음 하나로 판례 검색,
+              서면 초안, 수임계약, 기일 관리, 정산까지 — 준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Link
@@ -539,9 +540,9 @@ export default function LandingPage() {
         <div style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
           <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap gap-x-10 gap-y-3 text-[13px]" style={{ color: "rgba(20,57,43,0.6)" }}>
             {[
+              ["대상", "1~5인 법률사무소"],
               ["법률 문서 서식", "28종"],
               ["AI 분석", "4개 관점 병렬"],
-              ["분석 소요", "약 2분"],
               ["초안 완성까지", "약 10분"],
             ].map(([label, value]) => (
               <span key={label} className="inline-flex items-baseline gap-2">
@@ -810,7 +811,7 @@ export default function LandingPage() {
                 no={5}
                 stamp="수임료"
                 title="사무장 월급의 삼십분의 일"
-                lead="규모에 맞게 시작하고, 언제든 바꿀 수 있습니다."
+                lead="가입하면 Starter가 무료로 열립니다. 더 필요해지면 그때 올리세요."
               />
             </FadeIn>
 
@@ -850,13 +851,15 @@ export default function LandingPage() {
                     <p className="flex items-baseline gap-1 mb-7">
                       <span
                         className="text-4xl font-bold tabular-nums"
-                        style={{ ...serif, color: plan.highlighted ? ON_INK : "#22252E" }}
+                        style={{ ...serif, color: plan.highlighted ? ON_INK : "#1E2A22" }}
                       >
                         {plan.price}
                       </span>
-                      <span className="text-sm" style={{ color: plan.highlighted ? "rgba(242,239,227,0.5)" : "rgba(20,57,43,0.45)" }}>
-                        원{plan.period}
-                      </span>
+                      {plan.price !== "무료" && (
+                        <span className="text-sm" style={{ color: plan.highlighted ? "rgba(242,239,227,0.5)" : "rgba(20,57,43,0.45)" }}>
+                          원{plan.period}
+                        </span>
+                      )}
                     </p>
                     <ul className="space-y-3 mb-9 flex-1">
                       {plan.features.map((feature) => (
@@ -967,6 +970,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      <KakaoChatButton />
     </div>
   );
 }
