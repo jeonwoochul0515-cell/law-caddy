@@ -45,3 +45,7 @@ stitch.zip
 # Supabase CLI 로컬 상태
 supabase/.temp/
 .consult-admin-token.txt
+
+# 실제 사건 서면 (의뢰인 실명·사건번호 포함 — 서식 참고용 로컬 보관만, 절대 커밋 금지)
+docs/*.hwp
+docs/*.hwpx

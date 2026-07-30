@@ -108,6 +108,23 @@ export async function exportToHwpx(
       continue;
     }
 
+    // 날짜·서명 줄 → 오른쪽 정렬 (실무 서면 관례)
+    // ※ 번호 목록 검사보다 먼저 — "2026. 7. 30."이 번호 목록으로 오인되는 것 방지
+    //  - 날짜만 있는 줄: "2026. 7. 30." / "2026년 7월 30일"
+    //  - 서명 줄: "(인)"·"(서명)"으로 끝나는 줄
+    const isDateLine = /^\d{4}\s*[.년]\s*\d{1,2}\s*[.월]\s*\d{1,2}\s*[.일]?\s*$/.test(trimmed);
+    const isSignLine = /\((인|서명)\)\s*$/.test(trimmed);
+    if (isDateLine || isSignLine) {
+      paragraphs.push(
+        `  <hp:p id="${paraId()}" paraPrIDRef="2" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">
+    <hp:run charPrIDRef="0">
+      <hp:t>${escapeXml(trimmed)}</hp:t>
+    </hp:run>
+  </hp:p>`,
+      );
+      continue;
+    }
+
     // 번호 목록 (1. 2. 등)
     const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
     if (numberedMatch) {
@@ -248,22 +265,27 @@ export async function exportToHwpx(
     "USER",
   ];
 
+  // (2026-07-30) \uC2E4\uC81C \uBC95\uB960\uC0AC\uBB34\uC18C \uC11C\uBA74(\uACE0\uC18C\uC7A5\u00B7\uD56D\uC18C\uC774\uC720\uC11C hwpx)\uC5D0\uC11C \uCD94\uCD9C\uD55C \uC11C\uC2DD\uC73C\uB85C \uAD50\uCCB4.
+  // id=0 \uD734\uBA3C\uBA85\uC870(\uBCF8\uBB38\u00B7\uC81C\uBAA9 \u2014 \uC2E4\uBB34 \uD45C\uC900), id=1 \uB9D1\uC740 \uACE0\uB515(\uBCF4\uC870)
   const fontfacesXml = fontFaceLangs
     .map(
-      (lang) => `      <hh:fontface lang="${lang}" fontCnt="1">
-        <hh:font id="0" face="\uB9D1\uC740 \uACE0\uB515" type="TTF" isEmbedded="0">
+      (lang) => `      <hh:fontface lang="${lang}" fontCnt="2">
+        <hh:font id="0" face="\uD734\uBA3C\uBA85\uC870" type="TTF" isEmbedded="0">
+          <hh:typeInfo familyType="FCAT_MYUNGJO" weight="4" proportion="4" contrast="0" strokeVariation="1" armStyle="1" letterform="1" midline="1" xHeight="1"/>
+        </hh:font>
+        <hh:font id="1" face="\uB9D1\uC740 \uACE0\uB515" type="TTF" isEmbedded="0">
           <hh:typeInfo familyType="FCAT_GOTHIC" weight="6" proportion="4" contrast="0" strokeVariation="1" armStyle="1" letterform="1" midline="1" xHeight="1"/>
         </hh:font>
       </hh:fontface>`,
     )
     .join("\n");
 
-  /* charPr 정의:
-   *  id=0  본문  10pt (height=1000)
-   *  id=1  페이지번호 10pt
-   *  id=2  H1 제목 18pt bold (height=1800)
-   *  id=3  H2 제목 14pt bold (height=1400)
-   *  id=4  H3 제목 12pt bold (height=1200)
+  /* charPr 정의 (실무 서면 실측 기준):
+   *  id=0  본문  12pt (height=1200) — 휴먼명조
+   *  id=1  보조  10pt
+   *  id=2  H1 문서 제목 20pt bold (height=2000)
+   *  id=3  H2 섹션 제목 14pt bold (height=1400)
+   *  id=4  H3 소제목 12pt bold (height=1200)
    */
   function charPrXml(
     id: number,
@@ -295,11 +317,12 @@ export async function exportToHwpx(
       </hh:charPr>`;
   }
 
-  /* paraPr 정의:
-   *  id=0  양쪽정렬 (JUSTIFY), 줄간 160%
+  /* paraPr 정의 (실무 서면 실측 기준):
+   *  id=0  양쪽정렬 (JUSTIFY), 줄간 250%  -- 본문 (법률 서면 표준 줄간격)
    *  id=1  가운데정렬 (CENTER), 줄간 160%  -- 제목용
+   *  id=2  오른쪽정렬 (RIGHT), 줄간 250%  -- 날짜·서명용
    */
-  function paraPrXml(id: number, align: string): string {
+  function paraPrXml(id: number, align: string, lineSpacing = 250): string {
     return `      <hh:paraPr id="${id}" tabPrIDRef="0" condense="0" fontLineHeight="0" snapToGrid="1" suppressLineNumbers="0" checked="0" textDir="LTR">
         <hh:align horizontal="${align}" vertical="BASELINE"/>
         <hh:heading type="NONE" idRef="0" level="0"/>
@@ -312,7 +335,7 @@ export async function exportToHwpx(
           <hc:prev value="0" unit="HWPUNIT"/>
           <hc:next value="0" unit="HWPUNIT"/>
         </hh:margin>
-        <hh:lineSpacing type="PERCENT" value="160" unit="HWPUNIT"/>
+        <hh:lineSpacing type="PERCENT" value="${lineSpacing}" unit="HWPUNIT"/>
         <hh:border borderFillIDRef="2" offsetLeft="0" offsetRight="0" offsetTop="0" offsetBottom="0" connect="0" ignoreMargin="0"/>
       </hh:paraPr>`;
   }
@@ -348,18 +371,19 @@ ${fontfacesXml}
       </hh:borderFill>
     </hh:borderFills>
     <hh:charProperties itemCnt="5">
-${charPrXml(0, 1000, false)}
+${charPrXml(0, 1200, false)}
 ${charPrXml(1, 1000, false)}
-${charPrXml(2, 1800, true)}
+${charPrXml(2, 2000, true)}
 ${charPrXml(3, 1400, true)}
 ${charPrXml(4, 1200, true)}
     </hh:charProperties>
     <hh:tabProperties itemCnt="1">
       <hh:tabPr id="0" autoTabLeft="0" autoTabRight="0"/>
     </hh:tabProperties>
-    <hh:paraProperties itemCnt="2">
-${paraPrXml(0, "JUSTIFY")}
-${paraPrXml(1, "CENTER")}
+    <hh:paraProperties itemCnt="3">
+${paraPrXml(0, "JUSTIFY", 250)}
+${paraPrXml(1, "CENTER", 160)}
+${paraPrXml(2, "RIGHT", 250)}
     </hh:paraProperties>
     <hh:styles itemCnt="1">
       <hh:style id="0" type="PARA" name="\uBC14\uD0D5\uAE00" engName="Normal" paraPrIDRef="0" charPrIDRef="0" nextStyleIDRef="0" langID="1042" lockForm="0"/>
