@@ -9,6 +9,7 @@ import { uploadRecordingFile } from "../services/firebase/storage";
 import { createRecording, updateRecording, addTimelineEvent } from "../services/firebase/firestore";
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
+import { getSavedSession, buildSavedFile, clearSession, type RecordingSessionMeta } from "../services/recordingStore";
 
 // (2026-07-31) 녹음과 자료 첨부를 분리했다.
 // 상담 중에는 녹음 화면만 보이고, 상담이 끝난 뒤 서류를 챙겨 넣는 것이 실제 순서다.
@@ -38,7 +39,7 @@ export default function RecordPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuth((s) => s.user);
-  const { isRecording, duration, startRecording, stopRecording } = useRecording();
+  const { isRecording, duration, startRecording, stopRecording, interrupted, clearInterrupted } = useRecording();
 
   // 사건 상세에서 넘어온 경우 프리필
   const prefilled = location.state as {
@@ -51,6 +52,11 @@ export default function RecordPage() {
   const [files, setFiles] = useState<File[]>([]);
   /** 이 화면에서 직접 녹음한 파일 이름들 — 첨부 목록에서 "상담 녹음"으로 구분해 보여준다 */
   const [recordedNames, setRecordedNames] = useState<string[]>([]);
+  /** 브라우저가 죽기 전에 저장된 녹음 조각 — 있으면 복구 배너를 띄운다 */
+  const [savedSession, setSavedSession] = useState<RecordingSessionMeta | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  /** 녹음 시작 전 방해금지 안내를 이미 봤는지 (세션당 한 번) */
+  const [tipDismissed, setTipDismissed] = useState(false);
   const [typedNotes, setTypedNotes] = useState("");
 
   const [uploading, setUploading] = useState(false);
@@ -77,6 +83,39 @@ export default function RecordPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 지난번 녹음이 끊긴 채 남아 있는지 확인 (전화·앱 종료 등)
+  useEffect(() => {
+    let alive = true;
+    getSavedSession().then((meta) => {
+      if (alive && meta && meta.duration > 3) setSavedSession(meta);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** 저장돼 있던 녹음을 파일로 되살려 첨부 목록에 넣는다 */
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const file = await buildSavedFile();
+      if (file) {
+        setFiles((prev) => [...prev, file]);
+        setRecordedNames((prev) => [...prev, file.name]);
+      }
+      await clearSession();
+      setSavedSession(null);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  /** 저장된 녹음을 버린다 */
+  const handleDiscardSaved = async () => {
+    await clearSession();
+    setSavedSession(null);
+  };
 
 
   const formatDuration = (seconds: number) => {
@@ -141,6 +180,10 @@ export default function RecordPage() {
           const audioFile = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
           setFiles((prev) => [...prev, audioFile]);
           setRecordedNames((prev) => [...prev, audioFile.name]);
+          // 정상적으로 파일을 확보했으므로 임시 조각은 비운다
+          // (남겨두면 다음 진입 때 복구 배너가 잘못 뜬다)
+          void clearSession();
+          setSavedSession(null);
         }
       } else {
         await startRecording();
@@ -416,9 +459,81 @@ export default function RecordPage() {
         </div>
       )}
 
-      {/* Step 2: 녹음/업로드 */}
+      {/* Step 2: 상담 녹음 */}
       {step === "record" && (
         <div className="max-w-2xl space-y-6">
+          {/* 중단된 녹음 복구 — 전화·앱 종료로 끊긴 경우 */}
+          {savedSession && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-4 bg-warning/10 border border-warning/30 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-text-primary">
+                  저장된 녹음이 있습니다 ({formatDuration(savedSession.duration)})
+                </p>
+                <p className="text-xs text-text-dim mt-0.5">
+                  지난번 녹음이 정상적으로 마무리되지 않았습니다. 그때까지 녹음된 내용은 남아 있습니다.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={handleDiscardSaved}
+                  disabled={restoring}
+                  className="px-3 py-2 text-xs text-text-dim border border-border rounded-lg hover:text-text-primary transition-colors disabled:opacity-50"
+                >
+                  버리기
+                </button>
+                <button
+                  onClick={handleRestore}
+                  disabled={restoring}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-warning/20 text-warning rounded-lg hover:bg-warning/30 transition-colors disabled:opacity-50"
+                >
+                  {restoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  불러오기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 녹음이 강제로 끊겼을 때 */}
+          {interrupted && (
+            <div className="flex items-start gap-3 px-4 py-4 bg-error/10 border border-error/30 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-text-primary">녹음이 중단되었습니다</p>
+                <p className="text-xs text-text-dim mt-0.5 leading-relaxed">
+                  전화가 오거나 다른 앱이 마이크를 사용하면 녹음이 멈춥니다.
+                  중단 직전까지의 내용은 저장되었습니다. 아래 버튼으로 이어서 녹음하세요.
+                </p>
+              </div>
+              <button
+                onClick={clearInterrupted}
+                aria-label="알림 닫기"
+                className="p-1 text-text-dim hover:text-text-primary shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* 녹음 전 안내 — 전화 차단이 가장 확실한 예방책이다 */}
+          {!tipDismissed && !isRecording && recordedNames.length === 0 && (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-info/8 border border-info/20 rounded-xl">
+              <Sparkles className="w-4 h-4 text-info shrink-0 mt-0.5" />
+              <p className="flex-1 text-xs text-text-dim leading-relaxed">
+                <strong className="text-text-primary">녹음 전에 방해금지 모드를 켜주세요.</strong>{" "}
+                상담 중 전화가 오면 녹음이 멈춥니다. 아이폰은 제어센터의 초승달 아이콘,
+                안드로이드는 방해금지를 켜면 됩니다. 5초마다 자동 저장되므로 끊겨도 그때까지는 남습니다.
+              </p>
+              <button
+                onClick={() => setTipDismissed(true)}
+                aria-label="안내 닫기"
+                className="p-1 text-text-dim hover:text-text-primary shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* 녹음 */}
           <div className="bg-surface border border-border rounded-2xl p-6 backdrop-blur-sm">
             <h3 className="text-lg font-semibold text-text-primary mb-4">실시간 녹음</h3>

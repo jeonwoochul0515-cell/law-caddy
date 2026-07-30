@@ -14,7 +14,34 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json; charset=utf-8" },
   });
 
+// 스팸 방어 — _middleware의 전역 레이트리밋은 /api/claude·/api/transcribe 전용이라 이 경로에는 걸리지 않는다.
+// 접수 1건마다 문자 요금이 나가므로 Origin 검사와 IP 레이트리밋을 따로 둔다. (2026-07-31)
+// 워커 isolate가 살아 있는 동안만 카운터가 유지되는 베스트에포트 방식이다.
+const ALLOWED_ORIGIN = /law-caddy\.com|localhost|127\.0\.0\.1|\.pages\.dev/;
+const RL_WINDOW_MS = 10 * 60 * 1000;
+const RL_MAX = 5;
+const rlHits = new Map<string, number[]>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const arr = (rlHits.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS);
+  arr.push(now);
+  rlHits.set(ip, arr);
+  if (rlHits.size > 5000) {
+    for (const [k, v] of rlHits) if (!v.some((t) => now - t < RL_WINDOW_MS)) rlHits.delete(k);
+  }
+  return arr.length > RL_MAX;
+}
+
 export const onRequestPost: PagesFunction<ConsultEnv> = async ({ request, env }) => {
+  const origin = request.headers.get("origin") || request.headers.get("referer") || "";
+  if (origin && !ALLOWED_ORIGIN.test(origin)) return json({ ok: false, error: "forbidden" }, 403);
+
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  if (rateLimited(ip)) {
+    return json({ ok: false, error: "too_many_requests", message: "잠시 후 다시 시도해 주세요." }, 429);
+  }
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;

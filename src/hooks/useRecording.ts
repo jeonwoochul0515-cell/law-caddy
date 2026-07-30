@@ -1,9 +1,14 @@
 // 녹음 + 파일 업로드 훅
 // MediaRecorder API로 브라우저 녹음, Firebase Storage에 업로드
+//
+// (2026-07-31) 폰에서 상담 중 전화가 오면 녹음이 통째로 날아가던 문제를 막는다:
+//  - 조각(5초)마다 IndexedDB에 즉시 저장 → 브라우저가 죽어도 그 직전까지는 남는다
+//  - 마이크를 뺏기면(track ended) 감지해 onInterrupted로 알린다 — 지금까지는 멈춘 줄도 몰랐다
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
+import { beginSession, appendChunk } from "../services/recordingStore";
 
 /** useRecording 반환 타입 */
 interface UseRecordingReturn {
@@ -23,6 +28,10 @@ interface UseRecordingReturn {
   uploadFile: (file: Blob, ownerId: string, caseId: string) => Promise<string>;
   /** 녹음 상태 초기화 */
   reset: () => void;
+  /** 전화 수신 등으로 녹음이 강제 중단되었는지 */
+  interrupted: boolean;
+  /** 중단 알림을 확인 처리 */
+  clearInterrupted: () => void;
 }
 
 /**
@@ -35,6 +44,7 @@ interface UseRecordingReturn {
  */
 export default function useRecording(): UseRecordingReturn {
   const [isRecording, setIsRecording] = useState(false);
+  const [interrupted, setInterrupted] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [duration, setDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -44,6 +54,8 @@ export default function useRecording(): UseRecordingReturn {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** 조각 저장 시 현재 경과 시간을 넘기기 위한 참조 (setState는 비동기라 값이 늦다) */
+  const durationRef = useRef(0);
 
   // stopRecording에서 Promise resolve를 받기 위한 참조
   const resolveStopRef = useRef<((blob: Blob) => void) | null>(null);
@@ -51,8 +63,10 @@ export default function useRecording(): UseRecordingReturn {
   /** 경과 시간 타이머 시작 */
   const startTimer = useCallback(() => {
     setDuration(0);
+    durationRef.current = 0;
     timerRef.current = setInterval(() => {
-      setDuration((prev) => prev + 1);
+      durationRef.current += 1;
+      setDuration(durationRef.current);
     }, 1000);
   }, []);
 
@@ -106,12 +120,30 @@ export default function useRecording(): UseRecordingReturn {
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
-      // 데이터 청크 수집
+      // 이 녹음의 조각 저장소를 초기화 (이전 세션 조각은 버린다)
+      await beginSession(mediaRecorder.mimeType || mimeType || "audio/webm");
+
+      // 데이터 청크 수집 — 메모리에 쌓는 동시에 디스크에도 즉시 저장한다
       mediaRecorder.ondataavailable = (event: BlobEvent) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
+          void appendChunk(event.data, durationRef.current);
         }
       };
+
+      // 마이크를 빼앗기면(전화 수신·다른 앱이 점유) 알린다.
+      // 이 이벤트가 없으면 화면은 "녹음 중"인데 실제로는 아무것도 녹음되지 않는다.
+      stream.getAudioTracks().forEach((track) => {
+        track.onended = () => {
+          setInterrupted(true);
+          setIsRecording(false);
+          stopTimer();
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+            // 여기까지의 데이터를 확보한다 (onstop이 Blob을 만든다)
+            mediaRecorderRef.current.stop();
+          }
+        };
+      });
 
       // 녹음 완료 시 Blob 생성
       mediaRecorder.onstop = () => {
@@ -127,9 +159,17 @@ export default function useRecording(): UseRecordingReturn {
         }
       };
 
-      // 녹음 시작
-      mediaRecorder.start(1000); // 1초 간격으로 데이터 수집
+      mediaRecorder.onerror = () => {
+        setInterrupted(true);
+        setIsRecording(false);
+        stopTimer();
+      };
+
+      // 녹음 시작 — 5초 간격으로 조각을 받아 즉시 저장한다
+      // (1초는 IndexedDB 쓰기가 너무 잦고, 10초는 사고 시 잃는 양이 크다)
+      mediaRecorder.start(5000);
       setIsRecording(true);
+      setInterrupted(false);
       startTimer();
     } catch (err: unknown) {
       const message =
@@ -202,10 +242,14 @@ export default function useRecording(): UseRecordingReturn {
     chunksRef.current = [];
     resolveStopRef.current = null;
     setIsRecording(false);
+    setInterrupted(false);
     setAudioBlob(null);
     setDuration(0);
+    durationRef.current = 0;
     setUploading(false);
   }, [stopTimer, releaseStream]);
+
+  const clearInterrupted = useCallback(() => setInterrupted(false), []);
 
   return {
     isRecording,
@@ -216,5 +260,7 @@ export default function useRecording(): UseRecordingReturn {
     stopRecording,
     uploadFile,
     reset,
+    interrupted,
+    clearInterrupted,
   };
 }
