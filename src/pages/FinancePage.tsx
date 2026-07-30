@@ -13,11 +13,17 @@ import {
   LayoutDashboard,
   FileSpreadsheet,
   Calculator,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import AppLayout from "../components/layout/AppLayout";
 import MonthlyReportTab from "../components/accounting/MonthlyReportTab";
 import TaxReportTab from "../components/accounting/TaxReportTab";
+import OfficeExpenseModal from "../components/accounting/OfficeExpenseModal";
+import PurchaseTransactionModal from "../components/accounting/PurchaseTransactionModal";
+import { deleteOfficeExpense, deleteTransaction } from "../services/firebase/accounting";
 import useAuth from "../hooks/useAuth";
 import { db } from "../config/firebase";
 import type { Fee } from "../types/accounting";
@@ -108,6 +114,12 @@ export default function FinancePage() {
   const [expandedOutstanding, setExpandedOutstanding] = useState(true);
   const [expandedDeposits, setExpandedDeposits] = useState(true);
 
+  // 경비·매입 입력 모달
+  const [officeExpenseModal, setOfficeExpenseModal] = useState<{ open: boolean; initial: OfficeExpense | null }>({ open: false, initial: null });
+  const [purchaseModal, setPurchaseModal] = useState<{ open: boolean; initial: Transaction | null }>({ open: false, initial: null });
+  // 2단계 삭제 확인 (첫 클릭으로 무장, 3초 내 재클릭 시 삭제)
+  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
+
   // ── 데이터 fetch ──
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -156,6 +168,30 @@ export default function FinancePage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // 2단계 삭제 무장 자동 해제
+  useEffect(() => {
+    if (!armedDeleteId) return;
+    const t = setTimeout(() => setArmedDeleteId(null), 3000);
+    return () => clearTimeout(t);
+  }, [armedDeleteId]);
+
+  /** 삭제 버튼 — 첫 클릭은 무장, 두 번째 클릭에 실제 삭제 */
+  async function handleDelete(kind: "oe" | "tx", id: string) {
+    const key = `${kind}-${id}`;
+    if (armedDeleteId !== key) {
+      setArmedDeleteId(key);
+      return;
+    }
+    setArmedDeleteId(null);
+    try {
+      if (kind === "oe") await deleteOfficeExpense(id);
+      else await deleteTransaction(id);
+      await fetchData();
+    } catch (err) {
+      console.error("삭제 실패:", err);
+    }
+  }
 
   // 신규 사용자 — 어떤 종류의 재무 데이터도 없는 상태
   const isEmpty =
@@ -376,12 +412,16 @@ export default function FinancePage() {
               </h3>
               <p className="text-sm text-text-dim leading-relaxed mb-4">
                 아직 등록된 거래가 없습니다. 사건별 수임료·경비·예수금은
-                <strong className="text-text-primary"> 사건 상세 페이지의 [재무] 탭</strong>에서 추가할 수 있어요.
-                사무실 운영 경비 입력은 준비 중입니다.
+                <strong className="text-text-primary"> 사건 상세 페이지의 [재무] 탭</strong>에서,
+                임대료·급여 같은 사무실 운영 경비는 아래
+                <strong className="text-text-primary"> [매입/경비 내역]의 등록 버튼</strong>으로 추가할 수 있어요.
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
                   💼 사건 → 재무 탭에서 수임료 입력
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
+                  🏢 아래에서 사무소 경비·매입 등록
                 </span>
                 <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
                   📊 등록한 데이터는 자동으로 이 화면에 집계
@@ -544,6 +584,26 @@ export default function FinancePage() {
 
         {expandedExpense && (
           <div className="border-t border-border">
+            {/* 등록 버튼 */}
+            <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-border bg-navy-light/20">
+              <button
+                onClick={() => setOfficeExpenseModal({ open: true, initial: null })}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold-dim transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                사무소 경비 등록
+              </button>
+              <button
+                onClick={() => setPurchaseModal({ open: true, initial: null })}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-dim border border-border rounded-lg hover:border-border-hover hover:text-text-primary transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                매입 거래 등록
+              </button>
+              <span className="self-center text-[11px] text-text-dim/70 ml-1">
+                임대료·급여·회비 등은 경비로, 세금계산서를 받은 구매는 매입으로
+              </span>
+            </div>
             {loading ? (
               <div className="p-8 text-center text-text-dim">로딩 중...</div>
             ) : expenseTransactions.length + sortedOfficeExpenses.length === 0 ? (
@@ -556,16 +616,17 @@ export default function FinancePage() {
                 <div className="hidden sm:grid grid-cols-12 gap-2 px-5 py-3 text-xs text-text-dim border-b border-border">
                   <div className="col-span-2">날짜</div>
                   <div className="col-span-2">카테고리</div>
-                  <div className="col-span-4">적요</div>
+                  <div className="col-span-3">적요</div>
                   <div className="col-span-2 text-right">금액</div>
                   <div className="col-span-2 text-center">증빙</div>
+                  <div className="col-span-1 text-center">관리</div>
                 </div>
                 <div className="divide-y divide-border">
                   {/* 매입 거래 */}
                   {expenseTransactions.map((tx) => (
                     <div
                       key={`tx-${tx.id}`}
-                      className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-2 px-5 py-3 hover:bg-surface-hover transition-colors items-center"
+                      className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-2 px-5 py-3 hover:bg-surface-hover transition-colors items-center group"
                     >
                       <div className="col-span-2 text-sm text-text-dim">
                         {tx.date}
@@ -575,7 +636,7 @@ export default function FinancePage() {
                           {tx.subType}
                         </span>
                       </div>
-                      <div className="col-span-4 text-sm text-text-primary truncate">
+                      <div className="col-span-3 text-sm text-text-primary truncate">
                         {tx.description}
                       </div>
                       <div className="col-span-2 text-sm text-right font-medium text-text-primary">
@@ -584,13 +645,33 @@ export default function FinancePage() {
                       <div className="col-span-2 text-center">
                         {evidenceBadge(tx.evidenceType)}
                       </div>
+                      <div className="col-span-1 flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => setPurchaseModal({ open: true, initial: tx })}
+                          className="p-1.5 text-text-dim hover:text-gold rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                          title="수정"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete("tx", tx.id)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            armedDeleteId === `tx-${tx.id}`
+                              ? "text-white bg-error"
+                              : "text-text-dim hover:text-error sm:opacity-0 sm:group-hover:opacity-100"
+                          }`}
+                          title={armedDeleteId === `tx-${tx.id}` ? "한 번 더 누르면 삭제됩니다" : "삭제"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {/* 사무소 경비 */}
                   {sortedOfficeExpenses.map((oe) => (
                     <div
                       key={`oe-${oe.id}`}
-                      className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-2 px-5 py-3 hover:bg-surface-hover transition-colors items-center"
+                      className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-2 px-5 py-3 hover:bg-surface-hover transition-colors items-center group"
                     >
                       <div className="col-span-2 text-sm text-text-dim">
                         {oe.date}
@@ -600,14 +681,37 @@ export default function FinancePage() {
                           {oe.category}
                         </span>
                       </div>
-                      <div className="col-span-4 text-sm text-text-primary truncate">
+                      <div className="col-span-3 text-sm text-text-primary truncate">
                         {oe.description}
+                        {oe.recurring && (
+                          <span className="ml-1.5 text-[10px] text-text-dim">매월</span>
+                        )}
                       </div>
                       <div className="col-span-2 text-sm text-right font-medium text-text-primary">
                         {formatWon(oe.amount)}
                       </div>
                       <div className="col-span-2 text-center">
                         {evidenceBadge(oe.evidenceType)}
+                      </div>
+                      <div className="col-span-1 flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => setOfficeExpenseModal({ open: true, initial: oe })}
+                          className="p-1.5 text-text-dim hover:text-gold rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                          title="수정"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete("oe", oe.id)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            armedDeleteId === `oe-${oe.id}`
+                              ? "text-white bg-error"
+                              : "text-text-dim hover:text-error sm:opacity-0 sm:group-hover:opacity-100"
+                          }`}
+                          title={armedDeleteId === `oe-${oe.id}` ? "한 번 더 누르면 삭제됩니다" : "삭제"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -823,6 +927,24 @@ export default function FinancePage() {
         )}
       </section>
         </>
+      )}
+
+      {/* ── 경비·매입 입력 모달 ── */}
+      {officeExpenseModal.open && user && (
+        <OfficeExpenseModal
+          ownerId={user.uid}
+          initial={officeExpenseModal.initial}
+          onClose={() => setOfficeExpenseModal({ open: false, initial: null })}
+          onSaved={fetchData}
+        />
+      )}
+      {purchaseModal.open && user && (
+        <PurchaseTransactionModal
+          ownerId={user.uid}
+          initial={purchaseModal.initial}
+          onClose={() => setPurchaseModal({ open: false, initial: null })}
+          onSaved={fetchData}
+        />
       )}
     </AppLayout>
   );

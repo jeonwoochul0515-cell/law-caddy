@@ -13,12 +13,14 @@ import {
   BookOpen,
   Loader2,
   Trash2,
+  Pencil,
   X,
 } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import {
   createDeadline,
   getDeadlines,
+  updateDeadline,
   deleteDeadline,
 } from "../../services/firebase/firestore";
 import {
@@ -122,13 +124,35 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /** 수정 중인 기한 ID — null이면 신규 등록 모드 */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // 추가 폼 상태
+  // 추가/수정 폼 상태
   const [formTitle, setFormTitle] = useState("");
   const [formDueDate, setFormDueDate] = useState("");
   const [formCategory, setFormCategory] = useState<DeadlineCategory>("서면 제출");
   const [formBaseDateLabel, setFormBaseDateLabel] = useState("");
   const [formRule, setFormRule] = useState("");
+
+  function resetForm() {
+    setFormTitle("");
+    setFormDueDate("");
+    setFormBaseDateLabel("");
+    setFormRule("");
+    setFormCategory("서면 제출");
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(deadline: CaseDeadline) {
+    setFormTitle(deadline.title);
+    setFormDueDate(deadline.dueDate);
+    setFormCategory(deadline.category);
+    setFormBaseDateLabel(deadline.baseDateLabel ?? "");
+    setFormRule(deadline.rule ?? "");
+    setEditingId(deadline.id);
+    setShowForm(true);
+  }
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -147,29 +171,35 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
     load();
   }, [load]);
 
-  const handleAdd = async () => {
+  const handleSubmit = async () => {
     if (!user || !formTitle.trim() || !formDueDate) return;
     setSaving(true);
     setError(null);
     try {
-      await createDeadline({
-        caseId,
-        ownerId: user.uid,
-        title: formTitle.trim(),
-        dueDate: formDueDate,
-        category: formCategory,
-        ...(formBaseDateLabel.trim() ? { baseDateLabel: formBaseDateLabel.trim() } : {}),
-        ...(formRule.trim() ? { rule: formRule.trim() } : {}),
-      });
-      setFormTitle("");
-      setFormDueDate("");
-      setFormBaseDateLabel("");
-      setFormRule("");
-      setFormCategory("서면 제출");
-      setShowForm(false);
+      if (editingId) {
+        // 빈 값은 ""로 저장해 기존 값을 지운다 (렌더링은 falsy 체크라 표시되지 않음)
+        await updateDeadline(editingId, {
+          title: formTitle.trim(),
+          dueDate: formDueDate,
+          category: formCategory,
+          baseDateLabel: formBaseDateLabel.trim(),
+          rule: formRule.trim(),
+        });
+      } else {
+        await createDeadline({
+          caseId,
+          ownerId: user.uid,
+          title: formTitle.trim(),
+          dueDate: formDueDate,
+          category: formCategory,
+          ...(formBaseDateLabel.trim() ? { baseDateLabel: formBaseDateLabel.trim() } : {}),
+          ...(formRule.trim() ? { rule: formRule.trim() } : {}),
+        });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기한 등록에 실패했습니다.");
+      setError(err instanceof Error ? err.message : editingId ? "기한 수정에 실패했습니다." : "기한 등록에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -370,19 +400,28 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           </div>
                         </div>
 
-                        {/* 삭제 버튼 */}
-                        <button
-                          onClick={() => handleDelete(deadline.id)}
-                          disabled={deletingId === deadline.id}
-                          className="flex-shrink-0 p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                          title="기한 삭제"
-                        >
-                          {deletingId === deadline.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
+                        {/* 수정·삭제 버튼 */}
+                        <div className="flex-shrink-0 flex items-center gap-0.5">
+                          <button
+                            onClick={() => startEdit(deadline)}
+                            className="p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-[#735c00] hover:bg-[#735c00]/10 transition-colors"
+                            title="기한 수정"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(deadline.id)}
+                            disabled={deletingId === deadline.id}
+                            className="p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                            title="기한 삭제"
+                          >
+                            {deletingId === deadline.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -398,9 +437,11 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         {showForm ? (
           <div className="rounded-xl border border-[#efeeea] bg-white p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-[#1b1c1a]">새 기한 추가</h4>
+              <h4 className="text-sm font-semibold text-[#1b1c1a]">
+                {editingId ? "기한 수정" : "새 기한 추가"}
+              </h4>
               <button
-                onClick={() => setShowForm(false)}
+                onClick={resetForm}
                 className="p-1 rounded-lg text-[#1b1c1a]/40 hover:text-[#1b1c1a] hover:bg-[#efeeea] transition-colors"
                 aria-label="닫기"
               >
@@ -471,18 +512,18 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
 
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowForm(false)}
+                onClick={resetForm}
                 className="px-4 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a]/60 hover:text-[#1b1c1a] transition-colors"
               >
                 취소
               </button>
               <button
-                onClick={handleAdd}
+                onClick={handleSubmit}
                 disabled={saving || !formTitle.trim() || !formDueDate}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#735c00] text-white text-sm font-medium hover:bg-[#5d4a00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                등록
+                {editingId ? "수정 저장" : "등록"}
               </button>
             </div>
           </div>

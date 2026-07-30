@@ -37,6 +37,8 @@ import {
 } from "../services/firebase/accounting";
 import { autoDeductFromDeposit } from "../services/depositAutoDeduct";
 import { createRevenueFromFeePayment } from "../services/autoRevenue";
+import { sendClientSms } from "../services/notify";
+import { updateCase } from "../services/firebase/firestore";
 import type { FeePaymentType } from "../services/autoRevenue";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
@@ -87,7 +89,38 @@ export default function CaseDetailPage() {
   } | null>(null);
   const [signingRequests, setSigningRequests] = useState<import("../types/signing").SigningRequest[]>([]);
 
+  // 서명 링크 문자 발송
+  const [smsPhone, setSmsPhone] = useState("");
+  const [smsSending, setSmsSending] = useState(false);
+
   const uid = user?.uid ?? "";
+
+  // 사건에 저장된 의뢰인 번호를 발송 입력란에 미리 채움
+  useEffect(() => {
+    if (caseData?.clientPhone) setSmsPhone((prev) => prev || caseData.clientPhone!);
+  }, [caseData?.clientPhone]);
+
+  /** 의뢰인에게 문자 발송 + 번호를 사건에 저장 (공통 헬퍼) */
+  const sendSmsToClient = useCallback(
+    async (text: string) => {
+      if (!caseData) return;
+      const normalized = smsPhone.replace(/\D/g, "");
+      setSmsSending(true);
+      try {
+        await sendClientSms(normalized, text);
+        if (normalized !== caseData.clientPhone) {
+          updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
+        }
+        setToast("문자를 발송했습니다");
+      } catch (err) {
+        setToast(err instanceof Error ? err.message : "문자 발송에 실패했습니다");
+      } finally {
+        setSmsSending(false);
+        setTimeout(() => setToast(null), 3000);
+      }
+    },
+    [caseData, smsPhone],
+  );
 
   // 재무 데이터 로딩
   useEffect(() => {
@@ -734,7 +767,29 @@ export default function CaseDetailPage() {
                   복사
                 </button>
               </div>
-              <p className="text-[11px] text-text-dim">⏰ 서명 링크는 24시간 유효합니다</p>
+              {/* 의뢰인에게 문자로 바로 보내기 */}
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={smsPhone}
+                  onChange={(e) => setSmsPhone(e.target.value)}
+                  placeholder="의뢰인 휴대폰 번호 (예: 010-1234-5678)"
+                  className="flex-1 px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
+                />
+                <button
+                  onClick={() =>
+                    sendSmsToClient(
+                      `[${user?.firmName ?? "법률사무소"}] ${caseData?.clientName ?? "의뢰인"}님, 사건위임계약서 전자서명 링크입니다.\n${window.location.origin}/sign/${contractResult.signingToken}\n링크는 24시간 동안 유효합니다. 확인 후 서명 부탁드립니다.`,
+                    )
+                  }
+                  disabled={smsSending || smsPhone.replace(/\D/g, "").length < 10}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gold-dim text-gold rounded-lg text-sm font-medium hover:bg-gold/20 transition-colors whitespace-nowrap disabled:opacity-40"
+                >
+                  {smsSending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  문자로 보내기
+                </button>
+              </div>
+              <p className="text-[11px] text-text-dim">⏰ 서명 링크는 24시간 유효합니다 · 발송한 번호는 사건에 저장됩니다</p>
             </div>
 
             {/* 닫기 */}

@@ -110,3 +110,12 @@
 - [x] "6개 에이전트" 잔재 문구 일소 (PlanSelector 3개/6개 → 4개 전체, SEO·주석)
 - [x] FinancePage 허위 경비 등록 안내 제거
 - [x] (발견·수리) PWA autoUpdate 미작동 — 새 SW가 waiting에 갇혀 배포가 사용자에게 전달 안 되던 문제, workbox skipWaiting/clientsClaim으로 해결
+
+## 2026-07-30 티어 1 완료 (전 항목)
+- [x] 사무소 경비 입력 UI — OfficeExpenseModal (등록·수정·2단계 삭제, 카테고리별 고정/변동비 자동 제안). 운영에서 CRUD 실측 검증
+- [x] 매입 거래 입력 UI — PurchaseTransactionModal (부가세 10% 자동 계산, 공제 불가 증빙이면 0 처리)
+- [x] 기한 수정 — ScheduleTab 폼을 등록/수정 겸용으로, updateDeadline 서비스 추가
+- [x] 서명 링크 문자 발송 — CaseDetailPage 계약 결과 화면에 번호 입력+발송, 번호는 사건(clientPhone)에 저장
+- [x] 케어 메시지 문자 발송 — ClientCareTab 메시지별 발송 버튼
+- [x] 서버 POST /api/notify/client — 인증+유료 플랜 필수, 번호·길이 검증, uid당 시간당 30건 제한 (미인증 401 실측)
+- [x] Case 타입에 clientPhone 필드 추가 (티어 2 의뢰인 CRM의 씨앗)

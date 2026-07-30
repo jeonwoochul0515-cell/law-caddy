@@ -38,6 +38,8 @@ export interface Case {
   id: string;
   ownerId: string;
   clientName: string;
+  /** 의뢰인 휴대폰 번호 (문자 발송용, 선택) — 첫 발송 때 입력받아 저장 */
+  clientPhone?: string;
   caseType: CaseType;
   description: string;
   status: "진행중" | "완료" | "보류";

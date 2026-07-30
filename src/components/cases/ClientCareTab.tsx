@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MessageSquare, Copy, Check, Loader2, Trash2,
-  Phone, TrendingUp, FileOutput, Flag,
+  Phone, TrendingUp, FileOutput, Flag, Send,
 } from "lucide-react";
 import useClientCare from "../../hooks/useClientCare";
+import { sendClientSms } from "../../services/notify";
+import { updateCase } from "../../services/firebase/firestore";
 import type { MessageStage } from "../../types/clientCare";
 import type { Case } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
@@ -81,6 +83,35 @@ export default function ClientCareTab({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [errorStage, setErrorStage] = useState<MessageStage | null>(null);
+
+  // 문자 발송
+  const [smsPhone, setSmsPhone] = useState(caseData.clientPhone ?? "");
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentId, setSentId] = useState<string | null>(null);
+  const [smsError, setSmsError] = useState<string | null>(null);
+
+  // 사건에 저장된 번호가 뒤늦게 로드되면 입력란에 반영
+  useEffect(() => {
+    if (caseData.clientPhone) setSmsPhone((prev) => prev || caseData.clientPhone!);
+  }, [caseData.clientPhone]);
+
+  const handleSendSms = async (id: string, content: string) => {
+    const normalized = smsPhone.replace(/\D/g, "");
+    setSendingId(id);
+    setSmsError(null);
+    try {
+      await sendClientSms(normalized, content);
+      if (normalized !== caseData.clientPhone) {
+        updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
+      }
+      setSentId(id);
+      setTimeout(() => setSentId(null), 3000);
+    } catch (err) {
+      setSmsError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const handleGenerate = async (stage: MessageStage) => {
     setErrorStage(null);
@@ -224,6 +255,21 @@ export default function ClientCareTab({
           <h3 className="text-sm font-semibold text-text-primary mb-3">
             생성된 메시지 ({messages.length})
           </h3>
+
+          {/* 문자 발송 대상 번호 (한 번 입력하면 사건에 저장) */}
+          <div className="flex items-center gap-2 mb-3">
+            <Phone className="w-4 h-4 text-text-dim shrink-0" />
+            <input
+              type="tel"
+              value={smsPhone}
+              onChange={(e) => setSmsPhone(e.target.value)}
+              placeholder="의뢰인 휴대폰 번호 (예: 010-1234-5678)"
+              className="flex-1 max-w-xs px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
+            />
+            <span className="text-[11px] text-text-dim">발송한 번호는 사건에 저장됩니다</span>
+          </div>
+          {smsError && <p className="text-xs text-error mb-3">{smsError}</p>}
+
           <div className="space-y-3">
             {messages.map((msg) => {
               const stageCfg = STAGE_CONFIG.find((c) => c.stage === msg.stage);
@@ -252,6 +298,20 @@ export default function ClientCareTab({
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleSendSms(msg.id, msg.content)}
+                        disabled={sendingId === msg.id || smsPhone.replace(/\D/g, "").length < 10}
+                        title={smsPhone.replace(/\D/g, "").length < 10 ? "위에 의뢰인 번호를 먼저 입력하세요" : "문자로 발송"}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-text-dim hover:text-gold transition-colors rounded-lg hover:bg-gold-dim disabled:opacity-40"
+                      >
+                        {sendingId === msg.id ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 발송 중</>
+                        ) : sentId === msg.id ? (
+                          <><Check className="w-3.5 h-3.5" /> 발송됨</>
+                        ) : (
+                          <><Send className="w-3.5 h-3.5" /> 문자 발송</>
+                        )}
+                      </button>
                       <button
                         onClick={() => handleCopy(msg.id, msg.content)}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-text-dim hover:text-gold transition-colors rounded-lg hover:bg-gold-dim"

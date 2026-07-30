@@ -468,6 +468,23 @@ export async function getDeadlines(caseId: string, ownerId: string): Promise<Cas
 }
 
 /**
+ * 사건 기한을 수정합니다.
+ */
+export async function updateDeadline(
+  id: string,
+  data: Partial<Omit<CaseDeadline, "id" | "caseId" | "ownerId" | "createdAt">>,
+): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "deadlines", id), { ...data });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`기한 수정 실패: ${error.message}`);
+    }
+    throw new Error("기한 수정 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
  * 사건 기한을 삭제합니다.
  */
 export async function deleteDeadline(id: string): Promise<void> {

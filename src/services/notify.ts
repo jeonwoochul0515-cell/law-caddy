@@ -50,6 +50,24 @@ export async function notifyPlanExpiry(): Promise<void> {
 }
 
 /**
+ * 의뢰인에게 문자를 발송합니다 (서명 링크·케어 메시지 전달용).
+ * 관리자 알림과 달리 사용자가 버튼으로 명시 발송하므로 실패를 그대로 throw합니다.
+ * @param to 휴대폰 번호 (하이픈 있어도 됨 — 서버에서 정규화)
+ */
+export async function sendClientSms(to: string, text: string): Promise<void> {
+  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const resp = await fetch(`${API_BASE}/api/notify/client`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ to, text }),
+  });
+  if (!resp.ok) {
+    const data = (await resp.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(data?.error ?? `문자 발송 실패 (HTTP ${resp.status})`);
+  }
+}
+
+/**
  * 신규 버그 리포트 접수를 관리자에게 문자로 알립니다.
  * fire-and-forget: 실패해도 버그 리포트 저장 자체는 유지됩니다.
  */
