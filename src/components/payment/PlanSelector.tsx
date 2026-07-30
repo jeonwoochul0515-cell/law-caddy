@@ -11,6 +11,8 @@ interface PlanDef {
   price: string;
   priceNote: string;
   recommended: boolean;
+  /** true면 아직 판매하지 않는 플랜 — 선택 버튼 비활성화 (서버도 결제 승인을 거부한다) */
+  comingSoon?: boolean;
   features: {
     recordings: string;
     documents: string;
@@ -32,7 +34,7 @@ const PLAN_DEFS: PlanDef[] = [
     features: {
       recordings: "5건/월",
       documents: "3건/월",
-      agents: "3개",
+      agents: "4개 전체",
       clientMessage: false,
       caseManagement: true,
       teamSharing: false,
@@ -48,7 +50,7 @@ const PLAN_DEFS: PlanDef[] = [
     features: {
       recordings: "무제한",
       documents: "무제한",
-      agents: "6개",
+      agents: "4개 전체",
       clientMessage: true,
       caseManagement: true,
       teamSharing: false,
@@ -61,10 +63,11 @@ const PLAN_DEFS: PlanDef[] = [
     price: "₩69,000",
     priceNote: "/인",
     recommended: false,
+    comingSoon: true,
     features: {
       recordings: "무제한",
       documents: "무제한",
-      agents: "6개",
+      agents: "4개 전체",
       clientMessage: true,
       caseManagement: true,
       teamSharing: true,
@@ -142,6 +145,11 @@ export default function PlanSelector({ currentPlan, onSelectPlan }: PlanSelector
                     추천
                   </span>
                 )}
+                {plan.comingSoon && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface border border-border text-text-dim text-xs font-semibold rounded-full">
+                    준비중
+                  </span>
+                )}
                 {isCurrent && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gold-dim text-gold text-xs font-semibold rounded-full">
                     현재 플랜
@@ -176,7 +184,11 @@ export default function PlanSelector({ currentPlan, onSelectPlan }: PlanSelector
               </ul>
 
               {/* 버튼 */}
-              {isCurrent ? (
+              {plan.comingSoon ? (
+                <div className="w-full py-2.5 border border-border text-text-dim/60 text-center rounded-xl text-sm font-medium cursor-not-allowed">
+                  출시 예정
+                </div>
+              ) : isCurrent ? (
                 <div className="w-full py-2.5 bg-gold-dim text-gold text-center rounded-xl text-sm font-medium">
                   현재 플랜
                 </div>

@@ -1,4 +1,4 @@
-// 6개 AI 에이전트 프롬프트 빌더
+// AI 에이전트 프롬프트 빌더 (실행 목록은 config/constants.ts의 AGENTS가 진실원본)
 // 12라운드 판사-에이전트 회의를 거쳐 전면 재설계
 
 import type { DocType, CaseType } from "../types/agent";
@@ -8,7 +8,7 @@ import type { ClientCarePromptContext } from "../types/clientCare";
 /**
  * Anthropic Prompt Caching용 큰 공통 prefix 블록 (Phase 2).
  *
- * 6개 에이전트 모두에 동일하게 들어가는 한국 법률 SaaS 운영 규칙.
+ * 모든 에이전트에 동일하게 들어가는 한국 법률 SaaS 운영 규칙.
  * 1024 토큰 이상이어야 캐시가 자동 무시되지 않음 (현재 약 1,800 토큰).
  *
  * 이 prefix를 system 블록의 첫 번째 항목으로 cache_control: ephemeral과 함께 보내면,
@@ -2536,7 +2536,7 @@ export interface FreeformContext {
 
 /**
  * 양식 없이 변호사의 자유 지시를 따르는 문서 생성 프롬프트.
- * 6개 에이전트·체크포인트를 우회하는 빠른 경로에서 사용됩니다.
+ * 에이전트 분석·체크포인트를 우회하는 빠른 경로에서 사용됩니다.
  */
 export function buildFreeformPrompt(ctx: FreeformContext): string {
   const parts: string[] = [`- 의뢰인: ${ctx.clientName}`];

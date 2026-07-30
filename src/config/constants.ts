@@ -76,5 +76,6 @@ export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string
 export const PLANS = [
   { id: "starter" as const, name: "Starter", price: "₩49,000/월", amount: 49000, features: "5건 녹음/월, 3건 문서/월" },
   { id: "pro" as const, name: "Pro", price: "₩89,000/월", amount: 89000, features: "무제한 녹음, AI 분석팀 전체, 무제한 문서" },
-  { id: "team" as const, name: "Team", price: "₩69,000/인", amount: 69000, features: "Pro + 팀 공유 + 관리자 (3인 이상)" },
+  // team은 팀 공유·권한 기능 구현 전이라 판매 중단(준비중) — PlanSelector에서 선택 불가, 서버(confirm.ts)도 승인 거부
+  { id: "team" as const, name: "Team", price: "₩69,000/인", amount: 69000, features: "Pro + 팀 공유 + 관리자 (3인 이상) — 준비중" },
 ];

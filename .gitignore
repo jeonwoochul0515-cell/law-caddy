@@ -44,3 +44,4 @@ stitch.zip
 
 # Supabase CLI 로컬 상태
 supabase/.temp/
+.consult-admin-token.txt

@@ -117,7 +117,7 @@ export function extractText(data: ClaudeApiResponse): string {
  *
  * 확인 요령:
  *  - cacheRead가 계속 0이면 프롬프트 캐시가 전혀 안 걸리고 있다는 뜻이다.
- *    (6개 에이전트를 동시에 쏘면 서로가 만드는 캐시를 못 읽어 전원이 쓰기 요금만 낸다)
+ *    (에이전트 전원을 동시에 쏘면 서로가 만드는 캐시를 못 읽어 전원이 쓰기 요금만 낸다)
  *  - cacheWrite만 쌓이고 cacheRead가 안 늘면 같은 증상이다.
  *  - 전체 프롬프트 크기 = input + cacheWrite + cacheRead. input만 보면 과소평가된다.
  */
@@ -410,7 +410,7 @@ async function callClaudeProxy(
 /**
  * Phase 2: 공통 prefix를 별도 캐시 블록으로 보내는 호출 함수.
  *
- * 6개 에이전트가 sharedPrefix를 공유하면, 첫 호출에서 캐시가 만들어진 후
+ * 에이전트 전원이 sharedPrefix를 공유하면, 첫 호출에서 캐시가 만들어진 후
  * 같은 5분 윈도우의 나머지 호출들은 prefix 부분에서 ~90% 할인.
  * persona 부분은 에이전트마다 달라서 캐시 안 되지만 어차피 짧음.
  *

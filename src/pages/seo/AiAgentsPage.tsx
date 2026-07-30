@@ -1,4 +1,4 @@
-// 검색 유입용: 6개 AI 에이전트 소개 페이지
+// 검색 유입용: 4개 AI 에이전트 소개 페이지
 import SeoPageLayout from "../../components/landing/SeoPageLayout";
 import { AGENTS } from "../../data/landingContent";
 

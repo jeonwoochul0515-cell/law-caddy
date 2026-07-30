@@ -26,6 +26,11 @@ export default function PricingPage() {
                 추천
               </div>
             )}
+            {plan.comingSoon && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#9a9ca3] text-white text-xs font-bold whitespace-nowrap">
+                준비중
+              </div>
+            )}
             <h2 className={`text-xl font-bold mb-2 ${plan.highlighted ? "text-[#fed65b]" : "text-[#1b1c1a]"}`}>
               {plan.name}
             </h2>
@@ -50,16 +55,22 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
-            <Link
-              to="/login"
-              className={`block w-full text-center py-3 rounded-xl font-semibold transition-all ${
-                plan.highlighted
-                  ? "bg-[#fed65b] text-[#01261f] hover:bg-[#ffe88a]"
-                  : "border border-[#efeeea] hover:border-[#735c00]/30 text-[#1b1c1a] hover:text-[#735c00]"
-              }`}
-            >
-              시작하기
-            </Link>
+            {plan.comingSoon ? (
+              <div className="block w-full text-center py-3 rounded-xl font-semibold border border-[#efeeea] text-[#9a9ca3]">
+                출시 예정
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className={`block w-full text-center py-3 rounded-xl font-semibold transition-all ${
+                  plan.highlighted
+                    ? "bg-[#fed65b] text-[#01261f] hover:bg-[#ffe88a]"
+                    : "border border-[#efeeea] hover:border-[#735c00]/30 text-[#1b1c1a] hover:text-[#735c00]"
+                }`}
+              >
+                시작하기
+              </Link>
+            )}
           </div>
         ))}
       </div>

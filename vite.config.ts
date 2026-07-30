@@ -49,6 +49,11 @@ export default defineConfig(({ isSsrBuild }) => ({
         navigateFallbackDenylist: [/^\/api\//],
         // 결제·인증 등 외부 리소스는 런타임 캐싱하지 않음 (precache만 사용)
         cleanupOutdatedCaches: true,
+        // (2026-07-30) 새 SW 즉시 활성화. injectRegister "script"는 단순 등록만 하고
+        // SKIP_WAITING 메시지를 보내지 않아, 이 옵션 없이는 새 배포가 "waiting"에 갇혀
+        // 사용자가 탭을 전부 닫기 전까지 구버전을 계속 보게 된다(실측 확인).
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],

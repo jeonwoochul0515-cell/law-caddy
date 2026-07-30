@@ -376,15 +376,12 @@ export default function FinancePage() {
               </h3>
               <p className="text-sm text-text-dim leading-relaxed mb-4">
                 아직 등록된 거래가 없습니다. 사건별 수임료·경비·예수금은
-                <strong className="text-text-primary"> 사건 상세 페이지의 [재무] 탭</strong>에서,
-                사무실 운영 경비는 <strong className="text-text-primary">[월별 정산] 탭</strong>에서 추가할 수 있어요.
+                <strong className="text-text-primary"> 사건 상세 페이지의 [재무] 탭</strong>에서 추가할 수 있어요.
+                사무실 운영 경비 입력은 준비 중입니다.
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
                   💼 사건 → 재무 탭에서 수임료 입력
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
-                  📑 월별 정산 탭에서 사무실 경비 등록
                 </span>
                 <span className="px-3 py-1.5 rounded-full bg-surface border border-border text-text-dim">
                   📊 등록한 데이터는 자동으로 이 화면에 집계

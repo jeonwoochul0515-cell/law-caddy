@@ -74,7 +74,8 @@ export function getRouteJsonLd(url: string): object[] {
         operatingSystem: "Web",
         description:
           "변호사 상담 녹음 → AI가 판례 검색·적법성 검증·쟁점 분석·문서 작성을 병렬 수행하고, 수임계약서 전자서명·성공보수 추적·소송비용 계산까지 지원하는 법률사무소 업무 자동화 플랫폼.",
-        offers: PLANS.map((p) => ({
+        // 출시 전(comingSoon) 플랜은 구매 가능한 Offer가 아니므로 구조화 데이터에서 제외
+        offers: PLANS.filter((p) => !p.comingSoon).map((p) => ({
           "@type": "Offer",
           name: p.name,
           price: p.price.replace(/,/g, ""),

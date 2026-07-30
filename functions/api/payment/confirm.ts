@@ -16,10 +16,11 @@ import { firestorePatchDocument } from "../_shared/firestore";
 const TOSS_CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm";
 
 // 플랜별 월 요금 (KRW) — 클라이언트가 보낸 금액을 신뢰하지 않고 서버에서 검증한다
+// team 플랜은 팀 공유·권한 기능 구현 전이라 판매 중단(준비중) — 목록에서 빼면
+// parseOrderId가 거부하므로 결제 승인 자체가 차단된다. 출시 시 69_000으로 복구할 것.
 const PLAN_MONTHLY_PRICE: Record<string, number> = {
   starter: 49_000,
   pro: 89_000,
-  team: 69_000,
 };
 
 /** 연결제 청구 배수 (12개월 이용, 10개월 요금) */

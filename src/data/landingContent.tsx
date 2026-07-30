@@ -107,7 +107,18 @@ export const PLATFORM_FEATURES = [
   },
 ];
 
-export const PLANS = [
+interface LandingPlan {
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  highlighted: boolean;
+  badge?: string;
+  /** true면 아직 판매하지 않는 플랜 — 화면엔 "준비중", 구조화 데이터 Offer에서 제외 */
+  comingSoon?: boolean;
+}
+
+export const PLANS: LandingPlan[] = [
   {
     name: "Starter",
     price: "49,000",
@@ -136,8 +147,10 @@ export const PLANS = [
     name: "Team",
     price: "69,000",
     period: "/인 · 월",
-    features: ["Pro 전체 기능", "팀 공유 대시보드", "관리자 기능", "3인 이상"],
+    features: ["Pro 전체 기능", "팀 공유 대시보드", "관리자 기능", "3인 이상 · 출시 예정"],
     highlighted: false,
+    // 팀 공유·권한 기능이 아직 구현 전이라 판매하지 않는다. 구현 완료 전까지 유지할 것.
+    comingSoon: true,
   },
 ];
 

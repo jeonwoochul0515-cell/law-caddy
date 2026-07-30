@@ -1,5 +1,12 @@
 name = "law-caddy"
 compatibility_date = "2024-09-23"
+# Pages 구성 파일로 인식시켜 아래 바인딩이 배포 시 함께 적용되게 한다
+pages_build_output_dir = "dist"
+
+# 상담 신청 저장소 — 문자(Solapi)가 실패해도 리드가 남도록 KV에 먼저 저장
+[[kv_namespaces]]
+binding = "CONSULTS"
+id = "91f81377e06d4f69be6984553c02289d"
 
 # 로컬 개발 시크릿은 .dev.vars 파일에 설정
 # ANTHROPIC_API_KEY=

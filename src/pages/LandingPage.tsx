@@ -34,6 +34,134 @@ const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8A961]";
 
 /* ────────────────────────────────────────────
+   도입 상담 신청 폼 — 사업자등록증 없이도 이름·연락처만 남기면 연락한다.
+   가입 완주 전 이탈하는 방문자(광고 유입 대부분)를 잡는 유일한 입구.
+   ──────────────────────────────────────────── */
+function ConsultSection() {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const cleanName = name.trim();
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanName.length < 2) {
+      setStatus("error");
+      setErrMsg("성함을 입력해 주세요.");
+      return;
+    }
+    if (!/^01[016789][0-9]{7,8}$/.test(cleanPhone)) {
+      setStatus("error");
+      setErrMsg("휴대전화 번호를 확인해 주세요. (예: 010-1234-5678)");
+      return;
+    }
+    setStatus("busy");
+    setErrMsg("");
+    try {
+      const res = await fetch("/api/consult", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: cleanName, phone: cleanPhone, message: message.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+      if (!res.ok || !data.ok) throw new Error(data.message || "");
+      setStatus("done");
+    } catch (err) {
+      setStatus("error");
+      setErrMsg(
+        err instanceof Error && err.message
+          ? err.message
+          : "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
+  }
+
+  return (
+    <section id="consult" className="py-20 sm:py-24 px-5 sm:px-8" style={{ background: PAPER2 }}>
+      <div className="max-w-xl mx-auto">
+        <p className="text-[12px] tracking-[0.3em] mb-4 text-center" style={{ ...serif, color: GOLD_DEEP }}>
+          도입 상담
+        </p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3" style={{ ...serif, color: INK }}>
+          가입 전에 궁금한 점이 있다면
+        </h2>
+        <p className="text-sm text-center mb-8" style={{ color: "#676A72" }}>
+          연락처만 남겨 주세요. 도입·요금·보안 관련 궁금증을 직접 안내드립니다.
+        </p>
+        {status === "done" ? (
+          <div
+            className="p-6 text-center text-sm font-semibold"
+            style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.14)", color: INK }}
+          >
+            상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다.
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-3">
+            {/* 허니팟 */}
+            <input
+              type="text"
+              name="website2"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{ position: "absolute", left: "-9999px", width: 1, height: 1 }}
+            />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="성함"
+                autoComplete="name"
+                className={`w-full px-4 py-3 text-sm ${focusRing}`}
+                style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+              />
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="휴대전화 (010-1234-5678)"
+                autoComplete="tel"
+                className={`w-full px-4 py-3 text-sm ${focusRing}`}
+                style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+              />
+            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              placeholder="궁금한 점 (선택)"
+              className={`w-full px-4 py-3 text-sm ${focusRing}`}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+            />
+            {status === "error" && (
+              <p role="alert" className="text-sm font-semibold" style={{ color: SEAL }}>
+                {errMsg}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={status === "busy"}
+              className={`w-full py-4 font-bold text-base transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${focusRing}`}
+              style={{ background: INK, color: "#EFEAE0" }}
+            >
+              {status === "busy" ? "전송 중…" : "상담 신청 남기기"}
+            </button>
+            <p className="text-xs text-center" style={{ color: "#9A9CA3" }}>
+              입력하신 정보는 도입 상담 회신 목적으로만 사용합니다.
+            </p>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────
    스크롤 진입 페이드 (SSR에서는 보이는 상태로 출력)
    ──────────────────────────────────────────── */
 function useFadeIn<T extends HTMLElement>() {
@@ -646,6 +774,14 @@ export default function LandingPage() {
                         추천
                       </span>
                     )}
+                    {plan.comingSoon && (
+                      <span
+                        className="absolute -top-3 left-8 px-3 py-1 text-[11px] font-bold tracking-[0.18em]"
+                        style={{ background: "#9A9CA3", color: PAPER }}
+                      >
+                        준비중
+                      </span>
+                    )}
                     <h3
                       className="text-lg font-bold mb-5"
                       style={{ ...serif, color: plan.highlighted ? GOLD : "#22252E" }}
@@ -736,6 +872,9 @@ export default function LandingPage() {
             </div>
           </FadeIn>
         </section>
+
+        {/* ─── 도입 상담 신청 — 가입 전 방문자의 유일한 연락 창구 ─── */}
+        <ConsultSection />
       </main>
 
       {/* ─── 푸터 ─── */}
