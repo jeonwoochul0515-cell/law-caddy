@@ -10,7 +10,9 @@ import { createRecording, updateRecording, addTimelineEvent } from "../services/
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 
-type Step = "info" | "record" | "agents";
+// (2026-07-31) 녹음과 자료 첨부를 분리했다.
+// 상담 중에는 녹음 화면만 보이고, 상담이 끝난 뒤 서류를 챙겨 넣는 것이 실제 순서다.
+type Step = "info" | "record" | "attach" | "agents";
 
 function getFileIcon(file: File) {
   const type = file.type;
@@ -47,6 +49,8 @@ export default function RecordPage() {
 
   const [step, setStep] = useState<Step>("info");
   const [files, setFiles] = useState<File[]>([]);
+  /** 이 화면에서 직접 녹음한 파일 이름들 — 첨부 목록에서 "상담 녹음"으로 구분해 보여준다 */
+  const [recordedNames, setRecordedNames] = useState<string[]>([]);
   const [typedNotes, setTypedNotes] = useState("");
 
   const [uploading, setUploading] = useState(false);
@@ -136,6 +140,7 @@ export default function RecordPage() {
         if (blob) {
           const audioFile = new File([blob], `recording_${Date.now()}.webm`, { type: "audio/webm" });
           setFiles((prev) => [...prev, audioFile]);
+          setRecordedNames((prev) => [...prev, audioFile.name]);
         }
       } else {
         await startRecording();
@@ -153,6 +158,9 @@ export default function RecordPage() {
       if (!clientName) return;
       setStep("record");
     } else if (step === "record") {
+      // 녹음이 없어도 넘어갈 수 있다 — 녹음 파일을 따로 갖고 있거나 메모만 쓰는 경우가 있다
+      setStep("attach");
+    } else if (step === "attach") {
       if ((files.length === 0 && !typedNotes.trim()) || !user) return;
       setUploading(true);
       try {
@@ -310,15 +318,16 @@ export default function RecordPage() {
     }
   };
 
-  const steps: Step[] = ["info", "record", "agents"];
+  const steps: Step[] = ["info", "record", "attach", "agents"];
   const stepLabels: Record<Step, string> = {
     info: "사건 정보",
-    record: "자료 입력",
+    record: "상담 녹음",
+    attach: "자료 첨부",
     agents: "AI 분석",
   };
 
   return (
-    <AppLayout title={prefilled?.caseId ? "추가 상담" : "새 상담"} subtitle={prefilled?.caseId ? `${clientName} · 기존 사건에 추가` : "녹음 · 메모 · 파일 첨부 → AI 분석"}>
+    <AppLayout title={prefilled?.caseId ? "추가 상담" : "새 상담"} subtitle={prefilled?.caseId ? `${clientName} · 기존 사건에 추가` : "상담 녹음 → 자료 첨부 → AI 분석"}>
       {/* 단계 표시 */}
       <div className="flex items-center gap-3 mb-8">
         {steps.map((s, i) => (
@@ -464,7 +473,73 @@ export default function RecordPage() {
                 </p>
               )}
             </div>
+
+            {/* 녹음된 파일 목록 — 이 단계에서 확보한 결과 */}
+            {recordedNames.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-border space-y-2">
+                <h4 className="text-sm font-medium text-text-primary">
+                  녹음 완료 ({recordedNames.length}건)
+                </h4>
+                {files
+                  .map((f, i) => ({ f, i }))
+                  .filter(({ f }) => recordedNames.includes(f.name))
+                  .map(({ f, i }) => (
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-3 bg-navy-light rounded-lg px-4 py-3">
+                      <Music className="w-5 h-5 text-gold shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text-primary truncate">상담 녹음</p>
+                        <p className="text-xs text-text-dim">{(f.size / 1024 / 1024).toFixed(1)} MB</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          removeFile(i);
+                          setRecordedNames((prev) => prev.filter((n) => n !== f.name));
+                        }}
+                        aria-label="녹음 삭제"
+                        className="p-1.5 text-text-dim hover:text-error rounded-lg hover:bg-error/10 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
+
+          {/* 녹음 단계 하단 버튼 */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep("info")}
+              className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              이전
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={isRecording}
+              title={isRecording ? "녹음을 정지한 뒤 넘어갈 수 있습니다" : undefined}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gold to-gold-bright text-navy font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {recordedNames.length > 0 ? "저장하고 자료 첨부" : "녹음 없이 자료 첨부"}
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: 자료 첨부 */}
+      {step === "attach" && (
+        <div className="max-w-2xl space-y-6">
+          {/* 앞 단계에서 녹음한 결과 요약 */}
+          {recordedNames.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-success/10 border border-success/20 rounded-xl">
+              <Music className="w-4 h-4 text-success shrink-0" />
+              <span className="text-sm text-text-primary">
+                상담 녹음 {recordedNames.length}건이 저장되었습니다. 관련 서류를 함께 첨부하세요.
+              </span>
+            </div>
+          )}
 
           {/* 파일 업로드 + 카메라 + 직접 입력 */}
           <div
@@ -473,7 +548,8 @@ export default function RecordPage() {
             }`}
             {...dropZoneProps}
           >
-            <h3 className="text-lg font-semibold text-text-primary mb-4">자료 첨부</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-1">자료 첨부</h3>
+            <p className="text-sm text-text-dim mb-4">계약서·내용증명·상대방 서면 등 사건 관련 서류를 넣어 주세요. 없으면 건너뛰어도 됩니다.</p>
 
             {/* 드래그 오버레이 */}
             {isDragging && (
@@ -591,9 +667,14 @@ export default function RecordPage() {
                 <span className="text-sm text-error">{saveError}</span>
               </div>
             )}
+            {files.length === 0 && !typedNotes.trim() && (
+              <p className="text-sm text-text-dim">
+                첨부할 서류가 없으면 아래에 상담 메모만 적어도 분석을 시작할 수 있습니다.
+              </p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setStep("info")}
+                onClick={() => setStep("record")}
                 disabled={savingOnly}
                 className="flex items-center gap-1.5 px-4 py-3 border border-border rounded-lg text-text-dim hover:border-border-hover hover:text-text-primary transition-colors disabled:opacity-50"
               >
