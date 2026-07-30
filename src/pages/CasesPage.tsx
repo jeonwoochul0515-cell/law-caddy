@@ -6,6 +6,7 @@ import {
   Wallet, Building2, ReceiptText, ArrowUpDown, X as XIcon,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
+import NewCaseModal from "../components/cases/NewCaseModal";
 import useAuth from "../hooks/useAuth";
 import { getCases, updateCase } from "../services/firebase/firestore";
 import { CASE_TYPES } from "../config/constants";
@@ -48,6 +49,7 @@ export default function CasesPage() {
   const [filterDateTo, setFilterDateTo] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [newCaseOpen, setNewCaseOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -180,6 +182,13 @@ export default function CasesPage() {
             <option value="완료">완료</option>
             <option value="보류">보류</option>
           </select>
+          <button
+            onClick={() => setNewCaseOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-gold/20 active:scale-[0.98] transition-all whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            새 사건 등록
+          </button>
         </div>
 
         {/* 날짜 범위 + 정렬 + 필터 초기화 */}
@@ -369,6 +378,15 @@ export default function CasesPage() {
             );
           })}
         </div>
+      )}
+
+      {/* 새 사건 등록 모달 */}
+      {newCaseOpen && user && (
+        <NewCaseModal
+          ownerId={user.uid}
+          onClose={() => setNewCaseOpen(false)}
+          onCreated={(caseId) => navigate(`/cases/${caseId}`)}
+        />
       )}
     </AppLayout>
   );

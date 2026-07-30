@@ -277,6 +277,29 @@ export async function createDocument(
  * @param ownerId - 변호사 UID (Firestore 보안 규칙 충족용)
  * @returns 문서 목록 (최신순)
  */
+/**
+ * 소유자의 전체 문서를 조회합니다 (문서고용 — 사건 구분 없이).
+ */
+export async function getAllDocuments(ownerId: string): Promise<LegalDocument[]> {
+  try {
+    const q = query(
+      collection(db!, "documents"),
+      where("ownerId", "==", ownerId),
+    );
+    const snapshot = await getDocs(q);
+    const results = snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as LegalDocument[];
+    return results.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`전체 문서 조회 실패: ${error.message}`);
+    }
+    throw new Error("전체 문서 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
 export async function getDocuments(caseId: string, ownerId: string): Promise<LegalDocument[]> {
   try {
     const q = query(
@@ -464,6 +487,28 @@ export async function getDeadlines(caseId: string, ownerId: string): Promise<Cas
       throw new Error(`기한 조회 실패: ${error.message}`);
     }
     throw new Error("기한 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 소유자의 전체 기한을 조회합니다 (통합 캘린더용 — 사건 구분 없이).
+ */
+export async function getAllDeadlines(ownerId: string): Promise<CaseDeadline[]> {
+  try {
+    const q = query(
+      collection(db!, "deadlines"),
+      where("ownerId", "==", ownerId),
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => ({
+      ...docSnap.data(),
+      id: docSnap.id,
+    })) as CaseDeadline[];
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`전체 기한 조회 실패: ${error.message}`);
+    }
+    throw new Error("전체 기한 조회 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 

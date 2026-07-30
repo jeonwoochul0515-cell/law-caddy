@@ -34,6 +34,9 @@ export interface CostItem {
   date: string;                  // ISO date string (YYYY-MM-DD)
 }
 
+/** 심급 */
+export type CaseInstance = "1심" | "항소심" | "상고심" | "기타";
+
 export interface Case {
   id: string;
   ownerId: string;
@@ -42,6 +45,17 @@ export interface Case {
   clientPhone?: string;
   caseType: CaseType;
   description: string;
+  // ── 사건 실체 정보 (선택 — 소 제기 전 상담 단계에는 없을 수 있음) ──
+  /** 법원 사건번호 (예: 2026가단12345) */
+  caseNumber?: string;
+  /** 관할법원 (예: 부산지방법원) */
+  courtName?: string;
+  /** 재판부 (예: 민사3단독) */
+  courtDivision?: string;
+  /** 상대방 당사자 이름 */
+  opponentName?: string;
+  /** 심급 */
+  instance?: CaseInstance;
   status: "진행중" | "완료" | "보류";
   createdAt: Timestamp;
   updatedAt: Timestamp;

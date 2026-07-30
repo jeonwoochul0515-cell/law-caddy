@@ -53,6 +53,9 @@ const CheckpointPage = lazyWithRetry(() => import("./pages/CheckpointPage"));
 const DocumentPage = lazyWithRetry(() => import("./pages/DocumentPage"));
 const CasesPage = lazyWithRetry(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazyWithRetry(() => import("./pages/CaseDetailPage"));
+const CalendarPage = lazyWithRetry(() => import("./pages/CalendarPage"));
+const DocumentsPage = lazyWithRetry(() => import("./pages/DocumentsPage"));
+const ClientsPage = lazyWithRetry(() => import("./pages/ClientsPage"));
 const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
 const AdminPage = lazyWithRetry(() => import("./pages/AdminPage"));
 const PaymentSuccessPage = lazyWithRetry(() => import("./pages/PaymentSuccessPage"));
@@ -253,6 +256,9 @@ export default function App() {
           <Route path="/record/document" element={<RequireAuth><DocumentPage /></RequireAuth>} />
           <Route path="/cases" element={<RequireAuth><CasesPage /></RequireAuth>} />
           <Route path="/cases/:id" element={<RequireAuth><CaseDetailPage /></RequireAuth>} />
+          <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
+          <Route path="/documents" element={<RequireAuth><DocumentsPage /></RequireAuth>} />
+          <Route path="/clients" element={<RequireAuth><ClientsPage /></RequireAuth>} />
           <Route path="/finance" element={<RequireAuth><FinancePage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />

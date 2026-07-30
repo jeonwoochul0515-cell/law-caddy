@@ -20,10 +20,16 @@ import useAuth from "./useAuth";
 import type { Case, CaseType } from "../types/case";
 
 /** 새 사건 생성 시 입력 데이터 */
-interface NewCaseData {
+export interface NewCaseData {
   clientName: string;
   caseType: CaseType;
   description: string;
+  clientPhone?: string;
+  caseNumber?: string;
+  courtName?: string;
+  courtDivision?: string;
+  opponentName?: string;
+  instance?: Case["instance"];
 }
 
 /** 사건 수정 시 변경 가능한 필드 */
@@ -32,6 +38,12 @@ interface EditCaseData {
   caseType?: CaseType;
   description?: string;
   status?: "진행중" | "완료" | "보류";
+  clientPhone?: string;
+  caseNumber?: string;
+  courtName?: string;
+  courtDivision?: string;
+  opponentName?: string;
+  instance?: Case["instance"];
 }
 
 /** useCases 반환 타입 */
@@ -107,11 +119,18 @@ export default function useCases(): UseCasesReturn {
 
       try {
         const casesRef = collection(db!, "cases");
+        // 선택 필드는 값이 있을 때만 저장 (Firestore는 undefined를 거부)
+        const optionalFields = Object.fromEntries(
+          (["clientPhone", "caseNumber", "courtName", "courtDivision", "opponentName", "instance"] as const)
+            .filter((k) => data[k])
+            .map((k) => [k, data[k]]),
+        );
         const newCase = {
           ownerId: user.uid,
           clientName: data.clientName,
           caseType: data.caseType,
           description: data.description,
+          ...optionalFields,
           status: "진행중" as const,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -127,6 +146,7 @@ export default function useCases(): UseCasesReturn {
           clientName: data.clientName,
           caseType: data.caseType,
           description: data.description,
+          ...optionalFields,
           status: "진행중",
           createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as Timestamp,
           updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as Timestamp,

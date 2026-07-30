@@ -36,6 +36,15 @@ interface UseCaseDetailReturn {
   loading: boolean;
   error: string | null;
   updateStatus: (status: "진행중" | "완료" | "보류") => Promise<void>;
+  /** 사건 기본 정보(의뢰인·사건번호·법원·상대방 등) 수정 */
+  updateInfo: (
+    data: Partial<
+      Pick<
+        Case,
+        "clientName" | "clientPhone" | "caseType" | "description" | "caseNumber" | "courtName" | "courtDivision" | "opponentName" | "instance"
+      >
+    >,
+  ) => Promise<void>;
   addNote: (label: string, detail: string) => Promise<void>;
   uploadOpponentDoc: (file: File, label: string) => Promise<void>;
   removeOpponentDoc: (docId: string) => Promise<void>;
@@ -161,6 +170,30 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
           });
         } catch {
           setCaseData((prev) => prev ? { ...prev, status: oldStatus } : prev);
+        }
+      }
+    },
+    [caseData, caseId],
+  );
+
+  const updateInfo = useCallback(
+    async (
+      data: Partial<
+        Pick<
+          Case,
+          "clientName" | "clientPhone" | "caseType" | "description" | "caseNumber" | "courtName" | "courtDivision" | "opponentName" | "instance"
+        >
+      >,
+    ) => {
+      if (!caseData) return;
+      const before = caseData;
+      setCaseData((prev) => (prev ? { ...prev, ...data } : prev));
+      if (!isDemoMode) {
+        try {
+          await updateCase(caseId, data);
+        } catch (err) {
+          setCaseData(before);
+          throw err;
         }
       }
     },
@@ -714,6 +747,7 @@ export default function useCaseDetail(caseId: string): UseCaseDetailReturn {
     loading,
     error,
     updateStatus,
+    updateInfo,
     addNote,
     uploadOpponentDoc,
     removeOpponentDoc,

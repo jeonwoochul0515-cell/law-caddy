@@ -60,6 +60,7 @@ export default function CaseDetailPage() {
     loading,
     error,
     updateStatus,
+    updateInfo,
     addNote,
     uploadOpponentDoc,
     removeOpponentDoc,
@@ -544,6 +545,7 @@ export default function CaseDetailPage() {
         caseData={caseData}
         onStatusChange={updateStatus}
         onDelete={handleDeleteCase}
+        onUpdateInfo={updateInfo}
       />
 
       {/* 탭 네비게이션 */}
