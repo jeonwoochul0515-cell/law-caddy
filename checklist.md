@@ -104,3 +104,9 @@
 - [x] AgentsPage `completedCount === 6` 하드코딩 버그 수정 (완료 판정·진행률 → AGENTS.length)
 - [x] 완료 판정 → 사건 자동 생성 → 문서 유형 선택 개방까지 운영 실측 검증
 - [x] 테스트 사건 정리 — 잔여 0건 (캐시검증테스트*는 버그로 미생성이었음, 완료판정테스트는 UI로 삭제)
+
+## 2026-07-30 티어 0 (로드맵: docs/roadmap-office-saas-2026-07.md)
+- [x] Team 플랜 판매 중단(준비중) — 화면 3곳 표기 + 결제 서버 승인 거부 + JSON-LD 제외 (결제자 0명 확인 후)
+- [x] "6개 에이전트" 잔재 문구 일소 (PlanSelector 3개/6개 → 4개 전체, SEO·주석)
+- [x] FinancePage 허위 경비 등록 안내 제거
+- [x] (발견·수리) PWA autoUpdate 미작동 — 새 SW가 waiting에 갇혀 배포가 사용자에게 전달 안 되던 문제, workbox skipWaiting/clientsClaim으로 해결
