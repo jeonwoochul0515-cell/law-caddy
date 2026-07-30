@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   MessageSquare, Copy, Check, Loader2, Trash2,
-  Phone, TrendingUp, FileOutput, Flag, Send,
+  Phone, TrendingUp, FileOutput, Flag, Send, Link2, Globe,
 } from "lucide-react";
 import useClientCare from "../../hooks/useClientCare";
 import { sendClientSms } from "../../services/notify";
@@ -95,6 +95,68 @@ export default function ClientCareTab({
     if (caseData.clientPhone) setSmsPhone((prev) => prev || caseData.clientPhone!);
   }, [caseData.clientPhone]);
 
+  // 의뢰인 포털 (읽기 전용 공유 링크)
+  const [portalEnabled, setPortalEnabled] = useState(!!caseData.portalEnabled && !!caseData.portalToken);
+  const [portalToken, setPortalToken] = useState(caseData.portalToken ?? "");
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalCopied, setPortalCopied] = useState(false);
+  const [portalSent, setPortalSent] = useState(false);
+  const portalUrl = portalToken ? `${window.location.origin}/portal/${portalToken}` : "";
+
+  async function handlePortalToggle() {
+    setPortalBusy(true);
+    try {
+      if (portalEnabled) {
+        await updateCase(caseData.id, { portalEnabled: false });
+        setPortalEnabled(false);
+      } else {
+        // 기존 토큰 재사용, 없으면 새로 발급 (32자 hex)
+        let token = portalToken;
+        if (!token) {
+          const bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+          setPortalToken(token);
+        }
+        await updateCase(caseData.id, { portalToken: token, portalEnabled: true });
+        setPortalEnabled(true);
+      }
+    } catch {
+      /* 실패 시 상태 유지 */
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function handlePortalCopy() {
+    try {
+      await navigator.clipboard.writeText(portalUrl);
+      setPortalCopied(true);
+      setTimeout(() => setPortalCopied(false), 2000);
+    } catch { /* 무시 */ }
+  }
+
+  async function handlePortalSms() {
+    const normalized = smsPhone.replace(/\D/g, "");
+    setSendingId("__portal__");
+    setSmsError(null);
+    try {
+      await sendClientSms(
+        normalized,
+        `[${firmName}] ${caseData.clientName}님, 사건 진행 상황을 확인하실 수 있는 페이지입니다.\n${portalUrl}\n진행 내역과 다가오는 일정이 업데이트됩니다. 궁금하신 점은 편하게 연락 주세요.\n${firmName} ${lawyerName} 변호사`,
+      );
+      if (normalized !== caseData.clientPhone) {
+        updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
+      }
+      setPortalSent(true);
+      setTimeout(() => setPortalSent(false), 3000);
+    } catch (err) {
+      setSmsError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
+    } finally {
+      setSendingId(null);
+    }
+  }
+
   const handleSendSms = async (id: string, content: string) => {
     const normalized = smsPhone.replace(/\D/g, "");
     setSendingId(id);
@@ -160,6 +222,81 @@ export default function ClientCareTab({
 
   return (
     <div className="space-y-6">
+      {/* 의뢰인 포털 (읽기 전용 공유 링크) */}
+      <div className="bg-surface border border-border rounded-2xl p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-lg ${portalEnabled ? "bg-success/10 text-success" : "bg-surface border border-border text-text-dim"}`}>
+              <Globe className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary mb-1">의뢰인 포털</p>
+              <p className="text-xs text-text-dim leading-relaxed max-w-md">
+                의뢰인이 로그인 없이 진행 상황·다가오는 일정을 열람하는 전용 페이지입니다.
+                "사건 어떻게 되고 있나요" 전화를 줄여줍니다.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handlePortalToggle}
+            disabled={portalBusy}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
+              portalEnabled
+                ? "border border-border text-text-dim hover:text-error hover:border-error/30"
+                : "bg-gradient-to-r from-gold to-gold-bright text-navy hover:shadow-lg hover:shadow-gold/20"
+            }`}
+          >
+            {portalBusy ? "처리 중..." : portalEnabled ? "포털 비활성화" : "포털 링크 만들기"}
+          </button>
+        </div>
+
+        {/* 문자 발송 대상 번호 (한 번 입력하면 사건에 저장 — 포털·케어 메시지 발송 공용) */}
+        <div className="mt-4 flex items-center gap-2 flex-wrap">
+          <Phone className="w-4 h-4 text-text-dim shrink-0" />
+          <input
+            type="tel"
+            value={smsPhone}
+            onChange={(e) => setSmsPhone(e.target.value)}
+            placeholder="의뢰인 휴대폰 번호 (예: 010-1234-5678)"
+            className="flex-1 max-w-xs px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
+          />
+          <span className="text-[11px] text-text-dim">발송한 번호는 사건에 저장됩니다</span>
+        </div>
+        {smsError && <p className="text-xs text-error mt-2">{smsError}</p>}
+
+        {portalEnabled && portalUrl && (
+          <div className="mt-4 flex gap-2 flex-wrap">
+            <input
+              readOnly
+              value={portalUrl}
+              className="flex-1 min-w-[200px] px-3 py-2 bg-navy-light border border-border rounded-lg text-xs text-text-dim font-mono truncate"
+            />
+            <button
+              onClick={handlePortalCopy}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-dim rounded-lg text-xs font-medium hover:border-gold/30 hover:text-gold transition-colors"
+            >
+              {portalCopied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+              {portalCopied ? "복사됨" : "복사"}
+            </button>
+            <button
+              onClick={handlePortalSms}
+              disabled={sendingId === "__portal__" || smsPhone.replace(/\D/g, "").length < 10}
+              title={smsPhone.replace(/\D/g, "").length < 10 ? "아래 의뢰인 번호를 먼저 입력하세요" : "포털 링크를 문자로 발송"}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gold-dim text-gold rounded-lg text-xs font-medium hover:bg-gold/20 transition-colors disabled:opacity-40"
+            >
+              {sendingId === "__portal__" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : portalSent ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
+              {portalSent ? "발송됨" : "문자로 보내기"}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* 안내 */}
       <div className="bg-[#FEE500]/5 border border-[#FEE500]/15 rounded-2xl p-5">
         <div className="flex items-start gap-3">
@@ -255,20 +392,6 @@ export default function ClientCareTab({
           <h3 className="text-sm font-semibold text-text-primary mb-3">
             생성된 메시지 ({messages.length})
           </h3>
-
-          {/* 문자 발송 대상 번호 (한 번 입력하면 사건에 저장) */}
-          <div className="flex items-center gap-2 mb-3">
-            <Phone className="w-4 h-4 text-text-dim shrink-0" />
-            <input
-              type="tel"
-              value={smsPhone}
-              onChange={(e) => setSmsPhone(e.target.value)}
-              placeholder="의뢰인 휴대폰 번호 (예: 010-1234-5678)"
-              className="flex-1 max-w-xs px-3 py-2 bg-navy-light border border-border rounded-lg text-sm text-text-primary placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
-            />
-            <span className="text-[11px] text-text-dim">발송한 번호는 사건에 저장됩니다</span>
-          </div>
-          {smsError && <p className="text-xs text-error mb-3">{smsError}</p>}
 
           <div className="space-y-3">
             {messages.map((msg) => {

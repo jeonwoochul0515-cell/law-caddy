@@ -13,6 +13,7 @@ import {
   FileCheck,
   BadgeCheck,
   Receipt,
+  Download,
 } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
@@ -23,6 +24,7 @@ import UsageSummary from "../components/payment/UsageSummary";
 import PlanSelector from "../components/payment/PlanSelector";
 import PaymentModal from "../components/payment/PaymentModal";
 import { getPaymentHistory, type PaymentRecord } from "../services/payment";
+import { exportAllData } from "../services/backupExport";
 
 export default function SettingsPage() {
   const user = useAuth((s) => s.user);
@@ -43,6 +45,28 @@ export default function SettingsPage() {
   // 결제 내역
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+
+  // 데이터 백업
+  const [exporting, setExporting] = useState(false);
+  const [exportStep, setExportStep] = useState("");
+  const [exportResult, setExportResult] = useState<string | null>(null);
+
+  async function handleExportData() {
+    if (!user || isDemoMode) return;
+    setExporting(true);
+    setExportResult(null);
+    try {
+      const count = await exportAllData(user.uid, (p) =>
+        setExportStep(`${p.step} 내보내는 중... (${p.done}/${p.total})`),
+      );
+      setExportResult(`총 ${count.toLocaleString()}건의 기록을 내려받았습니다.`);
+    } catch (err) {
+      setExportResult(err instanceof Error ? `실패: ${err.message}` : "내보내기에 실패했습니다.");
+    } finally {
+      setExporting(false);
+      setExportStep("");
+    }
+  }
 
   useEffect(() => {
     if (tab !== "plan" || !user || isDemoMode) return;
@@ -487,6 +511,33 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* 데이터 백업 */}
+          <div className="bg-surface border border-border rounded-2xl p-6">
+            <h3 className="font-semibold text-text-primary mb-2">내 데이터 백업</h3>
+            <p className="text-sm text-text-dim leading-relaxed mb-4">
+              사건, 문서, 재무 기록 전체를 ZIP 파일로 내려받습니다. 생성 문서는 바로 열어볼 수 있는
+              텍스트 파일로도 함께 담깁니다. 데이터는 언제든 가져가실 수 있습니다.
+            </p>
+            <button
+              onClick={handleExportData}
+              disabled={exporting}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-gold/20 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {exportStep || "내보내는 중..."}
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  전체 데이터 내려받기 (ZIP)
+                </>
+              )}
+            </button>
+            {exportResult && <p className="text-xs text-success mt-3">{exportResult}</p>}
           </div>
         </div>
       )}

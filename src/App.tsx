@@ -54,6 +54,7 @@ const DocumentPage = lazyWithRetry(() => import("./pages/DocumentPage"));
 const CasesPage = lazyWithRetry(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazyWithRetry(() => import("./pages/CaseDetailPage"));
 const CalendarPage = lazyWithRetry(() => import("./pages/CalendarPage"));
+const PortalPage = lazyWithRetry(() => import("./pages/PortalPage"));
 const DocumentsPage = lazyWithRetry(() => import("./pages/DocumentsPage"));
 const ClientsPage = lazyWithRetry(() => import("./pages/ClientsPage"));
 const SettingsPage = lazyWithRetry(() => import("./pages/SettingsPage"));
@@ -234,6 +235,7 @@ export default function App() {
         <Routes>
           {/* 완전 공개 라우트 (인증 불요) */}
           <Route path="/sign/:token" element={<SigningPage />} />
+          <Route path="/portal/:token" element={<PortalPage />} />
 
           {/* 공개 라우트 */}
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />

@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/verify-business", // 회원가입 시 사업자등록증 검증 (미인증 상태)
   "/api/signing", // 전자계약 서명 (의뢰인은 로그인하지 않는다 — 토큰으로 서버가 검증)
   "/api/consult", // 랜딩 상담 신청 — 가입 전 리드 수집 (자체 검증·허니팟, 어드민 조회는 토큰)
+  "/api/portal", // 의뢰인 포털 (읽기 전용 — 토큰으로 서버가 검증)
 ];
 
 export const onRequest: PagesFunction<Env> = async (context) => {

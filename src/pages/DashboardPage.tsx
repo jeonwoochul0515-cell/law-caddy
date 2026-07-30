@@ -8,6 +8,7 @@ import { db, isDemoMode } from "../config/firebase";
 import type { Case } from "../types/case";
 import FinanceSummaryWidget from "../components/accounting/FinanceSummaryWidget";
 import OverdueAlertPanel from "../components/accounting/OverdueAlertPanel";
+import DashboardStats from "../components/dashboard/DashboardStats";
 
 interface Stats {
   totalCases: number;
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const user = useAuth((s) => s.user);
   const [stats, setStats] = useState<Stats>({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
   const [recentCases, setRecentCases] = useState<Case[]>([]);
+  const [allCases, setAllCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [financeStats, setFinanceStats] = useState({ revenue: 0, outstanding: 0, expenses: 0, deposits: 0 });
   const [financeLoading, setFinanceLoading] = useState(true);
@@ -70,6 +72,7 @@ export default function DashboardPage() {
           totalRecordings: recsSnap.size,
         });
         setRecentCases(recent);
+        setAllCases(cases);
       } catch (err) {
         console.error("대시보드 데이터 로딩 실패:", err);
         setStats({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
@@ -253,6 +256,15 @@ export default function DashboardPage() {
         <div className="mb-8">
           <OverdueAlertPanel ownerId={user.uid} />
         </div>
+      )}
+
+      {/* 통계 — 매출 추이·사건 구성·수임 전환 */}
+      {user && !loading && (
+        <DashboardStats
+          ownerId={user.uid}
+          cases={allCases}
+          recordingCount={stats.totalRecordings}
+        />
       )}
 
       {/* 최근 사건 */}

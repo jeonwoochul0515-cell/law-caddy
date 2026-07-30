@@ -644,6 +644,14 @@ export default function CaseDetailPage() {
             caseId={caseData.id}
             ownerId={uid}
             clientName={caseData.clientName}
+            claimContext={{
+              clientPhone: caseData.clientPhone,
+              firmName: user?.firmName ?? "법률사무소",
+              lawyerName: user?.name ?? "담당",
+              caseLabel: caseData.caseNumber
+                ? `${caseData.courtName ?? ""} ${caseData.caseNumber}`.trim()
+                : caseData.description.slice(0, 40) || caseData.caseType,
+            }}
           />
           <CaseExpenseTab
             expenses={caseExpenses}

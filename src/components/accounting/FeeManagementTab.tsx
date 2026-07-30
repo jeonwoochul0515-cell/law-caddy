@@ -29,8 +29,18 @@ import type {
   SuccessFeeInfo,
   VatInfo,
 } from "../../types/accounting";
+import SuccessFeeClaimModal from "./SuccessFeeClaimModal";
 
 // ─── Props ───────────────────────────────────
+
+/** 성공보수 청구서 생성·발송에 필요한 사건·사무소 정보 */
+export interface SuccessFeeClaimContext {
+  clientPhone?: string;
+  firmName: string;
+  lawyerName: string;
+  /** 청구서에 표기할 사건 설명 (사건번호 또는 개요 요약) */
+  caseLabel: string;
+}
 
 interface FeeManagementTabProps {
   fee: Fee | null;
@@ -43,6 +53,8 @@ interface FeeManagementTabProps {
   caseId: string;
   ownerId: string;
   clientName: string;
+  /** 있으면 성공보수 섹션에 "청구서 만들기·발송" 버튼이 활성화된다 */
+  claimContext?: SuccessFeeClaimContext;
 }
 
 // ─── 상수 ────────────────────────────────────
@@ -154,6 +166,7 @@ export default function FeeManagementTab({
   caseId,
   ownerId,
   clientName,
+  claimContext,
 }: FeeManagementTabProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     contract: true,
@@ -258,6 +271,8 @@ export default function FeeManagementTab({
         <SuccessFeeSection
           successFee={fee.successFee}
           onUpdate={(successFee) => onUpdateFee({ successFee })}
+          clientName={clientName}
+          claimContext={claimContext}
         />
       </CollapsibleSection>
     </div>
@@ -974,10 +989,15 @@ function InstallmentSection({
 function SuccessFeeSection({
   successFee,
   onUpdate,
+  clientName,
+  claimContext,
 }: {
   successFee: SuccessFeeInfo;
   onUpdate: (successFee: SuccessFeeInfo) => void;
+  clientName: string;
+  claimContext?: SuccessFeeClaimContext;
 }) {
+  const [claimOpen, setClaimOpen] = useState(false);
   const [editingPercent, setEditingPercent] = useState(false);
   const [percentInput, setPercentInput] = useState(String(successFee.percent ?? ""));
   const [editingFixed, setEditingFixed] = useState(false);
@@ -1292,6 +1312,40 @@ function SuccessFeeSection({
               ))}
             </div>
           </div>
+
+          {/* 청구액 표시 (청구 이후) */}
+          {successFee.claimedAmount ? (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-text-dim">청구 금액</span>
+              <span className="font-semibold text-gold">{formatWon(successFee.claimedAmount)}</span>
+            </div>
+          ) : null}
+
+          {/* 청구서 만들기·발송 */}
+          {claimContext && (successFee.status === "미확정" || successFee.status === "청구가능") && (
+            <button
+              onClick={() => setClaimOpen(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-gold to-gold-bright text-navy rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-gold/20 active:scale-[0.98] transition-all"
+            >
+              <Trophy className="w-4 h-4" />
+              성공보수 산정 · 청구서 발송
+            </button>
+          )}
+
+          {claimOpen && claimContext && (
+            <SuccessFeeClaimModal
+              successFee={successFee}
+              clientName={clientName}
+              clientPhone={claimContext.clientPhone}
+              firmName={claimContext.firmName}
+              lawyerName={claimContext.lawyerName}
+              caseLabel={claimContext.caseLabel}
+              onClose={() => setClaimOpen(false)}
+              onClaimed={async (claimedAmount) => {
+                onUpdate({ ...successFee, status: "청구완료", claimedAmount });
+              }}
+            />
+          )}
         </>
       )}
     </div>

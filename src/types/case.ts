@@ -56,6 +56,11 @@ export interface Case {
   opponentName?: string;
   /** 심급 */
   instance?: CaseInstance;
+  // ── 의뢰인 포털 (읽기 전용 공유 링크) ──
+  /** 포털 접근 토큰 (32자 hex). 서버(/api/portal)가 이 값으로 사건을 찾는다 */
+  portalToken?: string;
+  /** 포털 활성 여부 — false면 토큰이 있어도 접근 불가 */
+  portalEnabled?: boolean;
   status: "진행중" | "완료" | "보류";
   createdAt: Timestamp;
   updatedAt: Timestamp;
