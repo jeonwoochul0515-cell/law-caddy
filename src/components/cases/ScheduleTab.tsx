@@ -235,7 +235,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-[#1b1c1a]/40">
+      <div className="flex items-center justify-center py-16 text-[#1e2a22]/40">
         <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
@@ -249,10 +249,10 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
           icon={Clock}
           label="진행 중 기한"
           value={`${imminentCount}건`}
-          color="text-[#735c00]"
-          bgColor="bg-[#735c00]/5"
-          borderColor="border-[#735c00]/10"
-          iconBg="bg-[#735c00]/10"
+          color="text-[#2e6242]"
+          bgColor="bg-[#2e6242]/5"
+          borderColor="border-[#2e6242]/10"
+          iconBg="bg-[#2e6242]/10"
         />
         <SummaryCard
           icon={CalendarDays}
@@ -296,8 +296,8 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
             onClick={() => setFilter(key)}
             className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
               filter === key
-                ? "bg-[#735c00] text-white shadow-sm"
-                : "bg-[#efeeea] text-[#1b1c1a]/60 hover:bg-[#e5e4e0] hover:text-[#1b1c1a]/80"
+                ? "bg-[#2e6242] text-white shadow-sm"
+                : "bg-[#ede7d8] text-[#1e2a22]/60 hover:bg-[#e5e4e0] hover:text-[#1e2a22]/80"
             }`}
           >
             {label}
@@ -307,12 +307,12 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
 
       {/* 기한 목록 */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[#1b1c1a]/50 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[#1e2a22]/50 uppercase tracking-wider">
           다가오는 기한
         </h3>
 
         {filtered.length === 0 ? (
-          <div className="text-center py-12 text-[#1b1c1a]/40">
+          <div className="text-center py-12 text-[#1e2a22]/40">
             <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-40" />
             <p className="text-sm">
               {deadlines.length === 0
@@ -323,7 +323,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         ) : (
           <div className="relative">
             {/* 타임라인 세로선 */}
-            <div className="absolute left-[23px] top-4 bottom-4 w-px bg-[#efeeea]" />
+            <div className="absolute left-[23px] top-4 bottom-4 w-px bg-[#ede7d8]" />
 
             <div className="space-y-0">
               {filtered.map((deadline) => {
@@ -349,7 +349,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                         <div className="flex-1 min-w-0">
                           {/* 제목 + 배지 */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-[15px] font-semibold text-[#1b1c1a]">
+                            <h4 className="text-[15px] font-semibold text-[#1e2a22]">
                               {deadline.title}
                             </h4>
                             <span
@@ -366,7 +366,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           </div>
 
                           {/* 날짜 */}
-                          <p className="mt-1.5 text-sm text-[#1b1c1a]/70">
+                          <p className="mt-1.5 text-sm text-[#1e2a22]/70">
                             <span className="font-medium">{formatDate(deadline.dueDate)}</span>
                             {deadline.status === "overdue" && (
                               <span className="ml-2 text-red-600 font-semibold">
@@ -379,14 +379,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           {(deadline.baseDateLabel || deadline.rule) && (
                             <div className="mt-2 flex flex-col gap-1">
                               {deadline.baseDateLabel && (
-                                <p className="text-xs text-[#1b1c1a]/50">
-                                  <span className="text-[#1b1c1a]/40">기산일</span>{" "}
+                                <p className="text-xs text-[#1e2a22]/50">
+                                  <span className="text-[#1e2a22]/40">기산일</span>{" "}
                                   {deadline.baseDateLabel}
                                 </p>
                               )}
                               {deadline.rule && (
-                                <p className="text-xs text-[#1b1c1a]/50">
-                                  <span className="text-[#1b1c1a]/40">근거</span> {deadline.rule}
+                                <p className="text-xs text-[#1e2a22]/50">
+                                  <span className="text-[#1e2a22]/40">근거</span> {deadline.rule}
                                 </p>
                               )}
                             </div>
@@ -394,7 +394,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
 
                           {/* 카테고리 */}
                           <div className="mt-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#efeeea] text-[#1b1c1a]/50">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#ede7d8] text-[#1e2a22]/50">
                               {deadline.category}
                             </span>
                           </div>
@@ -404,7 +404,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                         <div className="flex-shrink-0 flex items-center gap-0.5">
                           <button
                             onClick={() => startEdit(deadline)}
-                            className="p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-[#735c00] hover:bg-[#735c00]/10 transition-colors"
+                            className="p-1.5 rounded-lg text-[#1e2a22]/25 hover:text-[#2e6242] hover:bg-[#2e6242]/10 transition-colors"
                             title="기한 수정"
                           >
                             <Pencil className="w-4 h-4" />
@@ -412,7 +412,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           <button
                             onClick={() => handleDelete(deadline.id)}
                             disabled={deletingId === deadline.id}
-                            className="p-1.5 rounded-lg text-[#1b1c1a]/25 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                            className="p-1.5 rounded-lg text-[#1e2a22]/25 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
                             title="기한 삭제"
                           >
                             {deletingId === deadline.id ? (
@@ -435,14 +435,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       {/* 기한 추가 */}
       <div className="pt-2">
         {showForm ? (
-          <div className="rounded-xl border border-[#efeeea] bg-white p-5 space-y-4 shadow-sm">
+          <div className="rounded-xl border border-[#ede7d8] bg-white p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-[#1b1c1a]">
+              <h4 className="text-sm font-semibold text-[#1e2a22]">
                 {editingId ? "기한 수정" : "새 기한 추가"}
               </h4>
               <button
                 onClick={resetForm}
-                className="p-1 rounded-lg text-[#1b1c1a]/40 hover:text-[#1b1c1a] hover:bg-[#efeeea] transition-colors"
+                className="p-1 rounded-lg text-[#1e2a22]/40 hover:text-[#1e2a22] hover:bg-[#ede7d8] transition-colors"
                 aria-label="닫기"
               >
                 <X className="w-4 h-4" />
@@ -451,33 +451,33 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
 
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
                   제목 <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="예: 답변서 제출기한"
-                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] placeholder:text-[#1e2a22]/30 focus:border-[#2e6242]/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
                   마감일 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={formDueDate}
                   onChange={(e) => setFormDueDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] focus:border-[#735c00]/40 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] focus:border-[#2e6242]/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">분류</label>
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">분류</label>
                 <select
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value as DeadlineCategory)}
-                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] bg-white focus:border-[#735c00]/40 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] bg-white focus:border-[#2e6242]/40 focus:outline-none"
                 >
                   {DEADLINE_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -487,25 +487,25 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
                   기산일 설명 (선택)
                 </label>
                 <input
                   value={formBaseDateLabel}
                   onChange={(e) => setFormBaseDateLabel(e.target.value)}
                   placeholder="예: 소장 송달일 (2026.03.02)"
-                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] placeholder:text-[#1e2a22]/30 focus:border-[#2e6242]/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#1b1c1a]/60 mb-1">
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
                   법적 근거 (선택)
                 </label>
                 <input
                   value={formRule}
                   onChange={(e) => setFormRule(e.target.value)}
                   placeholder="예: 30일 (민사소송법 §256)"
-                  className="w-full px-3 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a] placeholder:text-[#1b1c1a]/30 focus:border-[#735c00]/40 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] placeholder:text-[#1e2a22]/30 focus:border-[#2e6242]/40 focus:outline-none"
                 />
               </div>
             </div>
@@ -513,14 +513,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={resetForm}
-                className="px-4 py-2 rounded-lg border border-[#efeeea] text-sm text-[#1b1c1a]/60 hover:text-[#1b1c1a] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22]/60 hover:text-[#1e2a22] transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={saving || !formTitle.trim() || !formDueDate}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#735c00] text-white text-sm font-medium hover:bg-[#5d4a00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2e6242] text-white text-sm font-medium hover:bg-[#5d4a00] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editingId ? "수정 저장" : "등록"}
@@ -530,7 +530,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#efeeea] text-[#1b1c1a]/50 hover:border-[#735c00]/30 hover:text-[#735c00] transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#ede7d8] text-[#1e2a22]/50 hover:border-[#2e6242]/30 hover:text-[#2e6242] transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span className="text-sm font-medium">기한 추가</span>
@@ -539,9 +539,9 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       </div>
 
       {/* 안내 문구 */}
-      <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#efeeea]/60 border border-[#efeeea]">
-        <Timer className="w-4 h-4 text-[#735c00] flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-[#1b1c1a]/50 leading-relaxed">
+      <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#ede7d8]/60 border border-[#ede7d8]">
+        <Timer className="w-4 h-4 text-[#2e6242] flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-[#1e2a22]/50 leading-relaxed">
           지연·임박·예정 상태는 오늘 날짜 기준으로 자동 계산됩니다. 공휴일 및
           토요일이 만료일인 경우 다음 영업일로 연장될 수 있으니, 정확한 기한은
           담당 법원의 송달일 기준으로 직접 확인하시기 바랍니다.
@@ -576,7 +576,7 @@ function SummaryCard({
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
       <div>
-        <p className="text-xs text-[#1b1c1a]/50 font-medium">{label}</p>
+        <p className="text-xs text-[#1e2a22]/50 font-medium">{label}</p>
         <p className={`text-xl font-bold ${color} mt-0.5`}>{value}</p>
       </div>
     </div>

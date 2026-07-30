@@ -30,7 +30,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   const marginClass = isCollapsed ? "ml-16" : "ml-16 lg:ml-60";
 
   return (
-    <div className="flex min-h-screen bg-[#faf9f5]">
+    <div className="flex min-h-screen bg-[#f7f5ec]">
       {/* 사이드바 */}
       <Sidebar user={sidebarUser} onLogout={logout} />
 

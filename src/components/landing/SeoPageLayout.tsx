@@ -10,18 +10,18 @@ export default function SeoPageLayout({
   maxWidthClass?: string;
 }) {
   return (
-    <div className="min-h-screen bg-[#faf9f5]">
-      <nav className="border-b border-[#efeeea] bg-[#faf9f5]/90 backdrop-blur-xl">
+    <div className="min-h-screen bg-[#f7f5ec]">
+      <nav className="border-b border-[#ede7d8] bg-[#f7f5ec]/90 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <Scale className="w-6 h-6 text-[#01261f]" />
-            <span className="text-xl font-serif italic font-bold tracking-tight text-[#01261f]">
+            <Scale className="w-6 h-6 text-[#14392b]" />
+            <span className="text-xl font-serif italic font-bold tracking-tight text-[#14392b]">
               Law-Caddy
             </span>
           </Link>
           <Link
             to="/login"
-            className="px-5 py-2 text-sm rounded-lg bg-[#01261f] text-white font-semibold hover:bg-[#1a3c34] transition-colors"
+            className="px-5 py-2 text-sm rounded-lg bg-[#14392b] text-white font-semibold hover:bg-[#24513c] transition-colors"
           >
             무료 체험
           </Link>
@@ -35,22 +35,22 @@ export default function SeoPageLayout({
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 text-center">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-[#01261f] font-semibold hover:text-[#735c00] transition-colors"
+          className="inline-flex items-center gap-2 text-[#14392b] font-semibold hover:text-[#2e6242] transition-colors"
         >
           Law-Caddy 전체 소개 보기
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
-      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-[#efeeea] bg-[#faf9f5]">
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-[#ede7d8] bg-[#f7f5ec]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-[#735c00]/40" />
+            <Scale className="w-4 h-4 text-[#2e6242]/40" />
             <span className="text-sm text-[#414846]">
               &copy; 2025 Law-Caddy. AI가 분석하고, 변호사가 결정합니다.
             </span>
           </div>
-          <Link to="/login" className="text-sm text-[#414846] hover:text-[#01261f] transition-colors">
+          <Link to="/login" className="text-sm text-[#414846] hover:text-[#14392b] transition-colors">
             로그인
           </Link>
         </div>

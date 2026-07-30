@@ -3,30 +3,30 @@
 /* LAW-CADDY 프리미엄 테마 (라이트 모드) */
 @theme {
   /* Primary: Deep Forest Green */
-  --color-navy: #faf9f5;
-  --color-navy-light: #efeeea;
-  --color-surface: rgba(1, 38, 31, 0.03);
-  --color-surface-hover: rgba(1, 38, 31, 0.06);
-  --color-border: rgba(1, 38, 31, 0.08);
-  --color-border-hover: rgba(1, 38, 31, 0.15);
+  --color-navy: #f7f5ec;
+  --color-navy-light: #ede7d8;
+  --color-surface: rgba(20, 57, 43, 0.03);
+  --color-surface-hover: rgba(20, 57, 43, 0.06);
+  --color-border: rgba(20, 57, 43, 0.08);
+  --color-border-hover: rgba(20, 57, 43, 0.15);
   /* Gold → Premium Dark Gold */
   --color-gold: #735c00;
   --color-gold-dim: rgba(115, 92, 0, 0.08);
   --color-gold-bright: #574500;
   /* Text */
-  --color-text-primary: #1b1c1a;
-  --color-text-dim: rgba(1, 38, 31, 0.5);
+  --color-text-primary: #1e2a22;
+  --color-text-dim: rgba(20, 57, 43, 0.5);
   /* Status */
-  --color-success: #2d6a4f;
+  --color-success: #2e6242;
   --color-error: #ba1a1a;
   --color-warning: #735c00;
   --color-info: #43655c;
   /* New: Primary container */
-  --color-primary: #01261f;
-  --color-primary-container: #1a3c34;
+  --color-primary: #14392b;
+  --color-primary-container: #24513c;
   --color-secondary: #735c00;
   --color-secondary-container: #fed65b;
-  --color-surface-container: #efeeea;
+  --color-surface-container: #ede7d8;
   --color-on-surface-variant: #414846;
   --color-outline: #717976;
   --color-outline-variant: #c1c8c4;
@@ -37,8 +37,8 @@ html, body, #root {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background-color: #faf9f5;
-  color: #1b1c1a;
+  background-color: #f7f5ec;
+  color: #1e2a22;
   font-family: 'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,11 +57,11 @@ html, body, #root {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(1, 38, 31, 0.1);
+  background: rgba(20, 57, 43, 0.1);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(1, 38, 31, 0.2);
+  background: rgba(20, 57, 43, 0.2);
 }
 
 /* Glass panel */

@@ -73,9 +73,9 @@ const FaqPage = lazyWithRetry(() => import("./pages/seo/FaqPage"));
 
 function LazyFallback() {
   return (
-    <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+    <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin mx-auto mb-4" />
+        <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin mx-auto mb-4" />
         <p className="text-text-dim text-sm">페이지 로딩 중...</p>
       </div>
     </div>
@@ -90,9 +90,9 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin mx-auto mb-4" />
           <p className="text-text-dim text-sm">로딩 중...</p>
         </div>
       </div>
@@ -116,8 +116,8 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin" />
       </div>
     );
   }
@@ -137,8 +137,8 @@ function RequirePending({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin" />
       </div>
     );
   }
@@ -160,8 +160,8 @@ function RequireProfileSetup({ children }: { children: React.ReactNode }) {
 
   if (!initialized || loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin" />
       </div>
     );
   }
@@ -206,8 +206,8 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 
   if (!initialized) {
     return (
-      <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#01261f]/20 border-t-[#01261f] rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#14392b]/20 border-t-[#14392b] rounded-full animate-spin" />
       </div>
     );
   }

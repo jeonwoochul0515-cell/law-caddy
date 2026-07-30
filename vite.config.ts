@@ -36,8 +36,8 @@ export default defineConfig(({ isSsrBuild }) => ({
         lang: "ko",
         start_url: "/",
         display: "standalone",
-        theme_color: "#01261f",
-        background_color: "#faf9f5",
+        theme_color: "#14392b",
+        background_color: "#f7f5ec",
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },

@@ -18,11 +18,11 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf9f5] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f5ec] px-4">
       <div className="w-full max-w-md">
         {/* 로고 */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl italic font-serif text-[#01261f] mb-2">
+          <h1 className="text-4xl italic font-serif text-[#14392b] mb-2">
             Law-Caddy
           </h1>
           <p className="text-[#414846] font-[Manrope]">
@@ -31,8 +31,8 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
         </div>
 
         {/* 로그인 카드 */}
-        <div className="bg-white border border-[#01261f]/8 rounded-2xl p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-[#1b1c1a] mb-2">
+        <div className="bg-white border border-[#14392b]/8 rounded-2xl p-8 shadow-sm">
+          <h2 className="text-xl font-semibold text-[#1e2a22] mb-2">
             로그인
           </h2>
           <p className="text-sm text-[#414846] mb-6">
@@ -48,7 +48,7 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#efeeea] text-[#1b1c1a] font-medium rounded-lg hover:bg-[#e5e4e0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#01261f]/8"
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#ede7d8] text-[#1e2a22] font-medium rounded-lg hover:bg-[#e5e4e0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#14392b]/8"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
             )}
           </button>
 
-          <div className="mt-6 pt-6 border-t border-[#01261f]/8">
+          <div className="mt-6 pt-6 border-t border-[#14392b]/8">
             <p className="text-xs text-[#414846] text-center leading-relaxed">
               첫 로그인 시 사업자등록증 인증이 필요합니다.<br />
               변호사업이 등록된 사업자만 이용 가능합니다.
@@ -77,7 +77,7 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
         </div>
 
         {/* 하단 브랜딩 */}
-        <p className="text-center text-xs text-[#735c00] mt-6 tracking-wide">
+        <p className="text-center text-xs text-[#2e6242] mt-6 tracking-wide">
           Premium Legal AI Assistant
         </p>
       </div>

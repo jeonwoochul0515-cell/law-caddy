@@ -99,7 +99,7 @@ export default function BugReportButton() {
       {/* 플로팅 버튼 */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#01261f] text-[#faf9f5] rounded-full shadow-lg hover:bg-[#1a3c34] transition-colors flex items-center justify-center group"
+        className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-[#14392b] text-[#f7f5ec] rounded-full shadow-lg hover:bg-[#24513c] transition-colors flex items-center justify-center group"
         aria-label="버그 리포트"
       >
         <MessageCircleWarning size={20} />
@@ -112,14 +112,14 @@ export default function BugReportButton() {
           <div className="absolute inset-0 bg-black/30" onClick={handleClose} />
 
           {/* 모달 카드 */}
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[#01261f]/8 overflow-hidden">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-[#14392b]/8 overflow-hidden">
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#01261f]/8">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#14392b]/8">
               <div>
-                <h3 className="text-base font-semibold text-[#1b1c1a]">버그 리포트</h3>
+                <h3 className="text-base font-semibold text-[#1e2a22]">버그 리포트</h3>
                 <p className="text-xs text-[#414846]">베타 테스트 피드백</p>
               </div>
-              <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#efeeea] transition-colors text-[#414846]">
+              <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#ede7d8] transition-colors text-[#414846]">
                 <X size={18} />
               </button>
             </div>
@@ -128,18 +128,18 @@ export default function BugReportButton() {
               <>
                 {/* 자동 수집 정보 */}
                 <div className="px-5 pt-4">
-                  <div className="bg-[#efeeea] rounded-lg p-3 text-xs text-[#414846] space-y-1">
+                  <div className="bg-[#ede7d8] rounded-lg p-3 text-xs text-[#414846] space-y-1">
                     <div className="flex justify-between">
                       <span>페이지</span>
-                      <span className="text-[#1b1c1a] font-mono">{window.location.pathname}</span>
+                      <span className="text-[#1e2a22] font-mono">{window.location.pathname}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>사용자</span>
-                      <span className="text-[#1b1c1a]">{user?.name || "미확인"}</span>
+                      <span className="text-[#1e2a22]">{user?.name || "미확인"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>화면</span>
-                      <span className="text-[#1b1c1a] font-mono">{window.innerWidth}x{window.innerHeight}</span>
+                      <span className="text-[#1e2a22] font-mono">{window.innerWidth}x{window.innerHeight}</span>
                     </div>
                   </div>
                 </div>
@@ -151,7 +151,7 @@ export default function BugReportButton() {
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="어떤 문제가 발생했나요? 자세히 적어주세요..."
                     rows={4}
-                    className="w-full px-4 py-3 bg-white border border-[#01261f]/8 rounded-lg text-[#1b1c1a] text-sm placeholder-[#414846]/50 focus:border-[#735c00] focus:outline-none transition-colors resize-none"
+                    className="w-full px-4 py-3 bg-white border border-[#14392b]/8 rounded-lg text-[#1e2a22] text-sm placeholder-[#414846]/50 focus:border-[#2e6242] focus:outline-none transition-colors resize-none"
                     autoFocus
                   />
                 </div>
@@ -161,10 +161,10 @@ export default function BugReportButton() {
                   <button
                     onClick={handleSave}
                     disabled={!description.trim() || sending}
-                    className="w-full py-3 bg-[#01261f] text-[#faf9f5] font-semibold rounded-lg hover:bg-[#1a3c34] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-[#14392b] text-[#f7f5ec] font-semibold rounded-lg hover:bg-[#24513c] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {sending ? (
-                      <span className="w-4 h-4 border-2 border-[#faf9f5]/30 border-t-[#faf9f5] rounded-full animate-spin" />
+                      <span className="w-4 h-4 border-2 border-[#f7f5ec]/30 border-t-[#f7f5ec] rounded-full animate-spin" />
                     ) : (
                       <>
                         <Send size={16} />
@@ -181,7 +181,7 @@ export default function BugReportButton() {
                   <div className="w-12 h-12 bg-[#2d6a4f]/10 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Check size={24} className="text-[#2d6a4f]" />
                   </div>
-                  <p className="text-[#1b1c1a] font-semibold mb-1">리포트가 저장되었습니다</p>
+                  <p className="text-[#1e2a22] font-semibold mb-1">리포트가 저장되었습니다</p>
                   <p className="text-xs text-[#414846]">
                     아래 버튼으로 카카오톡 채널에 내용을 전달해 주세요
                   </p>
@@ -190,7 +190,7 @@ export default function BugReportButton() {
                 {/* 클립보드 복사 */}
                 <button
                   onClick={handleCopy}
-                  className="w-full py-2.5 border border-[#01261f]/8 rounded-lg text-sm text-[#414846] hover:bg-[#efeeea] transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 border border-[#14392b]/8 rounded-lg text-sm text-[#414846] hover:bg-[#ede7d8] transition-colors flex items-center justify-center gap-2"
                 >
                   {copied ? (
                     <>

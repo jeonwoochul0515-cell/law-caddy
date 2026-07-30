@@ -36,19 +36,19 @@ export default function PaymentSuccessPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl border border-[#efeeea] p-8 text-center">
+    <div className="min-h-screen bg-[#f7f5ec] flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl border border-[#ede7d8] p-8 text-center">
         {state === "confirming" && (
           <>
-            <Loader2 className="w-10 h-10 text-[#01261f] animate-spin mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-[#1b1c1a] mb-2">결제를 확인하고 있습니다</h1>
+            <Loader2 className="w-10 h-10 text-[#14392b] animate-spin mx-auto mb-4" />
+            <h1 className="text-lg font-semibold text-[#1e2a22] mb-2">결제를 확인하고 있습니다</h1>
             <p className="text-sm text-[#414846]">잠시만 기다려 주세요.</p>
           </>
         )}
         {state === "done" && (
           <>
-            <CheckCircle2 className="w-10 h-10 text-[#01261f] mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-[#1b1c1a] mb-2">결제가 완료되었습니다</h1>
+            <CheckCircle2 className="w-10 h-10 text-[#14392b] mx-auto mb-4" />
+            <h1 className="text-lg font-semibold text-[#1e2a22] mb-2">결제가 완료되었습니다</h1>
             <p className="text-sm text-[#414846] mb-6">
               플랜이 즉시 적용되었습니다.
               {expiresAt && (
@@ -60,7 +60,7 @@ export default function PaymentSuccessPage() {
             </p>
             <button
               onClick={() => navigate("/settings")}
-              className="w-full py-2.5 rounded-xl bg-[#01261f] text-white font-semibold hover:bg-[#1a3c34] transition-colors"
+              className="w-full py-2.5 rounded-xl bg-[#14392b] text-white font-semibold hover:bg-[#24513c] transition-colors"
             >
               설정으로 돌아가기
             </button>
@@ -69,11 +69,11 @@ export default function PaymentSuccessPage() {
         {state === "error" && (
           <>
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
-            <h1 className="text-lg font-semibold text-[#1b1c1a] mb-2">결제 승인에 실패했습니다</h1>
+            <h1 className="text-lg font-semibold text-[#1e2a22] mb-2">결제 승인에 실패했습니다</h1>
             <p className="text-sm text-[#414846] mb-6">{error}</p>
             <Link
               to="/settings"
-              className="block w-full py-2.5 rounded-xl border border-[#efeeea] text-[#1b1c1a] font-semibold hover:border-[#735c00]/30 transition-colors"
+              className="block w-full py-2.5 rounded-xl border border-[#ede7d8] text-[#1e2a22] font-semibold hover:border-[#2e6242]/30 transition-colors"
             >
               설정으로 돌아가기
             </Link>

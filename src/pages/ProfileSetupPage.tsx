@@ -249,30 +249,30 @@ export default function ProfileSetupPage() {
     idle: "",
     uploading: "text-[#43655c]",
     ocr: "text-[#43655c]",
-    verifying: "text-[#735c00]",
+    verifying: "text-[#2e6242]",
     verified: "text-[#2d6a4f]",
     failed: "text-[#ba1a1a]",
-    unverified: "text-[#735c00]",
+    unverified: "text-[#2e6242]",
   };
 
   const inputClass =
-    "w-full px-4 py-3 bg-white border border-[#01261f]/8 rounded-lg text-[#1b1c1a] placeholder-[#414846]/50 focus:border-[#735c00] focus:outline-none transition-colors";
+    "w-full px-4 py-3 bg-white border border-[#14392b]/8 rounded-lg text-[#1e2a22] placeholder-[#414846]/50 focus:border-[#2e6242] focus:outline-none transition-colors";
   const readonlyClass =
-    "w-full px-4 py-3 bg-[#efeeea] border border-[#01261f]/8 rounded-lg text-[#414846] cursor-not-allowed";
+    "w-full px-4 py-3 bg-[#ede7d8] border border-[#14392b]/8 rounded-lg text-[#414846] cursor-not-allowed";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf9f5] px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7f5ec] px-4 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-serif italic text-[#01261f] mb-2">Law-Caddy</h1>
+          <h1 className="text-4xl font-serif italic text-[#14392b] mb-2">Law-Caddy</h1>
           <p className="text-[#414846]">변호사 프로필 설정</p>
           {displayEmail && (
             <p className="text-xs text-[#414846] mt-1">{displayEmail}</p>
           )}
         </div>
 
-        <div className="bg-[#efeeea]/50 border border-[#01261f]/8 rounded-2xl p-8 backdrop-blur-sm">
-          <h2 className="text-xl font-semibold text-[#1b1c1a] mb-2">프로필 설정</h2>
+        <div className="bg-[#ede7d8]/50 border border-[#14392b]/8 rounded-2xl p-8 backdrop-blur-sm">
+          <h2 className="text-xl font-semibold text-[#1e2a22] mb-2">프로필 설정</h2>
           <p className="text-sm text-[#414846] mb-6">
             사업자등록증을 업로드하면 정보가 자동으로 채워집니다
           </p>
@@ -287,7 +287,7 @@ export default function ProfileSetupPage() {
             {/* 사업자등록증 업로드 */}
             <div>
               <label className="block text-sm text-[#414846] mb-2">
-                사업자등록증 <span className="text-[#735c00]">*</span>
+                사업자등록증 <span className="text-[#2e6242]">*</span>
               </label>
 
               {!businessFile ? (
@@ -296,18 +296,18 @@ export default function ProfileSetupPage() {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-                    dragOver ? "border-[#735c00] bg-[#735c00]/5" : "border-[#01261f]/8 hover:border-[#735c00]/40"
+                    dragOver ? "border-[#2e6242] bg-[#2e6242]/5" : "border-[#14392b]/8 hover:border-[#2e6242]/40"
                   }`}
                 >
                   <div className="text-3xl mb-3 opacity-60">📄</div>
                   <p className="text-sm text-[#414846] mb-1">사업자등록증을 드래그하여 놓거나</p>
                   <p className="text-xs text-[#414846]/60 mb-4">촬영 또는 파일을 선택하세요</p>
                   <div className="flex gap-3 justify-center">
-                    <label className="cursor-pointer px-4 py-2.5 bg-[#efeeea] border border-[#01261f]/8 rounded-lg text-sm text-[#1b1c1a] hover:border-[#735c00]/40 transition-colors flex items-center gap-2">
+                    <label className="cursor-pointer px-4 py-2.5 bg-[#ede7d8] border border-[#14392b]/8 rounded-lg text-sm text-[#1e2a22] hover:border-[#2e6242]/40 transition-colors flex items-center gap-2">
                       <span>📷</span> 촬영
                       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
                     </label>
-                    <label className="cursor-pointer px-4 py-2.5 bg-gradient-to-r from-[#735c00]/15 to-[#574500]/15 border border-[#735c00]/30 rounded-lg text-sm text-[#735c00] hover:from-[#735c00]/25 hover:to-[#574500]/25 transition-colors flex items-center gap-2">
+                    <label className="cursor-pointer px-4 py-2.5 bg-gradient-to-r from-[#2e6242]/15 to-[#14392b]/15 border border-[#2e6242]/30 rounded-lg text-sm text-[#2e6242] hover:from-[#2e6242]/25 hover:to-[#14392b]/25 transition-colors flex items-center gap-2">
                       <span>📁</span> 파일 선택
                       <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
                     </label>
@@ -315,7 +315,7 @@ export default function ProfileSetupPage() {
                   <p className="text-xs text-[#414846] mt-3 opacity-60">JPG, PNG, PDF / 최대 10MB</p>
                 </div>
               ) : (
-                <div className="border border-[#01261f]/8 rounded-xl overflow-hidden">
+                <div className="border border-[#14392b]/8 rounded-xl overflow-hidden">
                   {previewUrl && (
                     <div className="relative bg-black/20">
                       <img src={previewUrl} alt="사업자등록증" className="w-full max-h-48 object-contain" />
@@ -338,7 +338,7 @@ export default function ProfileSetupPage() {
                   {/* OCR 추출 정보 전체 표시 */}
                   {ocrResult && verifyStatus !== "failed" && (
                     <div className="px-3 pb-3">
-                      <div className="bg-[#efeeea] rounded-lg p-3 text-xs space-y-1.5">
+                      <div className="bg-[#ede7d8] rounded-lg p-3 text-xs space-y-1.5">
                         <OcrRow label="사업자번호" value={formatBusinessNumber(ocrResult.businessNumber)} mono />
                         <OcrRow label="상호" value={ocrResult.companyName} />
                         <OcrRow label="대표자" value={ocrResult.representativeName} />
@@ -355,7 +355,7 @@ export default function ProfileSetupPage() {
 
                   {(verifyStatus === "failed" || verifyStatus === "verified" || verifyStatus === "unverified") && (
                     <div className="px-3 pb-3">
-                      <button type="button" onClick={handleRetry} className="w-full text-xs text-[#414846] hover:text-[#735c00] py-1.5 transition-colors">
+                      <button type="button" onClick={handleRetry} className="w-full text-xs text-[#414846] hover:text-[#2e6242] py-1.5 transition-colors">
                         다른 파일로 다시 업로드
                       </button>
                     </div>
@@ -368,11 +368,11 @@ export default function ProfileSetupPage() {
             {ocrResult && verifyStatus === "verified" && (
               <>
                 <div>
-                  <label className="block text-sm text-[#414846] mb-1.5">변호사 이름 <span className="text-xs text-[#735c00]">(사업자등록증)</span></label>
+                  <label className="block text-sm text-[#414846] mb-1.5">변호사 이름 <span className="text-xs text-[#2e6242]">(사업자등록증)</span></label>
                   <input value={form.name} readOnly className={readonlyClass} />
                 </div>
                 <div>
-                  <label className="block text-sm text-[#414846] mb-1.5">법률사무소 이름 <span className="text-xs text-[#735c00]">(사업자등록증)</span></label>
+                  <label className="block text-sm text-[#414846] mb-1.5">법률사무소 이름 <span className="text-xs text-[#2e6242]">(사업자등록증)</span></label>
                   <input value={form.firmName} readOnly className={readonlyClass} />
                 </div>
               </>
@@ -381,14 +381,14 @@ export default function ProfileSetupPage() {
             {/* 수기 입력 필드 */}
             <div>
               <label className="block text-sm text-[#414846] mb-1.5">
-                변호사 등록번호 <span className="text-[#735c00]">*</span>
+                변호사 등록번호 <span className="text-[#2e6242]">*</span>
               </label>
               <input name="barLicenseNumber" value={form.barLicenseNumber} onChange={handleChange} required className={inputClass} placeholder="변호사 등록번호 입력" />
             </div>
 
             <div>
               <label className="block text-sm text-[#414846] mb-1.5">
-                휴대폰 번호 <span className="text-[#735c00]">*</span>
+                휴대폰 번호 <span className="text-[#2e6242]">*</span>
               </label>
               <input name="phone" type="tel" value={form.phone} onChange={handleChange} required className={inputClass} placeholder="010-0000-0000" />
             </div>
@@ -401,32 +401,32 @@ export default function ProfileSetupPage() {
             </div>
 
             {/* 개인정보 동의 */}
-            <div className="bg-[#efeeea]/50 border border-[#01261f]/8 rounded-xl p-4">
+            <div className="bg-[#ede7d8]/50 border border-[#14392b]/8 rounded-xl p-4">
               <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={privacyConsented} onChange={(e) => setPrivacyConsented(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#735c00] rounded" />
+                <input type="checkbox" checked={privacyConsented} onChange={(e) => setPrivacyConsented(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#2e6242] rounded" />
                 <div>
-                  <span className="text-sm text-[#1b1c1a] font-medium">
-                    개인정보 수집·이용 동의 <span className="text-[#735c00]">*</span>
+                  <span className="text-sm text-[#1e2a22] font-medium">
+                    개인정보 수집·이용 동의 <span className="text-[#2e6242]">*</span>
                   </span>
-                  <button type="button" onClick={() => setShowPrivacyDetail(!showPrivacyDetail)} className="ml-2 text-xs text-[#735c00] hover:text-[#574500] transition-colors underline">
+                  <button type="button" onClick={() => setShowPrivacyDetail(!showPrivacyDetail)} className="ml-2 text-xs text-[#2e6242] hover:text-[#14392b] transition-colors underline">
                     {showPrivacyDetail ? "접기" : "상세보기"}
                   </button>
                 </div>
               </label>
 
               {showPrivacyDetail && (
-                <div className="mt-3 p-3 bg-[#efeeea]/50 rounded-lg text-xs text-[#414846] leading-relaxed space-y-2 max-h-48 overflow-y-auto">
-                  <p className="font-medium text-[#1b1c1a]">수집하는 개인정보 항목</p>
+                <div className="mt-3 p-3 bg-[#ede7d8]/50 rounded-lg text-xs text-[#414846] leading-relaxed space-y-2 max-h-48 overflow-y-auto">
+                  <p className="font-medium text-[#1e2a22]">수집하는 개인정보 항목</p>
                   <p>- 필수: 이름, 이메일, 변호사 등록번호, 휴대폰 번호, 사업자등록증 전체 정보(사업자등록번호, 상호, 대표자명, 사업장 주소, 개업일, 업태/종목, 법인등록번호, 관할세무서, 사업자유형)</p>
                   <p>- 선택: 사무실 전화번호</p>
-                  <p className="font-medium text-[#1b1c1a] mt-2">수집·이용 목적</p>
+                  <p className="font-medium text-[#1e2a22] mt-2">수집·이용 목적</p>
                   <p>- 변호사 본인 확인 및 가입 승인</p>
                   <p>- 서비스 제공(사건 관리, 문서 생성, 의뢰인 관리)</p>
                   <p>- 이용료 청구 및 계산서 발행</p>
                   <p>- 서비스 관련 공지, 고객 문의 응대</p>
-                  <p className="font-medium text-[#1b1c1a] mt-2">보유·이용 기간</p>
+                  <p className="font-medium text-[#1e2a22] mt-2">보유·이용 기간</p>
                   <p>- 회원 탈퇴 시까지 (관계 법령에 따라 보존이 필요한 경우 해당 기간까지)</p>
-                  <p className="font-medium text-[#1b1c1a] mt-2">동의 거부 권리</p>
+                  <p className="font-medium text-[#1e2a22] mt-2">동의 거부 권리</p>
                   <p>- 위 개인정보 수집·이용에 동의하지 않을 수 있으나, 동의를 거부할 경우 서비스 이용이 제한됩니다.</p>
                 </div>
               )}
@@ -435,11 +435,11 @@ export default function ProfileSetupPage() {
             <button
               type="submit"
               disabled={loading || !businessFile || !businessVerified || !privacyConsented || verifyStatus === "ocr" || verifyStatus === "verifying"}
-              className="w-full py-3 bg-gradient-to-r from-[#01261f] to-[#1a3c34] text-[#faf9f5] font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-gradient-to-r from-[#14392b] to-[#24513c] text-[#f7f5ec] font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[#faf9f5]/30 border-t-[#faf9f5] rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-[#f7f5ec]/30 border-t-[#f7f5ec] rounded-full animate-spin" />
                   프로필 설정 중...
                 </span>
               ) : (
@@ -448,14 +448,14 @@ export default function ProfileSetupPage() {
             </button>
 
             {!businessVerified && verifyStatus === "unverified" && (
-              <p className="text-xs text-[#735c00] text-center">
+              <p className="text-xs text-[#2e6242] text-center">
                 변호사업이 확인되지 않은 사업자등록증은 승인되지 않습니다.
               </p>
             )}
           </form>
 
-          <div className="mt-6 pt-4 border-t border-[#01261f]/8">
-            <button onClick={handleLogout} className="w-full text-sm text-[#414846] hover:text-[#735c00] transition-colors">
+          <div className="mt-6 pt-4 border-t border-[#14392b]/8">
+            <button onClick={handleLogout} className="w-full text-sm text-[#414846] hover:text-[#2e6242] transition-colors">
               다른 계정으로 로그인
             </button>
           </div>
@@ -471,7 +471,7 @@ function OcrRow({ label, value, mono }: { label: string; value: string; mono?: b
   return (
     <div className="flex justify-between gap-2">
       <span className="text-[#414846] shrink-0">{label}</span>
-      <span className={`text-[#1b1c1a] text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`text-[#1e2a22] text-right ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

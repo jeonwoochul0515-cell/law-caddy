@@ -68,21 +68,21 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[#01261f]/8 bg-[#faf9f5] transition-all duration-300 ${widthClass}`}
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[#14392b]/8 bg-[#f7f5ec] transition-all duration-300 ${widthClass}`}
     >
       {/* 로고 + 토글 버튼 */}
-      <div className="relative flex h-16 items-center border-b border-[#01261f]/5">
+      <div className="relative flex h-16 items-center border-b border-[#14392b]/5">
         <NavLink
           to="/dashboard"
-          className={`flex h-full flex-1 items-center hover:bg-[#01261f]/3 transition-colors ${
+          className={`flex h-full flex-1 items-center hover:bg-[#14392b]/3 transition-colors ${
             isCollapsed
               ? "justify-center"
               : "justify-center lg:justify-start lg:px-6"
           }`}
         >
-          <span className="text-2xl font-black italic font-serif text-[#01261f]">LC</span>
+          <span className="text-2xl font-black italic font-serif text-[#14392b]">LC</span>
           {!isCollapsed && (
-            <span className="ml-2 hidden text-base font-bold font-serif italic text-[#01261f] lg:inline">
+            <span className="ml-2 hidden text-base font-bold font-serif italic text-[#14392b] lg:inline">
               Law-Caddy
             </span>
           )}
@@ -92,7 +92,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
         <button
           onClick={toggleSidebar}
           aria-label={isCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center justify-center w-6 h-6 rounded-full border border-[#01261f]/10 bg-[#faf9f5] text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f] transition-colors shadow-sm"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center justify-center w-6 h-6 rounded-full border border-[#14392b]/10 bg-[#f7f5ec] text-[#414846] hover:bg-[#14392b]/5 hover:text-[#14392b] transition-colors shadow-sm"
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -119,8 +119,8 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                       ? "justify-center"
                       : "justify-center lg:justify-start",
                     isActive
-                      ? "bg-[#01261f] text-[#faf9f5]"
-                      : "text-[#414846] hover:bg-[#01261f]/5 hover:text-[#01261f]",
+                      ? "bg-[#14392b] text-[#f7f5ec]"
+                      : "text-[#414846] hover:bg-[#14392b]/5 hover:text-[#14392b]",
                   ].join(" ")
                 }
               >
@@ -130,7 +130,7 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
                 )}
                 {/* 접힘 상태 툴팁 */}
                 {isCollapsed && (
-                  <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#01261f] px-2.5 py-1.5 text-xs font-medium text-[#faf9f5] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
+                  <span className="pointer-events-none absolute left-full ml-2 hidden rounded-md bg-[#14392b] px-2.5 py-1.5 text-xs font-medium text-[#f7f5ec] whitespace-nowrap shadow-lg group-hover:lg:block z-50">
                     {item.label}
                   </span>
                 )}
@@ -142,16 +142,16 @@ export default function Sidebar({ user, onLogout }: SidebarProps) {
 
       {/* 하단: 사용자 정보 */}
       {user && (
-        <div className="border-t border-[#01261f]/5 p-3">
+        <div className="border-t border-[#14392b]/5 p-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#1a3c34]">
-              <span className="text-xs font-semibold text-[#faf9f5]">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#24513c]">
+              <span className="text-xs font-semibold text-[#f7f5ec]">
                 {getInitials(user.name)}
               </span>
             </div>
             {!isCollapsed && (
               <div className="hidden min-w-0 flex-1 lg:block">
-                <p className="truncate text-sm font-medium text-[#1b1c1a]">
+                <p className="truncate text-sm font-medium text-[#1e2a22]">
                   {user.name}
                 </p>
                 <p className="text-xs text-[#414846]">

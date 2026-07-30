@@ -30,7 +30,7 @@ export default function ApiStatusMonitor() {
             버그 리포트 버튼으로 관리자에게 알려주세요.
           </p>
         </div>
-        <button onClick={() => setError(null)} className="text-[#414846] hover:text-[#1b1c1a]">
+        <button onClick={() => setError(null)} className="text-[#414846] hover:text-[#1e2a22]">
           <X size={16} />
         </button>
       </div>

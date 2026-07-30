@@ -5,7 +5,7 @@ import { WORKFLOW_STEPS } from "../../data/landingContent";
 export default function WorkflowPage() {
   return (
     <SeoPageLayout>
-      <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
+      <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#14392b] mb-4">
         상담 녹음 한 번, 문서 완성까지 어떻게 이어질까요?
       </h1>
       <p className="text-[#414846] text-lg leading-relaxed mb-12">
@@ -14,13 +14,13 @@ export default function WorkflowPage() {
       <ol className="space-y-8">
         {WORKFLOW_STEPS.map((step, i) => (
           <li key={step.label} className="flex gap-5">
-            <div className="w-10 h-10 rounded-full bg-[#01261f] text-white flex items-center justify-center flex-shrink-0 font-serif font-bold">
+            <div className="w-10 h-10 rounded-full bg-[#14392b] text-white flex items-center justify-center flex-shrink-0 font-serif font-bold">
               {i + 1}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-[#1b1c1a] mb-1">{step.label}</h2>
+              <h2 className="text-lg font-semibold text-[#1e2a22] mb-1">{step.label}</h2>
               <p className="text-[#414846] leading-relaxed mb-1">{step.detail}</p>
-              <span className="text-sm text-[#735c00] font-medium">소요 시간: {step.time}</span>
+              <span className="text-sm text-[#2e6242] font-medium">소요 시간: {step.time}</span>
             </div>
           </li>
         ))}

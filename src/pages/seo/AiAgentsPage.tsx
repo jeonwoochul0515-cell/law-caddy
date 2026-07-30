@@ -5,7 +5,7 @@ import { AGENTS } from "../../data/landingContent";
 export default function AiAgentsPage() {
   return (
     <SeoPageLayout maxWidthClass="max-w-5xl">
-      <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#01261f] mb-4">
+      <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#14392b] mb-4">
         판례 검색부터 문서 검토까지, AI는 어떤 일을 할까요?
       </h1>
       <p className="text-[#414846] text-lg leading-relaxed mb-12 max-w-3xl">
@@ -15,15 +15,15 @@ export default function AiAgentsPage() {
         {AGENTS.map((agent) => (
           <div
             key={agent.fullName}
-            className="flex items-start gap-4 p-6 rounded-xl bg-white border border-[#efeeea]"
+            className="flex items-start gap-4 p-6 rounded-xl bg-white border border-[#ede7d8]"
           >
             <div
-              className={`w-10 h-10 rounded-lg bg-[#faf9f5] flex items-center justify-center flex-shrink-0 ${agent.color}`}
+              className={`w-10 h-10 rounded-lg bg-[#f7f5ec] flex items-center justify-center flex-shrink-0 ${agent.color}`}
             >
               {agent.icon}
             </div>
             <div>
-              <h2 className="font-semibold text-[#1b1c1a] mb-1">
+              <h2 className="font-semibold text-[#1e2a22] mb-1">
                 {agent.fullName}{" "}
                 <span className="text-[#414846] font-normal text-sm">· {agent.role}</span>
               </h2>

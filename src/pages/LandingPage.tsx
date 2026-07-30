@@ -1,10 +1,12 @@
-// 랜딩페이지 — "페이지 전체가 한 부의 소장(訴狀)" 컨셉
+// 랜딩페이지 — "캐디의 라운드" 컨셉
 //
-// (2026-07-27) 전면 재설계. 설계 의도:
-// - 히어로는 구호가 아니라 산출물: 실제 법원 서식으로 조판한 소장이 눈앞에서 완성된다
-// - 각 섹션은 실무의 증거 스탬프(갑 제N호증)로 번호를 매긴다 — 페이지의 주장
-//   ("변호사의 시간을 청구한다")을 증거가 하나씩 입증하는 구조
-// - 색은 앱과 동일한 잉크 네이비 + 금색. 도장 주홍(#B3372B)은 스탬프와 인영에만 쓴다
+// (2026-07-30) 전면 재설계. 설계 의도:
+// - 서비스 이름의 원뜻으로 돌아간다. 캐디는 클럽을 고르고 코스를 읽지만, 스윙은 선수가 한다.
+//   이 은유가 우리 법적 포지션("AI가 준비하고 판단은 변호사가")과 정확히 겹친다.
+// - 히어로 시그니처는 골프 스코어카드. PAR = 원래 걸리던 시간, SCORE = Law-Caddy와 함께한 시간.
+//   골프에서 언더파를 빨간 숫자로 적는 관례를 그대로 가져와, 줄어든 시간이 붉게 표시된다.
+//   과장 없이 실측치만 적어도 언더파가 나오는 것이 이 서비스의 요점이다.
+// - 색은 이른 아침 페어웨이 — 딥그린 잉크, 안개 낀 크림 배경, 벙커 모래. 라이트 모드.
 // - 가짜 후기·가짜 이용사무소·검증 불가 수치는 싣지 않는다 (변협 광고규정 오인유발 소지)
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
@@ -16,14 +18,22 @@ import { WORKFLOW_STEPS, AGENTS, PLATFORM_FEATURES, PLANS, FAQS } from "../data/
 import FAQItem from "../components/landing/FAQItem";
 
 /* ────────────────────────────────────────────
-   디자인 토큰
+   디자인 토큰 — 이른 아침 페어웨이
+   INK  딥그린(글자·짙은 배경) · PAPER 안개 크림 · PAPER2 벙커 모래
+   GOLD 잔디빛(강조) · GOLD_DEEP 짙은 잔디(작은 글씨 대비 확보)
+   SEAL 언더파 빨강 — 스코어카드 숫자와 인장에만
+   ※ 상수 이름은 기존 사용처와의 호환을 위해 유지한다.
    ──────────────────────────────────────────── */
-const INK = "#0D1526";
-const PAPER = "#FBFAF6";
-const PAPER2 = "#F1EEE6";
-const GOLD = "#C8A961";
-const GOLD_DEEP = "#8F7434";
-const SEAL = "#B3372B";
+const INK = "#14392B";
+const PAPER = "#F7F5EC";
+const PAPER2 = "#EDE7D8";
+const GOLD = "#5F9A6A";
+const GOLD_DEEP = "#2E6242";
+const SEAL = "#B6453A";
+/** 딥그린 배경 위에서 쓰는 강조색 — 잔디빛(GOLD)은 어두운 배경에서 대비가 모자란다 */
+const SPROUT = "#A9CE96";
+/** 딥그린 배경 위 본문색 */
+const ON_INK = "#F2EFE3";
 
 const serif = { fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif' } as const;
 const sans = {
@@ -31,7 +41,7 @@ const sans = {
 } as const;
 
 const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C8A961]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2E6242]";
 
 /* ────────────────────────────────────────────
    도입 상담 신청 폼 — 사업자등록증 없이도 이름·연락처만 남기면 연락한다.
@@ -88,13 +98,13 @@ function ConsultSection() {
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3" style={{ ...serif, color: INK }}>
           가입 전에 궁금한 점이 있다면
         </h2>
-        <p className="text-sm text-center mb-8" style={{ color: "#676A72" }}>
+        <p className="text-sm text-center mb-8" style={{ color: "rgba(20,57,43,0.62)" }}>
           연락처만 남겨 주세요. 도입·요금·보안 관련 궁금증을 직접 안내드립니다.
         </p>
         {status === "done" ? (
           <div
             className="p-6 text-center text-sm font-semibold"
-            style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.14)", color: INK }}
+            style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.15)", color: INK }}
           >
             상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다.
           </div>
@@ -117,7 +127,7 @@ function ConsultSection() {
                 placeholder="성함"
                 autoComplete="name"
                 className={`w-full px-4 py-3 text-sm ${focusRing}`}
-                style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+                style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
               />
               <input
                 type="tel"
@@ -127,7 +137,7 @@ function ConsultSection() {
                 placeholder="휴대전화 (010-1234-5678)"
                 autoComplete="tel"
                 className={`w-full px-4 py-3 text-sm ${focusRing}`}
-                style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+                style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
               />
             </div>
             <textarea
@@ -136,7 +146,7 @@ function ConsultSection() {
               rows={3}
               placeholder="궁금한 점 (선택)"
               className={`w-full px-4 py-3 text-sm ${focusRing}`}
-              style={{ background: "#FFFFFF", border: "1px solid rgba(20,24,35,0.18)", color: INK, ...sans }}
+              style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
             />
             {status === "error" && (
               <p role="alert" className="text-sm font-semibold" style={{ color: SEAL }}>
@@ -147,11 +157,11 @@ function ConsultSection() {
               type="submit"
               disabled={status === "busy"}
               className={`w-full py-4 font-bold text-base transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${focusRing}`}
-              style={{ background: INK, color: "#EFEAE0" }}
+              style={{ background: INK, color: ON_INK }}
             >
               {status === "busy" ? "전송 중…" : "상담 신청 남기기"}
             </button>
-            <p className="text-xs text-center" style={{ color: "#9A9CA3" }}>
+            <p className="text-xs text-center" style={{ color: "rgba(20,57,43,0.45)" }}>
               입력하신 정보는 도입 상담 회신 목적으로만 사용합니다.
             </p>
           </form>
@@ -216,23 +226,26 @@ function FadeIn({
 }
 
 /* ────────────────────────────────────────────
-   증거 스탬프 — 실무의 "갑 제N호증" 인장
+   홀 마커 — 라운드의 진행 표시.
+   섹션이 실제로 순서를 가지므로 번호가 정당하다(업무 흐름 → 분석팀 → 운영 → 결과 → 수임료 → 문답).
+   깃발 하나 꽂힌 그린을 최소한의 도형으로 그린다.
    ──────────────────────────────────────────── */
 function Exhibit({ no, title }: { no: number; title: string }) {
   return (
-    <span
-      className="inline-flex items-baseline gap-2 border px-3 py-1.5 text-[11px] tracking-[0.14em] select-none"
-      style={{
-        ...serif,
-        color: SEAL,
-        borderColor: "rgba(179,55,43,0.55)",
-        transform: "rotate(-1.2deg)",
-      }}
-    >
-      갑 제{no}호증
-      <span className="tracking-[0.04em]" style={{ color: "rgba(179,55,43,0.75)" }}>
+    <span className="inline-flex items-center gap-2.5 select-none">
+      <span
+        className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[12px] font-bold"
+        style={{ ...serif, background: INK, color: "#F2EFE3" }}
+      >
+        {no}
+      </span>
+      <span
+        className="text-[11px] tracking-[0.22em] font-semibold"
+        style={{ ...serif, color: GOLD_DEEP }}
+      >
         {title}
       </span>
+      <span className="h-px w-10" style={{ background: "rgba(20,57,43,0.22)" }} />
     </span>
   );
 }
@@ -256,14 +269,14 @@ function SectionHead({
       <Exhibit no={no} title={stamp} />
       <h2
         className="mt-6 text-3xl sm:text-4xl font-bold leading-snug"
-        style={{ ...serif, color: onInk ? "#EFEAE0" : "#22252E" }}
+        style={{ ...serif, color: onInk ? ON_INK : "#22252E" }}
       >
         {title}
       </h2>
       {lead && (
         <p
           className="mt-4 text-base sm:text-lg leading-relaxed"
-          style={{ color: onInk ? "rgba(239,234,224,0.6)" : "#676A72" }}
+          style={{ color: onInk ? "rgba(242,239,227,0.6)" : "rgba(20,57,43,0.62)" }}
         >
           {lead}
         </p>
@@ -273,92 +286,134 @@ function SectionHead({
 }
 
 /* ────────────────────────────────────────────
-   히어로 소장 — 실제 법원 서식으로 조판한 산출물 실물
+   시그니처 — 골프 스코어카드
+   홀마다 업무를 적고, PAR는 원래 걸리던 시간, SCORE는 Law-Caddy와 함께한 시간이다.
+   골프 관례대로 언더파(줄어든 시간)는 붉은 숫자로 적는다.
+   숫자는 전부 실측 기준이며 과장하지 않는다.
    ──────────────────────────────────────────── */
-function HeroDocument() {
-  const lines: { text: React.ReactNode; className?: string }[] = [
-    {
-      text: "소　　　장",
-      className: "text-center text-[19px] font-bold tracking-[0.5em] mb-5 mt-1",
-    },
-    { text: "원 고  김 ○ ○", className: "font-semibold" },
-    { text: "부산광역시 연제구 법원남로 ○○", className: "pl-[4.4em] text-[11px] opacity-70" },
-    { text: "피 고  박 ○ ○", className: "font-semibold mt-1.5" },
-    {
-      text: "임대차보증금 반환 청구의 소",
-      className: "text-center font-semibold mt-4 mb-3 tracking-wider",
-    },
-    { text: "청 구 취 지", className: "text-center tracking-[0.3em] font-semibold mt-2 mb-2" },
-    {
-      text: "1. 피고는 원고에게 금 55,000,000원 및 이에 대하여 2026. 3. 15.부터 다 갚는 날까지 연 12%의 비율로 계산한 돈을 지급하라.",
-    },
-    { text: "2. 소송비용은 피고가 부담한다." },
-    { text: "3. 제1항은 가집행할 수 있다.", className: "mb-3" },
-    { text: "청 구 원 인", className: "text-center tracking-[0.3em] font-semibold mb-2" },
-    {
-      text: "1. 원고는 2024. 3. 15. 피고와 부산 연제구 소재 아파트에 관하여 임대차보증금 55,000,000원의 임대차계약을 체결하고 …",
-      className: "opacity-80",
-    },
-    { text: "2026. 7. 27.", className: "text-center mt-4 text-[11px]" },
-    {
-      text: "원고 소송대리인 변호사 ○ ○ ○ (인)",
-      className: "text-center text-[11px]",
-    },
-    { text: "부산지방법원 귀중", className: "text-center font-semibold tracking-[0.2em] mt-2" },
-  ];
+const SCORECARD: {
+  hole: number;
+  work: string;
+  par: string;
+  score: string;
+  diff: string | null;
+}[] = [
+  { hole: 1, work: "의뢰인 상담", par: "30분", score: "30분", diff: null },
+  { hole: 2, work: "판례 검색 · 쟁점 분석", par: "3시간", score: "2분", diff: "-2:58" },
+  { hole: 3, work: "서면 초안 작성", par: "2시간", score: "5분", diff: "-1:55" },
+  { hole: 4, work: "의뢰인 안내 · 정산", par: "40분", score: "3분", diff: "-0:37" },
+];
 
+function Scorecard() {
   return (
     <div className="relative select-none" aria-hidden="true">
-      {/* 뒷장 — 서류 뭉치의 두께 */}
+      {/* 카드 뭉치의 두께 */}
       <div
-        className="absolute inset-0 translate-x-2.5 translate-y-2.5 rounded-[2px]"
-        style={{ background: "rgba(252,251,247,0.16)" }}
+        className="absolute inset-0 translate-x-2 translate-y-2 rounded-[3px]"
+        style={{ background: "rgba(20,57,43,0.08)" }}
       />
       <div
-        className="relative rounded-[2px] px-7 sm:px-9 py-8 shadow-2xl"
+        className="relative rounded-[3px] overflow-hidden"
         style={{
-          ...serif,
-          background: "#FCFBF7",
-          color: "#2A2C33",
-          transform: "rotate(0.6deg)",
-          boxShadow: "0 24px 60px -18px rgba(0,0,0,0.55)",
+          background: "#FFFDF8",
+          boxShadow: "0 22px 50px -20px rgba(20,57,43,0.35)",
+          border: "1px solid rgba(20,57,43,0.12)",
+          transform: "rotate(-0.5deg)",
         }}
       >
-        {/* AI 초안 표식 */}
+        {/* 카드 머리 */}
         <div
-          className="absolute -top-3 right-6 px-2.5 py-1 text-[10px] tracking-[0.16em] font-semibold"
-          style={{ ...sans, background: INK, color: GOLD, letterSpacing: "0.14em" }}
+          className="flex items-baseline justify-between px-6 sm:px-7 py-4"
+          style={{ background: INK }}
         >
-          AI 초안 · 변호사 검토 전
+          <span
+            className="text-[13px] font-bold tracking-[0.22em]"
+            style={{ ...serif, color: "#F2EFE3" }}
+          >
+            SCORECARD
+          </span>
+          <span className="text-[10px] tracking-[0.18em]" style={{ color: "rgba(242,239,227,0.55)" }}>
+            사건 1건 기준
+          </span>
         </div>
 
-        <div className="text-[12px] leading-[1.75]">
-          {lines.map((line, i) => (
-            <p
-              key={i}
-              className={`hero-doc-line ${line.className ?? ""}`}
-              style={{ animationDelay: `${300 + i * 130}ms` }}
+        {/* 열 머리 */}
+        <div
+          className="grid grid-cols-12 gap-2 px-6 sm:px-7 pt-4 pb-2 text-[10px] tracking-[0.16em]"
+          style={{ color: "rgba(20,57,43,0.45)" }}
+        >
+          <span className="col-span-1">홀</span>
+          <span className="col-span-5">업무</span>
+          <span className="col-span-3 text-right">PAR</span>
+          <span className="col-span-3 text-right">SCORE</span>
+        </div>
+
+        <div style={{ borderTop: "1px solid rgba(20,57,43,0.14)" }}>
+          {SCORECARD.map((row, i) => (
+            <div
+              key={row.hole}
+              className="hero-doc-line grid grid-cols-12 gap-2 items-baseline px-6 sm:px-7 py-3"
+              style={{
+                animationDelay: `${350 + i * 160}ms`,
+                borderBottom: "1px solid rgba(20,57,43,0.07)",
+              }}
             >
-              {line.text}
-            </p>
+              <span
+                className="col-span-1 text-[13px] font-bold tabular-nums"
+                style={{ ...serif, color: GOLD_DEEP }}
+              >
+                {row.hole}
+              </span>
+              <span className="col-span-5 text-[13px]" style={{ color: "#33372F" }}>
+                {row.work}
+              </span>
+              <span
+                className="col-span-3 text-right text-[13px] tabular-nums"
+                style={{ color: "rgba(51,55,47,0.45)" }}
+              >
+                {row.par}
+              </span>
+              <span className="col-span-3 text-right text-[13px] font-semibold tabular-nums" style={{ color: INK }}>
+                {row.score}
+                {row.diff && (
+                  <span className="block text-[11px] font-bold tabular-nums" style={{ color: SEAL }}>
+                    {row.diff}
+                  </span>
+                )}
+              </span>
+            </div>
           ))}
         </div>
 
-        {/* 인영 — 도장 주홍은 여기와 스탬프에만 */}
+        {/* 합계 */}
         <div
-          className="hero-doc-line absolute bottom-[54px] right-9 w-11 h-11 rounded-full border-2 flex items-center justify-center text-[13px] font-bold"
-          style={{
-            ...serif,
-            color: SEAL,
-            borderColor: SEAL,
-            transform: "rotate(-8deg)",
-            opacity: 0.85,
-            animationDelay: `${300 + lines.length * 130}ms`,
-          }}
+          className="hero-doc-line flex items-baseline justify-between px-6 sm:px-7 py-4"
+          style={{ background: PAPER2, animationDelay: `${350 + SCORECARD.length * 160}ms` }}
         >
-          초안
+          <span className="text-[11px] tracking-[0.2em]" style={{ color: "rgba(20,57,43,0.55)" }}>
+            TOTAL
+          </span>
+          <span className="flex items-baseline gap-5 sm:gap-7">
+            <span className="text-[12px] tabular-nums line-through" style={{ color: "rgba(51,55,47,0.38)" }}>
+              6시간 10분
+            </span>
+            <span className="text-[16px] font-bold tabular-nums" style={{ ...serif, color: INK }}>
+              40분
+            </span>
+            <span className="text-[16px] font-bold tabular-nums" style={{ ...serif, color: SEAL }}>
+              -5:30
+            </span>
+          </span>
         </div>
       </div>
+
+      {/* 캐디 각주 — 카드 밖 손글씨처럼 */}
+      <p
+        className="hero-doc-line mt-4 text-[11px] pl-1"
+        style={{ color: "rgba(20,57,43,0.5)", animationDelay: `${350 + (SCORECARD.length + 1) * 160}ms` }}
+      >
+        캐디가 준비를 맡고, 판단과 서명은 변호사가 합니다.
+      </p>
     </div>
   );
 }
@@ -384,16 +439,17 @@ export default function LandingPage() {
       {/* ─── 내비게이션 ─── */}
       <nav
         className="fixed top-0 left-0 right-0 z-50"
-        style={{ background: "rgba(13,21,38,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(200,169,97,0.18)" }}
+        style={{ background: "rgba(247,245,236,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(20,57,43,0.1)" }}
       >
         <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
           <Link to="/" className={`flex items-baseline gap-2 ${focusRing}`}>
-            <span className="text-lg font-bold tracking-tight" style={{ ...serif, color: "#EFEAE0" }}>
+            <span className="text-lg font-bold tracking-tight" style={{ ...serif, color: INK }}>
               Law-Caddy
             </span>
-            <span className="w-1 h-1 rounded-full" style={{ background: GOLD }} />
+            {/* 핀 깃발 — 브랜드 마크 */}
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
           </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "rgba(239,234,224,0.6)" }}>
+          <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: "rgba(20,57,43,0.6)" }}>
             {[
               ["#workflow", "업무 흐름"],
               ["#agents", "AI 분석팀"],
@@ -401,7 +457,7 @@ export default function LandingPage() {
               ["#pricing", "수임료"],
               ["#faq", "질문"],
             ].map(([href, label]) => (
-              <a key={href} href={href} className={`hover:text-[#C8A961] transition-colors ${focusRing}`}>
+              <a key={href} href={href} className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
                 {label}
               </a>
             ))}
@@ -409,15 +465,15 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Link
               to="/login"
-              className={`px-4 py-2 text-sm transition-colors hover:text-[#C8A961] ${focusRing}`}
-              style={{ color: "rgba(239,234,224,0.7)" }}
+              className={`px-4 py-2 text-sm transition-colors hover:text-[#2E6242] ${focusRing}`}
+              style={{ color: "rgba(20,57,43,0.65)" }}
             >
               로그인
             </Link>
             <Link
               to="/login"
-              className={`px-5 py-2 text-sm font-semibold transition-colors ${focusRing}`}
-              style={{ background: GOLD, color: INK }}
+              className={`px-5 py-2 text-sm font-semibold transition-colors rounded-full ${focusRing}`}
+              style={{ background: INK, color: "#F7F5EC" }}
             >
               무료로 시작
             </Link>
@@ -426,59 +482,62 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── 히어로 ─── */}
-      <header className="relative pt-16" style={{ background: INK }}>
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 pt-16 sm:pt-24 pb-20 sm:pb-28 grid lg:grid-cols-12 gap-14 lg:gap-10 items-center">
-          {/* 좌측 — 청구취지 */}
-          <div className="lg:col-span-7">
-            <p
-              className="text-[12px] tracking-[0.3em] mb-7"
-              style={{ ...serif, color: GOLD }}
-            >
+      <header
+        className="relative pt-16"
+        style={{
+          // 이른 아침 페어웨이 — 위쪽에 옅은 안개, 아래로 갈수록 잔디빛
+          background: `linear-gradient(176deg, #FCFBF4 0%, ${PAPER} 42%, #E9EEDD 100%)`,
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-12 lg:gap-12 items-center">
+          {/* 좌측 — 캐디의 약속 */}
+          <div className="lg:col-span-6">
+            <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD_DEEP }}>
               법률사무소 업무 자동화
             </p>
             <h1
-              className="text-4xl sm:text-5xl lg:text-[3.6rem] font-bold leading-[1.25] mb-7"
-              style={{ ...serif, color: "#EFEAE0" }}
+              className="text-[2.1rem] sm:text-[2.6rem] lg:text-[2.9rem] font-bold leading-[1.34] mb-7"
+              style={{ ...serif, color: INK, letterSpacing: "-0.01em" }}
             >
-              변호사의 시간을
+              캐디는 클럽을 고르고,
               <br />
-              청구합니다
+              스윙은 선수가 합니다
             </h1>
-            <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(239,234,224,0.62)" }}>
+            <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(20,57,43,0.68)" }}>
               상담 녹음 하나로 판례 검색, 쟁점 분석, 서면 초안, 수임계약, 정산까지.
-              반복 업무는 Law-Caddy가 먼저 준비하고, 판단은 변호사가 합니다.
+              준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Link
                 to="/login"
-                className={`group inline-flex items-center gap-2.5 px-8 py-4 font-bold text-base transition-transform hover:-translate-y-0.5 ${focusRing}`}
-                style={{ background: GOLD, color: INK }}
+                className={`group inline-flex items-center gap-2.5 px-8 py-4 font-bold text-base rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
+                style={{ background: INK, color: "#F7F5EC", boxShadow: "0 10px 24px -12px rgba(20,57,43,0.6)" }}
               >
                 무료로 시작하기
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link
                 to="/login?demo=true"
-                className={`inline-flex items-center gap-2 px-8 py-4 text-base border transition-colors hover:border-[#C8A961] hover:text-[#C8A961] ${focusRing}`}
-                style={{ color: "rgba(239,234,224,0.8)", borderColor: "rgba(239,234,224,0.25)" }}
+                className={`inline-flex items-center gap-2 px-8 py-4 text-base rounded-full border transition-colors hover:border-[#2E6242] hover:text-[#2E6242] ${focusRing}`}
+                style={{ color: "rgba(20,57,43,0.8)", borderColor: "rgba(20,57,43,0.22)" }}
               >
                 데모 보기
               </Link>
             </div>
-            <p className="mt-5 text-xs" style={{ color: "rgba(239,234,224,0.35)" }}>
+            <p className="mt-5 text-xs" style={{ color: "rgba(20,57,43,0.45)" }}>
               신용카드 없이 가입 · 변호사 인증 후 사용
             </p>
           </div>
 
-          {/* 우측 — 산출물 실물 */}
-          <div className="lg:col-span-5 max-w-md w-full mx-auto lg:mx-0">
-            <HeroDocument />
+          {/* 우측 — 시그니처 스코어카드 */}
+          <div className="lg:col-span-6 max-w-lg w-full mx-auto lg:mx-0">
+            <Scorecard />
           </div>
         </div>
 
         {/* 사실 관계 — 검증 가능한 숫자만 */}
-        <div style={{ borderTop: "1px solid rgba(239,234,224,0.12)" }}>
-          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap gap-x-10 gap-y-3 text-[13px]" style={{ color: "rgba(239,234,224,0.55)" }}>
+        <div style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap gap-x-10 gap-y-3 text-[13px]" style={{ color: "rgba(20,57,43,0.6)" }}>
             {[
               ["법률 문서 서식", "28종"],
               ["AI 분석", "4개 관점 병렬"],
@@ -487,7 +546,7 @@ export default function LandingPage() {
             ].map(([label, value]) => (
               <span key={label} className="inline-flex items-baseline gap-2">
                 <span>{label}</span>
-                <span className="font-semibold" style={{ ...serif, color: GOLD }}>
+                <span className="font-semibold" style={{ ...serif, color: GOLD_DEEP }}>
                   {value}
                 </span>
               </span>
@@ -511,20 +570,20 @@ export default function LandingPage() {
 
             {/* 진행 기록 원장 */}
             <FadeIn delay={100}>
-              <ol className="border-t" style={{ borderColor: "rgba(20,24,35,0.14)" }}>
+              <ol className="border-t" style={{ borderColor: "rgba(20,57,43,0.14)" }}>
                 {WORKFLOW_STEPS.map((step, i) => (
                   <li
                     key={step.label}
                     className="grid grid-cols-[3rem_1fr_auto] sm:grid-cols-[4.5rem_16rem_1fr_auto] items-baseline gap-x-4 sm:gap-x-8 py-6 border-b transition-colors hover:bg-[#F5F2EA]"
-                    style={{ borderColor: "rgba(20,24,35,0.1)" }}
+                    style={{ borderColor: "rgba(20,57,43,0.1)" }}
                   >
-                    <span className="text-2xl sm:text-3xl font-bold tabular-nums" style={{ ...serif, color: "rgba(20,24,35,0.22)" }}>
+                    <span className="text-2xl sm:text-3xl font-bold tabular-nums" style={{ ...serif, color: "rgba(20,57,43,0.22)" }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <h3 className="text-base sm:text-lg font-bold" style={{ ...serif, color: "#22252E" }}>
+                    <h3 className="text-base sm:text-lg font-bold" style={{ ...serif, color: "#1E2A22" }}>
                       {step.label}
                     </h3>
-                    <p className="col-span-3 sm:col-span-1 col-start-2 sm:col-start-3 text-sm leading-relaxed mt-1 sm:mt-0" style={{ color: "#676A72" }}>
+                    <p className="col-span-3 sm:col-span-1 col-start-2 sm:col-start-3 text-sm leading-relaxed mt-1 sm:mt-0" style={{ color: "rgba(20,57,43,0.62)" }}>
                       {step.detail}
                     </p>
                     <span
@@ -552,17 +611,17 @@ export default function LandingPage() {
               />
             </FadeIn>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: "rgba(20,24,35,0.12)" }}>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: "rgba(20,57,43,0.12)" }}>
               {AGENTS.map((agent, i) => (
                 <FadeIn key={agent.fullName} delay={i * 80} className="h-full">
                   <article className="h-full p-7 flex flex-col" style={{ background: PAPER2 }}>
                     <span className="text-[11px] tracking-[0.22em] mb-4" style={{ color: GOLD_DEEP }}>
                       {agent.role}
                     </span>
-                    <h3 className="text-2xl font-bold mb-3" style={{ ...serif, color: "#22252E" }}>
+                    <h3 className="text-2xl font-bold mb-3" style={{ ...serif, color: "#1E2A22" }}>
                       {agent.fullName}
                     </h3>
-                    <p className="text-sm leading-relaxed" style={{ color: "#676A72" }}>
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(20,57,43,0.62)" }}>
                       {agent.desc}
                     </p>
                   </article>
@@ -572,11 +631,11 @@ export default function LandingPage() {
 
             {/* 첨부 문서 처리 */}
             <FadeIn delay={200}>
-              <div className="mt-14 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 py-6 border-t border-b" style={{ borderColor: "rgba(20,24,35,0.14)" }}>
-                <p className="text-sm font-semibold shrink-0" style={{ ...serif, color: "#22252E" }}>
+              <div className="mt-14 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 py-6 border-t border-b" style={{ borderColor: "rgba(20,57,43,0.14)" }}>
+                <p className="text-sm font-semibold shrink-0" style={{ ...serif, color: "#1E2A22" }}>
                   첨부한 문서도 함께 읽습니다
                 </p>
-                <p className="text-sm leading-relaxed" style={{ color: "#676A72" }}>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(20,57,43,0.62)" }}>
                   PDF · DOCX · HWP · 이미지(OCR)에서 텍스트를 추출해 분석에 반영하고,
                   증거번호(갑 제1호증)를 매겨 서면에 인용합니다.
                 </p>
@@ -602,7 +661,7 @@ export default function LandingPage() {
                 <FadeIn key={feat.title} delay={i * 60}>
                   <div
                     className="grid sm:grid-cols-[11rem_1fr] lg:grid-cols-[14rem_1fr] gap-2 sm:gap-10 py-7 border-b"
-                    style={{ borderColor: "rgba(20,24,35,0.1)" }}
+                    style={{ borderColor: "rgba(20,57,43,0.1)" }}
                   >
                     <dt className="flex items-start gap-3">
                       <span className="text-[11px] tracking-[0.2em] mt-1 shrink-0" style={{ color: GOLD_DEEP }}>
@@ -610,10 +669,10 @@ export default function LandingPage() {
                       </span>
                     </dt>
                     <dd>
-                      <h3 className="text-lg font-bold mb-1.5" style={{ ...serif, color: "#22252E" }}>
+                      <h3 className="text-lg font-bold mb-1.5" style={{ ...serif, color: "#1E2A22" }}>
                         {feat.title}
                       </h3>
-                      <p className="text-sm leading-relaxed max-w-2xl" style={{ color: "#676A72" }}>
+                      <p className="text-sm leading-relaxed max-w-2xl" style={{ color: "rgba(20,57,43,0.62)" }}>
                         {feat.desc}
                       </p>
                     </dd>
@@ -640,7 +699,7 @@ export default function LandingPage() {
               <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
                 {/* 기존 방식 */}
                 <div>
-                  <p className="text-[12px] tracking-[0.24em] mb-6 pb-3 border-b" style={{ ...serif, color: "#9A9CA3", borderColor: "rgba(20,24,35,0.14)" }}>
+                  <p className="text-[12px] tracking-[0.24em] mb-6 pb-3 border-b" style={{ ...serif, color: "rgba(20,57,43,0.45)", borderColor: "rgba(20,57,43,0.14)" }}>
                     기존 방식
                   </p>
                   <ul className="space-y-3.5">
@@ -653,13 +712,13 @@ export default function LandingPage() {
                       ["수임료 엑셀 정리", "30분"],
                       ["인지대 · 송달료 계산", "15분"],
                     ].map(([task, time]) => (
-                      <li key={task} className="flex items-baseline justify-between gap-4 text-sm" style={{ color: "#676A72" }}>
+                      <li key={task} className="flex items-baseline justify-between gap-4 text-sm" style={{ color: "rgba(20,57,43,0.62)" }}>
                         <span>{task}</span>
                         <span className="shrink-0 tabular-nums" style={{ ...serif }}>{time}</span>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-6 pt-4 border-t text-sm font-bold flex items-baseline justify-between" style={{ color: "#44464e", borderColor: "rgba(20,24,35,0.14)" }}>
+                  <p className="mt-6 pt-4 border-t text-sm font-bold flex items-baseline justify-between" style={{ color: "rgba(30,42,34,0.82)", borderColor: "rgba(20,57,43,0.14)" }}>
                     <span style={serif}>합계</span>
                     <span style={serif}>약 7시간</span>
                   </p>
@@ -667,7 +726,7 @@ export default function LandingPage() {
 
                 {/* Law-Caddy */}
                 <div className="p-8 sm:p-10" style={{ background: INK }}>
-                  <p className="text-[12px] tracking-[0.24em] mb-6 pb-3 border-b" style={{ ...serif, color: GOLD, borderColor: "rgba(239,234,224,0.15)" }}>
+                  <p className="text-[12px] tracking-[0.24em] mb-6 pb-3 border-b" style={{ ...serif, color: SPROUT, borderColor: "rgba(242,239,227,0.18)" }}>
                     Law-Caddy
                   </p>
                   <ul className="space-y-3.5">
@@ -680,18 +739,18 @@ export default function LandingPage() {
                       ["수임료 · 성공보수 자동 기록", "0분"],
                       ["인지대 · 송달료 자동 계산", "0분"],
                     ].map(([task, time]) => (
-                      <li key={task} className="flex items-baseline justify-between gap-4 text-sm" style={{ color: "rgba(239,234,224,0.78)" }}>
+                      <li key={task} className="flex items-baseline justify-between gap-4 text-sm" style={{ color: "rgba(242,239,227,0.78)" }}>
                         <span className="flex items-baseline gap-2.5">
-                          <Check className="w-3.5 h-3.5 translate-y-0.5 shrink-0" style={{ color: GOLD }} />
+                          <Check className="w-3.5 h-3.5 translate-y-0.5 shrink-0" style={{ color: SPROUT }} />
                           {task}
                         </span>
                         <span className="shrink-0 tabular-nums" style={{ ...serif }}>{time}</span>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-6 pt-4 border-t text-sm font-bold flex items-baseline justify-between" style={{ color: "#EFEAE0", borderColor: "rgba(239,234,224,0.15)" }}>
+                  <p className="mt-6 pt-4 border-t text-sm font-bold flex items-baseline justify-between" style={{ color: ON_INK, borderColor: "rgba(242,239,227,0.18)" }}>
                     <span style={serif}>합계</span>
-                    <span style={{ ...serif, color: GOLD }}>약 10분 + 변호사 검토</span>
+                    <span style={{ ...serif, color: SPROUT }}>약 10분 + 변호사 검토</span>
                   </p>
                 </div>
               </div>
@@ -705,13 +764,13 @@ export default function LandingPage() {
         <section className="py-16 sm:py-24 px-5 sm:px-8" style={{ background: INK }}>
           <FadeIn>
             <div className="max-w-3xl mx-auto">
-              <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD }}>
+              <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: SPROUT }}>
                 만든 사람
               </p>
-              <h2 className="text-2xl sm:text-3xl font-bold leading-snug mb-6" style={{ ...serif, color: "#EFEAE0" }}>
+              <h2 className="text-2xl sm:text-3xl font-bold leading-snug mb-6" style={{ ...serif, color: ON_INK }}>
                 매일 쓰는 사람이 만들었습니다
               </h2>
-              <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(239,234,224,0.62)" }}>
+              <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(242,239,227,0.62)" }}>
                 부산에서 법률사무소 청송을 운영하는 김창희 변호사가 자신의 하루를 줄이려
                 직접 설계했고, 지금도 매일 이 화면으로 사건을 처리합니다. 10년간 1,000건
                 이상의 사건을 수행하며 다듬은 실무 감각이 서식 하나, 질문 하나에 들어
@@ -719,13 +778,13 @@ export default function LandingPage() {
               </p>
               <div
                 className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pt-6 border-t"
-                style={{ borderColor: "rgba(239,234,224,0.14)" }}
+                style={{ borderColor: "rgba(242,239,227,0.14)" }}
               >
                 <div>
-                  <p className="text-base font-bold" style={{ ...serif, color: "#EFEAE0" }}>
+                  <p className="text-base font-bold" style={{ ...serif, color: ON_INK }}>
                     김창희 변호사
                   </p>
-                  <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "rgba(239,234,224,0.45)" }}>
+                  <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "rgba(242,239,227,0.5)" }}>
                     법률사무소 청송 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
                   </p>
                 </div>
@@ -733,8 +792,8 @@ export default function LandingPage() {
                   href="https://chang-hee.kim"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`shrink-0 text-sm transition-colors hover:text-[#C8A961] ${focusRing}`}
-                  style={{ ...serif, color: "rgba(239,234,224,0.6)" }}
+                  className={`shrink-0 text-sm transition-colors hover:text-[#2E6242] ${focusRing}`}
+                  style={{ ...serif, color: "rgba(242,239,227,0.62)" }}
                 >
                   chang-hee.kim ↗
                 </a>
@@ -763,13 +822,13 @@ export default function LandingPage() {
                     style={
                       plan.highlighted
                         ? { background: INK }
-                        : { background: PAPER, border: "1px solid rgba(20,24,35,0.12)" }
+                        : { background: PAPER, border: "1px solid rgba(20,57,43,0.13)" }
                     }
                   >
                     {plan.highlighted && (
                       <span
                         className="absolute -top-3 left-8 px-3 py-1 text-[11px] font-bold tracking-[0.18em]"
-                        style={{ background: GOLD, color: INK }}
+                        style={{ background: INK, color: ON_INK }}
                       >
                         추천
                       </span>
@@ -777,7 +836,7 @@ export default function LandingPage() {
                     {plan.comingSoon && (
                       <span
                         className="absolute -top-3 left-8 px-3 py-1 text-[11px] font-bold tracking-[0.18em]"
-                        style={{ background: "#9A9CA3", color: PAPER }}
+                        style={{ background: "rgba(20,57,43,0.45)", color: PAPER }}
                       >
                         준비중
                       </span>
@@ -791,11 +850,11 @@ export default function LandingPage() {
                     <p className="flex items-baseline gap-1 mb-7">
                       <span
                         className="text-4xl font-bold tabular-nums"
-                        style={{ ...serif, color: plan.highlighted ? "#EFEAE0" : "#22252E" }}
+                        style={{ ...serif, color: plan.highlighted ? ON_INK : "#22252E" }}
                       >
                         {plan.price}
                       </span>
-                      <span className="text-sm" style={{ color: plan.highlighted ? "rgba(239,234,224,0.5)" : "#9A9CA3" }}>
+                      <span className="text-sm" style={{ color: plan.highlighted ? "rgba(242,239,227,0.5)" : "rgba(20,57,43,0.45)" }}>
                         원{plan.period}
                       </span>
                     </p>
@@ -806,23 +865,33 @@ export default function LandingPage() {
                             className="w-3.5 h-3.5 translate-y-0.5 shrink-0"
                             style={{ color: plan.highlighted ? GOLD : GOLD_DEEP }}
                           />
-                          <span style={{ color: plan.highlighted ? "rgba(239,234,224,0.85)" : "#44464e" }}>
+                          <span style={{ color: plan.highlighted ? "rgba(242,239,227,0.85)" : "rgba(30,42,34,0.82)" }}>
                             {feature}
                           </span>
                         </li>
                       ))}
                     </ul>
-                    <Link
-                      to="/login"
-                      className={`block w-full text-center py-3.5 text-sm font-bold transition-colors ${focusRing}`}
-                      style={
-                        plan.highlighted
-                          ? { background: GOLD, color: INK }
-                          : { border: "1px solid rgba(20,24,35,0.25)", color: "#22252E" }
-                      }
-                    >
-                      시작하기
-                    </Link>
+                    {plan.comingSoon ? (
+                      <div
+                        className="block w-full text-center py-3.5 text-sm font-bold rounded-full"
+                        style={{ border: "1px solid rgba(20,57,43,0.2)", color: "rgba(20,57,43,0.42)" }}
+                      >
+                        출시 예정
+                      </div>
+                    ) : (
+                      <Link
+                        to="/login"
+                        className={`block w-full text-center py-3.5 text-sm font-bold rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
+                        style={
+                          plan.highlighted
+                            ? // 딥그린 카드 위 — 크림 버튼이 가장 잘 읽힌다
+                              { background: ON_INK, color: INK }
+                            : { background: INK, color: ON_INK }
+                        }
+                      >
+                        시작하기
+                      </Link>
+                    )}
                   </div>
                 </FadeIn>
               ))}
@@ -837,7 +906,7 @@ export default function LandingPage() {
               <SectionHead no={6} stamp="문답" title="자주 묻는 질문" />
             </FadeIn>
             <FadeIn>
-              <div className="border-t" style={{ borderColor: "rgba(20,24,35,0.14)" }}>
+              <div className="border-t" style={{ borderColor: "rgba(20,57,43,0.14)" }}>
                 {FAQS.map((faq) => (
                   <FAQItem key={faq.q} q={faq.q} a={faq.a} />
                 ))}
@@ -850,21 +919,21 @@ export default function LandingPage() {
         <section className="py-24 sm:py-32 px-5 sm:px-8" style={{ background: INK }}>
           <FadeIn>
             <div className="max-w-3xl mx-auto text-center">
-              <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD }}>
+              <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: SPROUT }}>
                 오늘 접수한 사건부터
               </p>
-              <h2 className="text-3xl sm:text-5xl font-bold leading-snug mb-7" style={{ ...serif, color: "#EFEAE0" }}>
+              <h2 className="text-3xl sm:text-5xl font-bold leading-snug mb-7" style={{ ...serif, color: ON_INK }}>
                 준비는 Law-Caddy가,
                 <br />
                 판단은 변호사님이
               </h2>
-              <p className="text-base mb-11" style={{ color: "rgba(239,234,224,0.55)" }}>
+              <p className="text-base mb-11" style={{ color: "rgba(242,239,227,0.58)" }}>
                 가입 후 7일간 Pro 플랜 전체 기능을 무료로 쓸 수 있습니다.
               </p>
               <Link
                 to="/login"
                 className={`group inline-flex items-center gap-2.5 px-10 py-4 font-bold text-base transition-transform hover:-translate-y-0.5 ${focusRing}`}
-                style={{ background: GOLD, color: INK }}
+                style={{ background: INK, color: ON_INK }}
               >
                 무료로 시작하기
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -878,17 +947,17 @@ export default function LandingPage() {
       </main>
 
       {/* ─── 푸터 ─── */}
-      <footer className="py-10 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,24,35,0.12)" }}>
+      <footer className="py-10 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,57,43,0.12)" }}>
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div>
-            <p className="text-sm font-bold" style={{ ...serif, color: "#22252E" }}>
+            <p className="text-sm font-bold" style={{ ...serif, color: "#1E2A22" }}>
               Law-Caddy
             </p>
-            <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "#9A9CA3" }}>
+            <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "rgba(20,57,43,0.45)" }}>
               &copy; 2026 Law-Caddy. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
             </p>
           </div>
-          <div className="flex items-center gap-6 text-sm" style={{ color: "#676A72" }}>
+          <div className="flex items-center gap-6 text-sm" style={{ color: "rgba(20,57,43,0.62)" }}>
             <Link to="/login" className={`hover:text-[#8F7434] transition-colors ${focusRing}`}>
               로그인
             </Link>
