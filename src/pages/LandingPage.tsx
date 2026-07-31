@@ -446,15 +446,25 @@ export default function LandingPage() {
           inset: 0;
           z-index: 0;
         }
+        @keyframes heroDrift {
+          from { transform: scale(1); }
+          to   { transform: scale(1.06); }
+        }
+        /* 영상의 움직임이 거의 없어 정지 사진처럼 보이므로, 아주 느린 줌을 겹친다.
+           20초 왕복이라 이음새가 없고 멀미를 유발하지 않는다. */
+        .hero-video { animation: heroDrift 20s ease-in-out infinite alternate; }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-video { animation: none; }
+        }
         .hero-veil {
           position: absolute;
           inset: 0;
-          background: linear-gradient(100deg, rgba(247,245,236,0.94) 0%, rgba(247,245,236,0.88) 42%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.5) 100%);
+          background: linear-gradient(100deg, rgba(247,245,236,0.80) 0%, rgba(247,245,236,0.68) 42%, rgba(247,245,236,0.36) 72%, rgba(247,245,236,0.22) 100%);
         }
         @media (max-width: 640px) {
           /* 세로 화면에서는 가로 그라디언트가 화면 전부를 덮어버려 배경이 사라진다 */
           .hero-veil {
-            background: linear-gradient(180deg, rgba(247,245,236,0.95) 0%, rgba(247,245,236,0.9) 38%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.45) 100%);
+            background: linear-gradient(180deg, rgba(247,245,236,0.86) 0%, rgba(247,245,236,0.74) 38%, rgba(247,245,236,0.4) 72%, rgba(247,245,236,0.22) 100%);
           }
         }
         .hero-still {
