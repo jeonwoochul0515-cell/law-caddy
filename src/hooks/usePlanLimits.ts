@@ -38,8 +38,7 @@ function getFirstDayOfMonth(): Timestamp {
 /**
  * 요금제 사용량 제한을 확인하는 훅
  *
- * - free: 녹음 0건, 문서 0건 (업그레이드 필요)
- * - starter: 녹음 5건/월, 문서 3건/월
+ * - free/starter: 사건 분석 5건/월, 문서 3건/월 (동일 — Starter 무료 개방)
  * - pro / team: 무제한 (Firestore 쿼리 생략)
  */
 export default function usePlanLimits(): UsePlanLimitsResult {
@@ -100,11 +99,14 @@ export default function usePlanLimits(): UsePlanLimitsResult {
       try {
         const firstDay = getFirstDayOfMonth();
 
-        // 녹음 사용량과 문서 사용량을 병렬 조회
+        // (2026-07-31) 녹음이 아니라 **사건 생성 수**를 센다.
+        // 서버(plan.ts requireUsageQuota)가 cases 기준으로 막으므로 화면도 같은 기준이어야
+        // "화면엔 여유가 있는데 서버가 거부"하는 상황이 생기지 않는다.
+        // 녹음 문서는 파일 업로드 때만 생기므로(메모만 입력하면 안 생김) 지표로 부정확하다.
         const [recordingsSnap, docsSnap] = await Promise.all([
           getDocs(
             query(
-              collection(db!, "recordings"),
+              collection(db!, "cases"),
               where("ownerId", "==", user.uid),
               where("createdAt", ">=", firstDay),
             ),

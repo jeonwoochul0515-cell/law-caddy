@@ -75,7 +75,7 @@ export const AGENTS: { id: AgentId; name: string; nickname: string; icon: string
 
 export const PLANS = [
   // (2026-07-31) Starter 무료 개방 — 결제 상품이 아니다(서버 confirm.ts에서도 제외)
-  { id: "starter" as const, name: "Starter", price: "무료", amount: 0, features: "5건 녹음/월, 3건 문서/월" },
+  { id: "starter" as const, name: "Starter", price: "무료", amount: 0, features: "사건 분석 5건/월, 문서 3건/월" },
   { id: "pro" as const, name: "Pro", price: "₩89,000/월", amount: 89000, features: "무제한 녹음, AI 분석팀 전체, 무제한 문서" },
   // team은 팀 공유·권한 기능 구현 전이라 판매 중단(준비중) — PlanSelector에서 선택 불가, 서버(confirm.ts)도 승인 거부
   { id: "team" as const, name: "Team", price: "₩69,000/인", amount: 69000, features: "Pro + 팀 공유 + 관리자 (3인 이상) — 준비중" },

@@ -29,10 +29,14 @@ const UNLIMITED_PLANS = ["pro", "team"];
 
 /**
  * 무료(Starter) 월 한도 — src/types/subscription.ts의 PLAN_LIMITS.free와 같은 값으로 유지할 것.
- * 서버는 문서 생성 수만 센다. 분석만 하고 문서를 만들지 않는 경우는 통과시킨다
- * (그 편이 체험을 막지 않으면서도 반복 남용은 막는 실용적인 선이다).
+ *
+ * (2026-07-31) 문서 수만 세던 것을 **사건 수까지** 세도록 고쳤다.
+ * AI 분석은 문서보다 먼저 일어나므로, 문서를 만들지 않고 분석만 반복하면
+ * 카운트가 오르지 않아 무제한으로 쓸 수 있었다(실측 기준 분석 1회 ≈ 9만 토큰,
+ * 100회면 원가 7만원). 분석이 끝나면 사건이 자동 생성되므로 사건 수가 곧 분석 횟수다.
  */
 const FREE_MONTHLY_DOCS = 3;
+const FREE_MONTHLY_CASES = 5;
 
 /** 사용자 문서 조회 캐시 (같은 사건에서 에이전트가 병렬로 여러 번 호출하므로) */
 const CACHE_TTL_MS = 60_000;
@@ -118,32 +122,36 @@ function firstOfMonthIso(): string {
   return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), 1) - 9 * 3600_000).toISOString();
 }
 
-/** 사용량 조회 캐시 — 한 사건에서 에이전트가 병렬 호출하므로 짧게 캐싱한다 */
+/** 사용량 조회 캐시 — 한 사건에서 에이전트가 병렬 호출하므로 짧게 캐싱한다 (키: uid:컬렉션) */
 const usageCache = new Map<string, { count: number; expiresAt: number }>();
 
-/** 이번 달 생성한 문서 수를 셉니다. 조회 실패 시 0(통과)으로 취급합니다. */
-async function countMonthlyDocuments(env: Env, uid: string): Promise<number> {
-  const cached = usageCache.get(uid);
+/**
+ * 이번 달 해당 컬렉션에 만든 문서 수를 셉니다.
+ * 조회 실패 시 0(통과)으로 취급합니다 — 설정 문제로 서비스가 멈추는 것보다 낫다.
+ */
+async function countMonthly(env: Env, uid: string, collection: string): Promise<number> {
+  const key = `${uid}:${collection}`;
+  const cached = usageCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.count;
 
   let count = 0;
   try {
     const docs = await firestoreQueryByFields(
       env,
-      "documents",
+      collection,
       [{ field: "ownerId", value: { stringValue: uid } }],
-      200,
+      300,
     );
     const since = firstOfMonthIso();
     count = docs.filter((d) => (d.createTime ?? "") >= since).length;
   } catch (error) {
     console.error(
-      "[plan] 사용량 조회 실패 — 통과시킵니다:",
+      `[plan] ${collection} 사용량 조회 실패 — 통과시킵니다:`,
       error instanceof Error ? error.message : String(error),
     );
   }
 
-  usageCache.set(uid, { count, expiresAt: Date.now() + CACHE_TTL_MS });
+  usageCache.set(key, { count, expiresAt: Date.now() + CACHE_TTL_MS });
   return count;
 }
 
@@ -163,12 +171,22 @@ export async function requireUsageQuota(
   // 조회 실패(unknown)는 통과 — 설정 문제로 서비스가 멈추지 않게
   if (check.plan === "unknown") return null;
 
-  const used = await countMonthlyDocuments(env, uid);
-  if (used < FREE_MONTHLY_DOCS) return null;
+  // 두 축을 함께 본다: 문서 생성(결과물)과 사건 생성(=AI 분석 횟수)
+  const [docs, cases] = await Promise.all([
+    countMonthly(env, uid, "documents"),
+    countMonthly(env, uid, "cases"),
+  ]);
+
+  if (docs < FREE_MONTHLY_DOCS && cases < FREE_MONTHLY_CASES) return null;
+
+  const reason =
+    docs >= FREE_MONTHLY_DOCS
+      ? `이번 달 문서 생성 ${FREE_MONTHLY_DOCS}건`
+      : `이번 달 사건 분석 ${FREE_MONTHLY_CASES}건`;
 
   return Response.json(
     {
-      error: `무료 플랜의 이번 달 문서 생성 ${FREE_MONTHLY_DOCS}건을 모두 사용했습니다. 설정 > 요금제에서 Pro로 업그레이드하면 무제한으로 쓸 수 있습니다.`,
+      error: `무료 플랜의 ${reason}을 모두 사용했습니다. 설정 > 요금제에서 Pro로 업그레이드하면 무제한으로 쓸 수 있습니다.`,
       plan: check.plan,
       code: "QUOTA_EXCEEDED",
     },

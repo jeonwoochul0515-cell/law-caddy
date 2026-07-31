@@ -89,7 +89,7 @@ export default function UsageSummary({
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Mic className="w-4 h-4 text-gold" />
-            녹음
+            사건 분석
           </div>
           <ProgressBar used={recordingsUsed} limit={recordingsLimit} />
         </div>

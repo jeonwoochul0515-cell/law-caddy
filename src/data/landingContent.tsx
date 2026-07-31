@@ -123,7 +123,7 @@ export const PLANS: LandingPlan[] = [
     name: "Starter",
     price: "무료",
     period: "",
-    features: ["녹음 분석 월 5건", "문서 생성 월 3건", "AI 분석 4인 전체", "신용카드 없이 가입"],
+    features: ["사건 분석 월 5건", "문서 생성 월 3건", "AI 분석 4인 전체", "신용카드 없이 가입"],
     highlighted: false,
   },
   {
