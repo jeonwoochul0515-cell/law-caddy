@@ -17,6 +17,7 @@ import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { WORKFLOW_STEPS, AGENTS, PLATFORM_FEATURES, PLANS, FAQS } from "../data/landingContent";
 import FAQItem from "../components/landing/FAQItem";
 import KakaoChatButton from "../components/landing/KakaoChatButton";
+import ScrollExpandMedia from "../components/ui/scroll-expansion-hero";
 import { KAKAO_CHANNEL_CHAT } from "../config/contact";
 
 /* ────────────────────────────────────────────
@@ -434,61 +435,8 @@ export default function LandingPage() {
         .hero-doc-line { opacity: 0; animation: heroDocRise 0.55s ease-out both; }
         @media (prefers-reduced-motion: reduce) {
           .hero-doc-line { animation: none; opacity: 1; }
-          /* 움직임에 민감한 사용자에겐 배경 영상을 숨기고 포스터만 남긴다 */
-          .hero-video { display: none; }
-        }
-        /* (2026-07-31) 모바일에서도 영상을 튼다 — 최종 파일이 97KB라 데이터 부담이 없고,
-           사진만 나오면 페이지가 죽어 보인다. 정지 대체는 '동작 줄이기' 설정일 때만. */
-        /* 배경은 화면에 고정 — 스크롤하면 글자만 위로 지나간다.
-           position:fixed라 히어로를 벗어나도 남으므로, 뒤따르는 섹션이 자기 배경색으로 덮는다. */
-        .hero-bg {
-          position: fixed;
-          inset: 0;
-          z-index: 0;
-        }
-        /* (2026-07-31) 영상 자체가 충분히 움직여(안개 흐름·잔디 흔들림) CSS 줌은 뺐다.
-           움직임을 겹치면 산만하고, 배경은 조용해야 글이 읽힌다. */
-        .hero-veil {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(100deg, rgba(247,245,236,0.80) 0%, rgba(247,245,236,0.68) 42%, rgba(247,245,236,0.36) 72%, rgba(247,245,236,0.22) 100%);
-        }
-        @media (max-width: 640px) {
-          /* 세로 화면에서는 가로 그라디언트가 화면 전부를 덮어버려 배경이 사라진다 */
-          .hero-veil {
-            background: linear-gradient(180deg, rgba(247,245,236,0.86) 0%, rgba(247,245,236,0.74) 38%, rgba(247,245,236,0.4) 72%, rgba(247,245,236,0.22) 100%);
-          }
-        }
-        .hero-still {
-          display: none;
-          background-image: url('/media/hero-dawn-v3.jpg');
-          background-size: cover;
-          background-position: center;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .hero-still { display: block; }
         }
       `}</style>
-
-      {/* 히어로 배경 영상 — 화면에 고정(fixed)되어 스크롤해도 제자리에 머문다.
-          position:fixed는 조상에 overflow-hidden/transform이 있으면 그 안에 갇히므로
-          반드시 최상위에 두어야 한다(이전에 header 안에 있어 함께 밀려 올라갔다). */}
-      <div className="hero-bg pointer-events-none select-none" aria-hidden="true">
-        <video
-          className="hero-video w-full h-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          poster="/media/hero-dawn-v3.jpg"
-        >
-          <source src="/media/hero-dawn-v3.mp4" type="video/mp4" />
-        </video>
-        <div className="hero-still absolute inset-0" />
-        {/* 가독성 레이어 — 데스크톱은 좌측(글자)을 두껍게, 모바일은 위쪽을 덮는다 */}
-        <div className="hero-veil absolute inset-0" />
-      </div>
 
       {/* ─── 내비게이션 ─── */}
       <nav
@@ -559,74 +507,85 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── 히어로 ─── */}
-      {/* 히어로는 배경을 갖지 않는다 — 뒤에 고정된 영상이 그대로 비쳐야 한다.
-          (영상이 못 뜰 때의 바탕은 최상위 div의 background가 맡는다) */}
-      <header className="relative pt-16">
-        <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-12 lg:gap-12 items-center">
-          {/* 좌측 — 캐디의 약속 */}
-          <div className="lg:col-span-6">
-            <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD_DEEP }}>
-              1인 변호사 사무실 운영 SaaS
-            </p>
-            <h1
-              className="text-[2.4rem] sm:text-[3rem] lg:text-[3.4rem] font-bold leading-[1.24] mb-7"
-              style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}
-            >
-              좋은 캐디가
-              <br />
-              절반을 합니다
-            </h1>
-            <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(20,57,43,0.68)" }}>
-              상담 녹음 하나로 판례 검색, 서면 초안, 수임계약, 정산까지.
-              <br className="hidden sm:block" />
-              준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
-            </p>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <Link
-                to="/login"
-                className={`group inline-flex items-center gap-2.5 px-8 py-4 font-bold text-base rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
-                style={{ background: INK, color: "#F7F5EC", boxShadow: "0 10px 24px -12px rgba(20,57,43,0.6)" }}
-              >
-                무료로 시작하기
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/login?demo=true"
-                className={`inline-flex items-center gap-2 px-8 py-4 text-base rounded-full border transition-colors hover:border-[#2E6242] hover:text-[#2E6242] ${focusRing}`}
-                style={{ color: "rgba(20,57,43,0.8)", borderColor: "rgba(20,57,43,0.22)" }}
-              >
-                데모 보기
-              </Link>
+      {/* (2026-07-31) 고정 배경 영상 → 스크롤 확장 히어로로 교체.
+          스크롤을 내리면 가운데 영상이 화면 전체로 펼쳐지고, 다 펼쳐진 뒤에야 본문이 드러난다.
+          표제와 부제는 처음부터 보이고, CTA·스코어카드는 펼친 뒤에 나온다.
+          ※ 펼치는 동안 페이지 스크롤이 잠기므로, 상시 노출되는 전환 동선은 상단 내비의
+            '무료로 시작' 버튼이 맡는다(내비는 이 컴포넌트 바깥의 fixed 요소라 항상 보인다). */}
+      <header className="relative" style={{ ...serif }}>
+        <ScrollExpandMedia
+          mediaType="video"
+          mediaSrc="/media/hero-dawn-v3.mp4"
+          posterSrc="/media/hero-dawn-v3.jpg"
+          bgImageSrc="/media/hero-dawn-v3.jpg"
+          title="좋은 캐디가 절반을 합니다"
+          date="1인 변호사 사무실 운영 SaaS"
+          scrollToExpand="스크롤하면 펼쳐집니다"
+          textColor="#F2EFE3"
+        >
+          <div className="max-w-6xl mx-auto w-full" style={{ ...sans }}>
+            <div className="grid lg:grid-cols-12 gap-12 items-center">
+              {/* 좌측 — 캐디의 약속 */}
+              <div className="lg:col-span-6">
+                <p
+                  className="text-base sm:text-lg leading-relaxed max-w-xl mb-10"
+                  style={{ color: "rgba(20,57,43,0.68)" }}
+                >
+                  상담 녹음 하나로 판례 검색, 서면 초안, 수임계약, 정산까지.
+                  <br className="hidden sm:block" />
+                  준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
+                </p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <Link
+                    to="/login"
+                    className={`group inline-flex items-center gap-2.5 px-8 py-4 font-bold text-base rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
+                    style={{ background: INK, color: "#F7F5EC", boxShadow: "0 10px 24px -12px rgba(20,57,43,0.6)" }}
+                  >
+                    무료로 시작하기
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </Link>
+                  <Link
+                    to="/login?demo=true"
+                    className={`inline-flex items-center gap-2 px-8 py-4 text-base rounded-full border transition-colors hover:border-[#2E6242] hover:text-[#2E6242] ${focusRing}`}
+                    style={{ color: "rgba(20,57,43,0.8)", borderColor: "rgba(20,57,43,0.22)" }}
+                  >
+                    데모 보기
+                  </Link>
+                </div>
+                <p className="mt-5 text-xs" style={{ color: "rgba(20,57,43,0.45)" }}>
+                  신용카드 없이 가입 · 변호사 인증 후 사용
+                </p>
+              </div>
+
+              {/* 우측 — 시그니처 스코어카드 */}
+              <div className="lg:col-span-6 max-w-lg w-full mx-auto lg:mx-0">
+                <Scorecard />
+              </div>
             </div>
-            <p className="mt-5 text-xs" style={{ color: "rgba(20,57,43,0.45)" }}>
-              신용카드 없이 가입 · 변호사 인증 후 사용
-            </p>
-          </div>
 
-          {/* 우측 — 시그니처 스코어카드 */}
-          <div className="lg:col-span-6 max-w-lg w-full mx-auto lg:mx-0">
-            <Scorecard />
+            {/* 사실 관계 — 검증 가능한 숫자만 */}
+            <div className="mt-12 pt-6" style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
+              <div
+                className="flex flex-wrap gap-x-10 gap-y-3 text-[13px]"
+                style={{ color: "rgba(20,57,43,0.6)" }}
+              >
+                {[
+                  ["대상", "1~5인 법률사무소"],
+                  ["법률 문서 서식", "28종"],
+                  ["AI 분석", "4개 관점 병렬"],
+                  ["초안 완성까지", "약 10분"],
+                ].map(([label, value]) => (
+                  <span key={label} className="inline-flex items-baseline gap-2">
+                    <span>{label}</span>
+                    <span className="font-semibold" style={{ ...serif, color: GOLD_DEEP }}>
+                      {value}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* 사실 관계 — 검증 가능한 숫자만 */}
-        <div className="relative z-10" style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
-          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap gap-x-10 gap-y-3 text-[13px]" style={{ color: "rgba(20,57,43,0.6)" }}>
-            {[
-              ["대상", "1~5인 법률사무소"],
-              ["법률 문서 서식", "28종"],
-              ["AI 분석", "4개 관점 병렬"],
-              ["초안 완성까지", "약 10분"],
-            ].map(([label, value]) => (
-              <span key={label} className="inline-flex items-baseline gap-2">
-                <span>{label}</span>
-                <span className="font-semibold" style={{ ...serif, color: GOLD_DEEP }}>
-                  {value}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
+        </ScrollExpandMedia>
       </header>
 
       <main className="relative z-10">
