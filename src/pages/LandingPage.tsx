@@ -446,16 +446,8 @@ export default function LandingPage() {
           inset: 0;
           z-index: 0;
         }
-        @keyframes heroDrift {
-          from { transform: scale(1); }
-          to   { transform: scale(1.06); }
-        }
-        /* 영상의 움직임이 거의 없어 정지 사진처럼 보이므로, 아주 느린 줌을 겹친다.
-           20초 왕복이라 이음새가 없고 멀미를 유발하지 않는다. */
-        .hero-video { animation: heroDrift 20s ease-in-out infinite alternate; }
-        @media (prefers-reduced-motion: reduce) {
-          .hero-video { animation: none; }
-        }
+        /* (2026-07-31) 영상 자체가 충분히 움직여(안개 흐름·잔디 흔들림) CSS 줌은 뺐다.
+           움직임을 겹치면 산만하고, 배경은 조용해야 글이 읽힌다. */
         .hero-veil {
           position: absolute;
           inset: 0;
@@ -469,7 +461,7 @@ export default function LandingPage() {
         }
         .hero-still {
           display: none;
-          background-image: url('/media/hero-dawn-v2.jpg');
+          background-image: url('/media/hero-dawn-v3.jpg');
           background-size: cover;
           background-position: center;
         }
@@ -489,9 +481,9 @@ export default function LandingPage() {
           loop
           playsInline
           preload="auto"
-          poster="/media/hero-dawn-v2.jpg"
+          poster="/media/hero-dawn-v3.jpg"
         >
-          <source src="/media/hero-dawn-v2.mp4" type="video/mp4" />
+          <source src="/media/hero-dawn-v3.mp4" type="video/mp4" />
         </video>
         <div className="hero-still absolute inset-0" />
         {/* 가독성 레이어 — 데스크톱은 좌측(글자)을 두껍게, 모바일은 위쪽을 덮는다 */}
