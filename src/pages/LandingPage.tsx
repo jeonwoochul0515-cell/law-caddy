@@ -314,17 +314,16 @@ function Scorecard() {
         style={{ background: "rgba(20,57,43,0.08)" }}
       />
       <div
-        className="relative rounded-[3px] overflow-hidden"
+        className="scorecard relative rounded-[3px] overflow-hidden"
         style={{
           background: "#FFFDF8",
           boxShadow: "0 22px 50px -20px rgba(20,57,43,0.35)",
           border: "1px solid rgba(20,57,43,0.12)",
-          transform: "rotate(-0.5deg)",
         }}
       >
         {/* 카드 머리 */}
         <div
-          className="flex items-baseline justify-between px-6 sm:px-7 py-4"
+          className="flex items-baseline justify-between px-3.5 sm:px-7 py-3.5 sm:py-4"
           style={{ background: INK }}
         >
           <span
@@ -340,7 +339,7 @@ function Scorecard() {
 
         {/* 열 머리 */}
         <div
-          className="grid grid-cols-12 gap-2 px-6 sm:px-7 pt-4 pb-2 text-[10px] tracking-[0.16em]"
+          className="grid grid-cols-12 gap-1.5 sm:gap-2 px-3.5 sm:px-7 pt-4 pb-2 text-[10px] tracking-[0.12em] sm:tracking-[0.16em]"
           style={{ color: "rgba(20,57,43,0.45)" }}
         >
           <span className="col-span-1">홀</span>
@@ -353,7 +352,7 @@ function Scorecard() {
           {SCORECARD.map((row, i) => (
             <div
               key={row.hole}
-              className="hero-doc-line grid grid-cols-12 gap-2 items-baseline px-6 sm:px-7 py-3"
+              className="hero-doc-line grid grid-cols-12 gap-1.5 sm:gap-2 items-baseline px-3.5 sm:px-7 py-3"
               style={{
                 animationDelay: `${350 + i * 160}ms`,
                 borderBottom: "1px solid rgba(20,57,43,0.07)",
@@ -365,16 +364,16 @@ function Scorecard() {
               >
                 {row.hole}
               </span>
-              <span className="col-span-5 text-[13px]" style={{ color: "#33372F" }}>
+              <span className="col-span-5 text-[12px] sm:text-[13px] truncate" style={{ color: "#33372F" }}>
                 {row.work}
               </span>
               <span
-                className="col-span-3 text-right text-[13px] tabular-nums"
+                className="col-span-3 text-right text-[12px] sm:text-[13px] tabular-nums"
                 style={{ color: "rgba(51,55,47,0.45)" }}
               >
                 {row.par}
               </span>
-              <span className="col-span-3 text-right text-[13px] font-semibold tabular-nums" style={{ color: INK }}>
+              <span className="col-span-3 text-right text-[12px] sm:text-[13px] font-semibold tabular-nums" style={{ color: INK }}>
                 {row.score}
                 {row.diff && (
                   <span className="block text-[11px] font-bold tabular-nums" style={{ color: SEAL }}>
@@ -388,13 +387,13 @@ function Scorecard() {
 
         {/* 합계 */}
         <div
-          className="hero-doc-line flex items-baseline justify-between px-6 sm:px-7 py-4"
+          className="hero-doc-line flex items-baseline justify-between px-3.5 sm:px-7 py-4"
           style={{ background: PAPER2, animationDelay: `${350 + SCORECARD.length * 160}ms` }}
         >
           <span className="text-[11px] tracking-[0.2em]" style={{ color: "rgba(20,57,43,0.55)" }}>
             TOTAL
           </span>
-          <span className="flex items-baseline gap-5 sm:gap-7">
+          <span className="flex items-baseline gap-2.5 sm:gap-7">
             <span className="text-[12px] tabular-nums line-through" style={{ color: "rgba(51,55,47,0.38)" }}>
               6시간 10분
             </span>
@@ -440,6 +439,15 @@ export default function LandingPage() {
         /* 좁은 화면에서는 데이터·배터리를 아끼려 포스터 이미지만 쓴다 */
         @media (max-width: 640px) {
           .hero-video { display: none; }
+        }
+        .hero-veil {
+          background: linear-gradient(100deg, rgba(247,245,236,0.94) 0%, rgba(247,245,236,0.88) 42%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.5) 100%);
+        }
+        @media (max-width: 640px) {
+          /* 세로 화면에서는 가로 그라디언트가 화면 전부를 덮어버려 배경이 사라진다 */
+          .hero-veil {
+            background: linear-gradient(180deg, rgba(247,245,236,0.95) 0%, rgba(247,245,236,0.9) 38%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.45) 100%);
+          }
         }
         .hero-still {
           display: none;
@@ -495,6 +503,29 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
+
+        {/* 모바일 섹션 이동 — 메뉴가 숨겨지면 페이지 안에서 길을 잃는다 */}
+        <div
+          className="md:hidden flex gap-2 overflow-x-auto px-4 pb-2.5 -mt-1 text-[13px]"
+          style={{ color: "rgba(20,57,43,0.7)", scrollbarWidth: "none" }}
+        >
+          {[
+            ["#workflow", "업무 흐름"],
+            ["#agents", "AI 분석팀"],
+            ["#platform", "사무소 운영"],
+            ["#pricing", "수임료"],
+            ["#faq", "질문"],
+          ].map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              className={`shrink-0 px-3 py-1.5 rounded-full whitespace-nowrap ${focusRing}`}
+              style={{ border: "1px solid rgba(20,57,43,0.16)" }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
       </nav>
 
       {/* ─── 히어로 ─── */}
@@ -521,13 +552,8 @@ export default function LandingPage() {
             <source src="/media/hero-fairway.mp4" type="video/mp4" />
           </video>
           <div className="hero-still absolute inset-0" />
-          {/* 가독성 레이어 — 좌측(글자 영역)은 더 두껍게 덮는다 */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(100deg, rgba(247,245,236,0.94) 0%, rgba(247,245,236,0.88) 42%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.5) 100%)`,
-            }}
-          />
+          {/* 가독성 레이어 — 데스크톱은 좌측(글자)을 두껍게, 모바일은 위쪽만 덮어 배경이 보이게 */}
+          <div className="hero-veil absolute inset-0" />
         </div>
         <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-12 lg:gap-12 items-center">
           {/* 좌측 — 캐디의 약속 */}

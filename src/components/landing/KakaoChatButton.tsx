@@ -17,7 +17,7 @@ export default function KakaoChatButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="카카오톡으로 1:1 문의하기"
-      className={`fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-40 inline-flex items-center gap-2.5 rounded-full pl-4 pr-5 py-3 text-sm font-bold shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e6242] ${
+      className={`fixed bottom-4 right-4 sm:bottom-7 sm:right-7 z-40 inline-flex items-center gap-2 sm:gap-2.5 rounded-full p-3.5 sm:pl-4 sm:pr-5 sm:py-3 text-sm font-bold shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2e6242] ${
         shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
       }`}
       style={{ background: "#FEE500", color: "#14392b" }}
@@ -26,7 +26,8 @@ export default function KakaoChatButton() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 3C6.99 3 3 6.2 3 10.14c0 2.52 1.68 4.73 4.2 5.99-.18.64-.66 2.35-.76 2.72-.12.46.17.45.36.33.15-.1 2.35-1.6 3.3-2.25.62.09 1.25.14 1.9.14 5.01 0 9-3.2 9-7.14S17.01 3 12 3Z" />
       </svg>
-      1:1 문의
+      {/* 좁은 화면에서는 아이콘만 — 콘텐츠를 가리지 않게 */}
+      <span className="hidden sm:inline">1:1 문의</span>
     </a>
   );
 }
