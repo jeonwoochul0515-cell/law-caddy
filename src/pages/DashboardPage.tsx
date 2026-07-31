@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Mic, FolderOpen, FileText, TrendingUp, Plus, Sparkles, ArrowRight } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAuth from "../hooks/useAuth";
-import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db, isDemoMode } from "../config/firebase";
 import type { Case } from "../types/case";
 import FinanceSummaryWidget from "../components/accounting/FinanceSummaryWidget";
 import OverdueAlertPanel from "../components/accounting/OverdueAlertPanel";
 import DashboardStats from "../components/dashboard/DashboardStats";
+import OnboardingGuide from "../components/dashboard/OnboardingGuide";
 
 interface Stats {
   totalCases: number;
@@ -23,6 +24,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>({ totalCases: 0, activeCases: 0, totalDocuments: 0, totalRecordings: 0 });
   const [recentCases, setRecentCases] = useState<Case[]>([]);
   const [allCases, setAllCases] = useState<Case[]>([]);
+  /** 시작 가이드 표시 여부 — 사용자가 닫으면 Firestore에 기록해 다시 뜨지 않는다 */
+  const [guideDismissed, setGuideDismissed] = useState(false);
+  const [feeCount, setFeeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [financeStats, setFinanceStats] = useState({ revenue: 0, outstanding: 0, expenses: 0, deposits: 0 });
   const [financeLoading, setFinanceLoading] = useState(true);
@@ -64,6 +68,12 @@ export default function DashboardPage() {
         // 녹음 수
         const recsQ = query(collection(db!, "recordings"), where("ownerId", "==", user.uid));
         const recsSnap = await getDocs(recsQ);
+
+        // 수임료 건수 (시작 가이드 4단계 판정용)
+        const feesSnap = await getDocs(
+          query(collection(db!, "fees"), where("ownerId", "==", user.uid)),
+        );
+        setFeeCount(feesSnap.size);
 
         setStats({
           totalCases: cases.length,
@@ -149,6 +159,35 @@ export default function DashboardPage() {
     fetchFinance();
   }, [user]);
 
+  // 시작 가이드: 아직 네 단계를 다 거치지 않았고, 사용자가 닫지 않았을 때만 띄운다.
+  // (users.onboardingDismissedAt이 있으면 이미 닫은 것)
+  const onboardingProgress = {
+    recordings: stats.totalRecordings,
+    cases: stats.totalCases,
+    documents: stats.totalDocuments,
+    fees: feeCount,
+  };
+  const onboardingDone =
+    onboardingProgress.recordings > 0 &&
+    onboardingProgress.cases > 0 &&
+    onboardingProgress.documents > 0 &&
+    onboardingProgress.fees > 0;
+  // ?guide=1 을 붙이면 이미 완료한 계정에서도 가이드를 볼 수 있다(확인용).
+  const forceGuide =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("guide");
+  const showGuide =
+    forceGuide ||
+    (!loading && !guideDismissed && !user?.onboardingDismissedAt && !onboardingDone);
+
+  const handleDismissGuide = () => {
+    setGuideDismissed(true);
+    if (!user || isDemoMode) return;
+    // 실패해도 화면에서는 이미 닫혔다 — 다음 로그인에 다시 뜨는 정도의 영향
+    updateDoc(doc(db!, "users", user.uid), { onboardingDismissedAt: serverTimestamp() }).catch(
+      (err) => console.warn("시작 가이드 닫기 저장 실패:", err),
+    );
+  };
+
   const statCards = [
     { label: "전체 사건", value: stats.totalCases, icon: FolderOpen, color: "text-info" },
     { label: "진행중", value: stats.activeCases, icon: TrendingUp, color: "text-success" },
@@ -170,6 +209,11 @@ export default function DashboardPage() {
 
   return (
     <AppLayout title="대시보드" subtitle="오늘의 업무 현황">
+      {/* 시작 가이드 — 첫 라운드를 마치면 자동으로 사라진다 */}
+      {showGuide && (
+        <OnboardingGuide progress={onboardingProgress} onDismiss={handleDismissGuide} />
+      )}
+
       {/* 통계 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {statCards.map((card) => (

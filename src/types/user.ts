@@ -14,6 +14,8 @@ export interface User {
   planExpiresAt?: Timestamp;
   /** 만료 임박 문자를 마지막으로 보낸 시각 (같은 만료 주기 중복 발송 방지) */
   expiryNotifiedAt?: Timestamp;
+  /** 시작 가이드를 접은 시각 — 있으면 대시보드에 다시 띄우지 않는다 */
+  onboardingDismissedAt?: Timestamp;
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   approvedBy?: string;

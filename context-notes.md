@@ -413,3 +413,15 @@ fixed 요소는 조상에 `overflow`(hidden/auto)·`transform`·`filter`·`persp
 2. header의 `overflow-hidden` 제거, header 자체 배경도 제거(투명) — 뒤의 고정 영상이 비쳐야 하므로.
 3. 영상 `preload="metadata"` → `"auto"` (재생 시작이 늦어 정지 이미지처럼 보였다).
 검증: 스크롤 0/200/400에서 `hero-bg.getBoundingClientRect().top === 0` 고정 + `video.paused === false` 확인.
+
+## 2026-07-31 온보딩 — 팝업 투어 대신 실데이터 체크리스트
+
+단계별 오버레이 투어를 만들지 않았다. 한 번 닫으면 끝이고, 실제로 해봤는지와 무관하게
+"봤음"으로 처리되며, 모바일에서 위치 계산이 깨지기 쉽다.
+대신 **대시보드 상단 체크리스트**(components/dashboard/OnboardingGuide.tsx):
+- 완료 판정을 **실제 데이터**로 한다 — recordings·cases·documents·fees 건수.
+  거짓 완료가 없고, 중간에 나갔다 와도 이어진다.
+- 골프 컨셉과 맞춰 "첫 라운드 / 홀 1~4"로 표현(히어로 스코어카드와 같은 언어).
+- **다음 할 하나만 펼친다.** 네 개를 동시에 들이밀면 부담스럽다.
+- 네 단계를 다 채우면 자동으로 사라지고, 닫으면 `users.onboardingDismissedAt`에 기록.
+- 이미 완료한 계정에서도 확인할 수 있게 `?guide=1` 강제 표시 옵션(대표 확인용).
