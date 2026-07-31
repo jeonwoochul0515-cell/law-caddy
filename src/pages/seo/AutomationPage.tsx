@@ -8,7 +8,7 @@ export default function AutomationPage() {
       <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#14392b] mb-4">
         수임계약서부터 성공보수 정산까지, 어떻게 자동화될까요?
       </h1>
-      <p className="text-[#414846] text-lg leading-relaxed mb-12 max-w-3xl">
+      <p className="text-[rgba(20,57,43,0.62)] text-lg leading-relaxed mb-12 max-w-3xl">
         Law-Caddy는 수임계약서 작성부터 성공보수·소송비용 정산까지, 변호사 사무소 운영에 필요한 반복 업무를 자동화합니다.
       </p>
       <div className="grid sm:grid-cols-2 gap-5">
@@ -23,7 +23,7 @@ export default function AutomationPage() {
               </span>
             </div>
             <h2 className="text-lg font-semibold text-[#1e2a22] mb-2">{feat.title}</h2>
-            <p className="text-sm text-[#414846] leading-relaxed">{feat.desc}</p>
+            <p className="text-sm text-[rgba(20,57,43,0.62)] leading-relaxed">{feat.desc}</p>
           </div>
         ))}
       </div>

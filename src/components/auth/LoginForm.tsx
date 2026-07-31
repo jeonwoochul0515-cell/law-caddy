@@ -20,27 +20,30 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7f5ec] px-4">
       <div className="w-full max-w-md">
-        {/* 로고 */}
+        {/* 로고 — 랜딩과 동일한 이름 + 핀 깃발 점 */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl italic font-serif text-[#14392b] mb-2">
-            Law-Caddy
-          </h1>
-          <p className="text-[#414846] font-[Manrope]">
-            변호사 AI 상담 어시스턴트
+          <div className="inline-flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-bold tracking-tight font-serif text-[#14392b]">
+              Law-Caddy
+            </span>
+            <span className="w-2 h-2 rounded-full bg-[#5f9a6a]" />
+          </div>
+          <p className="text-sm text-[rgba(20,57,43,0.6)]">
+            1인 변호사 사무실 운영 SaaS
           </p>
         </div>
 
         {/* 로그인 카드 */}
-        <div className="bg-white border border-[#14392b]/8 rounded-2xl p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-[#1e2a22] mb-2">
-            로그인
+        <div className="bg-white/70 border border-[rgba(20,57,43,0.12)] p-8">
+          <h2 className="text-xl font-semibold font-serif text-[#14392b] mb-2">
+            시작하기
           </h2>
-          <p className="text-sm text-[#414846] mb-6">
-            구글 계정으로 간편하게 시작하세요
+          <p className="text-sm text-[rgba(20,57,43,0.62)] mb-6">
+            구글 계정으로 로그인하면 Starter가 무료로 열립니다.
           </p>
 
           {error && (
-            <div className="bg-[#ba1a1a]/8 border border-[#ba1a1a]/20 rounded-lg p-3 mb-4 text-[#ba1a1a] text-sm">
+            <div className="bg-[#ba1a1a]/8 border border-[#ba1a1a]/20 p-3 mb-4 text-[#ba1a1a] text-sm">
               {error}
             </div>
           )}
@@ -48,11 +51,11 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#ede7d8] text-[#1e2a22] font-medium rounded-lg hover:bg-[#e5e4e0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#14392b]/8"
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#14392b] text-[#f2efe3] font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <span className="w-5 h-5 border-2 border-[#414846]/30 border-t-[#414846] rounded-full animate-spin" />
+                <span className="w-5 h-5 border-2 border-[#f2efe3]/30 border-t-[#f2efe3] rounded-full animate-spin" />
                 로그인 중...
               </span>
             ) : (
@@ -68,17 +71,17 @@ export default function LoginForm({ onGoogleLogin, error }: LoginFormProps) {
             )}
           </button>
 
-          <div className="mt-6 pt-6 border-t border-[#14392b]/8">
-            <p className="text-xs text-[#414846] text-center leading-relaxed">
+          <div className="mt-6 pt-6 border-t border-[rgba(20,57,43,0.12)]">
+            <p className="text-xs text-[rgba(20,57,43,0.55)] text-center leading-relaxed">
               첫 로그인 시 사업자등록증 인증이 필요합니다.<br />
-              변호사업이 등록된 사업자만 이용 가능합니다.
+              변호사업이 등록된 사업자만 이용할 수 있습니다.
             </p>
           </div>
         </div>
 
-        {/* 하단 브랜딩 */}
-        <p className="text-center text-xs text-[#2e6242] mt-6 tracking-wide">
-          Premium Legal AI Assistant
+        {/* 하단 — 랜딩의 약속을 그대로 반복 */}
+        <p className="text-center text-xs text-[rgba(20,57,43,0.5)] mt-6">
+          준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
         </p>
       </div>
     </div>

@@ -17,6 +17,7 @@ import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import { WORKFLOW_STEPS, AGENTS, PLATFORM_FEATURES, PLANS, FAQS } from "../data/landingContent";
 import FAQItem from "../components/landing/FAQItem";
 import KakaoChatButton from "../components/landing/KakaoChatButton";
+import { KAKAO_CHANNEL_CHAT } from "../config/contact";
 
 /* ────────────────────────────────────────────
    디자인 토큰 — 이른 아침 페어웨이
@@ -1015,23 +1016,58 @@ export default function LandingPage() {
       </main>
 
       {/* ─── 푸터 ─── */}
-      <footer className="py-10 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,57,43,0.12)" }}>
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-          <div>
-            <p className="text-sm font-bold" style={{ ...serif, color: "#1E2A22" }}>
-              Law-Caddy
-            </p>
-            <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "rgba(20,57,43,0.45)" }}>
-              &copy; 2026 Law-Caddy. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
-            </p>
+      {/* 푸터 — 운영 주체(사업자) 정보를 명시한다.
+          전자상거래법상 유료 서비스의 표시 의무이자, 카카오 비즈니스 채널 심사에서
+          "사업자와 채널·서비스의 연관성"을 확인하는 근거 자료가 된다. */}
+      <footer className="py-12 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,57,43,0.12)" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-8">
+            <div className="flex items-baseline gap-2">
+              <span className="text-base font-bold" style={{ ...serif, color: "#1E2A22" }}>
+                Law-Caddy
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
+            </div>
+            <div className="flex items-center gap-6 text-sm" style={{ color: "rgba(20,57,43,0.62)" }}>
+              <a
+                href={KAKAO_CHANNEL_CHAT}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`hover:text-[#2E6242] transition-colors ${focusRing}`}
+              >
+                카카오톡 문의
+              </a>
+              <Link to="/login" className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
+                로그인
+              </Link>
+              <Link to="/login" className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
+                시작하기
+              </Link>
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-sm" style={{ color: "rgba(20,57,43,0.62)" }}>
-            <Link to="/login" className={`hover:text-[#8F7434] transition-colors ${focusRing}`}>
-              로그인
-            </Link>
-            <Link to="/login" className={`hover:text-[#8F7434] transition-colors ${focusRing}`}>
-              시작하기
-            </Link>
+
+          {/* 운영 주체 */}
+          <div
+            className="pt-7 text-xs leading-relaxed"
+            style={{ borderTop: "1px solid rgba(20,57,43,0.1)", color: "rgba(20,57,43,0.55)" }}
+          >
+            <p className="mb-2">
+              <span className="font-semibold" style={{ color: "rgba(20,57,43,0.75)" }}>
+                Law-Caddy는 법률사무소 청송이 개발·운영하는 법률사무소 업무 관리 서비스입니다.
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+              <span>상호 법률사무소 청송</span>
+              <span>대표 김창희</span>
+              <span>사업자등록번호 102-78-00061</span>
+              <span>전화 051-714-1515</span>
+            </div>
+            <p className="mt-1.5">
+              주소 부산광역시 연제구 법원남로15번길 10, 2층 202호(거제동, 미르코아빌딩)
+            </p>
+            <p className="mt-4" style={{ color: "rgba(20,57,43,0.42)" }}>
+              &copy; {new Date().getFullYear()} 법률사무소 청송. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
+            </p>
           </div>
         </div>
       </footer>

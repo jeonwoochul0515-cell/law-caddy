@@ -10,15 +10,15 @@ export default function PricingPage() {
       <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#14392b] mb-4">
         Law-Caddy 요금제, 사무소 규모별로 얼마일까요?
       </h1>
-      <p className="text-[#414846] text-lg leading-relaxed mb-12 max-w-3xl">
+      <p className="text-[rgba(20,57,43,0.62)] text-lg leading-relaxed mb-12 max-w-3xl">
         1인 변호사 사무실을 위한 요금제입니다. 가입하면 Starter가 무료로 열리고, 더 필요해지면 Pro로 올리면 됩니다.
       </p>
       <div className="grid md:grid-cols-3 gap-6">
         {PLANS.map((plan) => (
           <div
             key={plan.name}
-            className={`relative p-8 rounded-2xl border flex flex-col ${
-              plan.highlighted ? "bg-[#14392b] border-[#24513c]" : "bg-white border-[#ede7d8]"
+            className={`relative p-8 border flex flex-col ${
+              plan.highlighted ? "bg-[#14392b] border-[#24513c]" : "bg-white/70 border-[rgba(20,57,43,0.12)]"
             }`}
           >
             {plan.highlighted && (
@@ -36,14 +36,14 @@ export default function PricingPage() {
             </h2>
             <div className="flex items-baseline gap-1 mb-6">
               {plan.price !== "무료" && (
-                <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[#414846]"}`}>
+                <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[rgba(20,57,43,0.62)]"}`}>
                   &#8361;
                 </span>
               )}
               <span className={`text-4xl font-bold ${plan.highlighted ? "text-white" : "text-[#14392b]"}`}>
                 {plan.price}
               </span>
-              <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[#414846]"}`}>
+              <span className={`text-sm ${plan.highlighted ? "text-white/60" : "text-[rgba(20,57,43,0.62)]"}`}>
                 {plan.period}
               </span>
             </div>
@@ -58,13 +58,13 @@ export default function PricingPage() {
               ))}
             </ul>
             {plan.comingSoon ? (
-              <div className="block w-full text-center py-3 rounded-xl font-semibold border border-[#ede7d8] text-[#9a9ca3]">
+              <div className="block w-full text-center py-3 rounded-full font-semibold border border-[#ede7d8] text-[#9a9ca3]">
                 출시 예정
               </div>
             ) : (
               <Link
                 to="/login"
-                className={`block w-full text-center py-3 rounded-xl font-semibold transition-all ${
+                className={`block w-full text-center py-3 rounded-full font-semibold transition-all ${
                   plan.highlighted
                     ? "bg-[#a9ce96] text-[#14392b] hover:bg-[#c2dcb2]"
                     : "border border-[#ede7d8] hover:border-[#2e6242]/30 text-[#1e2a22] hover:text-[#2e6242]"

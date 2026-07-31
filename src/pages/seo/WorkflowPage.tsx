@@ -8,7 +8,7 @@ export default function WorkflowPage() {
       <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#14392b] mb-4">
         상담 녹음 한 번, 문서 완성까지 어떻게 이어질까요?
       </h1>
-      <p className="text-[#414846] text-lg leading-relaxed mb-12">
+      <p className="text-[rgba(20,57,43,0.62)] text-lg leading-relaxed mb-12">
         Law-Caddy는 변호사가 상담을 녹음하는 순간부터 의뢰인에게 문서를 전달하는 순간까지, 하나의 업무 흐름으로 자동화합니다. 실제 진행 단계는 아래와 같습니다.
       </p>
       <ol className="space-y-8">
@@ -19,7 +19,7 @@ export default function WorkflowPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[#1e2a22] mb-1">{step.label}</h2>
-              <p className="text-[#414846] leading-relaxed mb-1">{step.detail}</p>
+              <p className="text-[rgba(20,57,43,0.62)] leading-relaxed mb-1">{step.detail}</p>
               <span className="text-sm text-[#2e6242] font-medium">소요 시간: {step.time}</span>
             </div>
           </li>
