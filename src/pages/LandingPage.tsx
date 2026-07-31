@@ -434,6 +434,21 @@ export default function LandingPage() {
         .hero-doc-line { opacity: 0; animation: heroDocRise 0.55s ease-out both; }
         @media (prefers-reduced-motion: reduce) {
           .hero-doc-line { animation: none; opacity: 1; }
+          /* 움직임에 민감한 사용자에겐 배경 영상을 숨기고 포스터만 남긴다 */
+          .hero-video { display: none; }
+        }
+        /* 좁은 화면에서는 데이터·배터리를 아끼려 포스터 이미지만 쓴다 */
+        @media (max-width: 640px) {
+          .hero-video { display: none; }
+        }
+        .hero-still {
+          display: none;
+          background-image: url('/media/hero-fairway.jpg');
+          background-size: cover;
+          background-position: center;
+        }
+        @media (max-width: 640px), (prefers-reduced-motion: reduce) {
+          .hero-still { display: block; }
         }
       `}</style>
 
@@ -484,13 +499,37 @@ export default function LandingPage() {
 
       {/* ─── 히어로 ─── */}
       <header
-        className="relative pt-16"
+        className="relative pt-16 overflow-hidden"
         style={{
-          // 이른 아침 페어웨이 — 위쪽에 옅은 안개, 아래로 갈수록 잔디빛
+          // 이른 아침 페어웨이 — 영상이 못 뜰 때의 바탕이자 오버레이의 기준색
           background: `linear-gradient(176deg, #FCFBF4 0%, ${PAPER} 42%, #E9EEDD 100%)`,
         }}
       >
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-12 lg:gap-12 items-center">
+        {/* 배경 영상 — 이슬 맺힌 새벽 페어웨이.
+            글자 위에 얹히므로 크림 레이어로 눌러 읽기를 방해하지 않게 한다.
+            모션 최소화 설정이면 포스터 이미지만 남는다(아래 CSS). */}
+        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+          <video
+            className="hero-video w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/media/hero-fairway.jpg"
+          >
+            <source src="/media/hero-fairway.mp4" type="video/mp4" />
+          </video>
+          <div className="hero-still absolute inset-0" />
+          {/* 가독성 레이어 — 좌측(글자 영역)은 더 두껍게 덮는다 */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(100deg, rgba(247,245,236,0.94) 0%, rgba(247,245,236,0.88) 42%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.5) 100%)`,
+            }}
+          />
+        </div>
+        <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16 sm:pb-20 grid lg:grid-cols-12 gap-12 lg:gap-12 items-center">
           {/* 좌측 — 캐디의 약속 */}
           <div className="lg:col-span-6">
             <p className="text-[12px] tracking-[0.3em] mb-7" style={{ ...serif, color: GOLD_DEEP }}>
@@ -537,7 +576,7 @@ export default function LandingPage() {
         </div>
 
         {/* 사실 관계 — 검증 가능한 숫자만 */}
-        <div style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
+        <div className="relative z-10" style={{ borderTop: "1px solid rgba(20,57,43,0.12)" }}>
           <div className="max-w-6xl mx-auto px-5 sm:px-8 py-6 flex flex-wrap gap-x-10 gap-y-3 text-[13px]" style={{ color: "rgba(20,57,43,0.6)" }}>
             {[
               ["대상", "1~5인 법률사무소"],

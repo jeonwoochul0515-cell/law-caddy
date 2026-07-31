@@ -337,3 +337,18 @@ AgentsPage에 `allCompleted = completedCount === 6`이 하드코딩으로 남아
 
 추가로 녹음 전 "방해금지 모드를 켜세요" 안내(닫기 가능). 전화를 아예 안 받는 게 가장 확실하다.
 mimeType은 세션 메타에 저장해 사파리(audio/mp4) 확장자도 맞춘다. 테스트 6건(fake-indexeddb).
+
+## 2026-07-31 히어로 배경 영상 (AI 생성 → 가공 → 삽입)
+
+Higgsfield(kling3_0_turbo)로 "이슬 맺힌 새벽 페어웨이 매크로" 5초 생성(7.5크레딧, 16:9 720p).
+원본은 어둡고 5초라 그대로는 못 쓴다. ffmpeg로 세 가지를 손봤다:
+1. **밝기·톤 보정** — `eq=brightness=0.14:saturation=0.82:gamma=1.18` + colorbalance로 크림 배경에 녹임
+2. **왕복 루프** — `split→reverse→concat`으로 정방향+역방향 10초. Veo류는 seamless loop를 못 만들어서
+   이음새가 보이는데, 왕복이면 시작=끝이라 완벽히 이어진다. **다음에도 이 방법을 쓸 것.**
+3. **무음·압축** — `-an -crf 31` → 3.5MB에서 **282KB**로. 배경 영상은 오버레이에 눌리므로 화질을 낮춰도 된다.
+
+삽입(LandingPage 히어로):
+- 좌→우 크림 그라디언트 오버레이(0.94→0.5)로 글자 영역만 두껍게 덮어 가독성 확보
+- `prefers-reduced-motion` + **640px 이하에서는 영상을 숨기고 포스터 이미지(.hero-still)만** — 데이터·배터리
+- 콘텐츠에 `relative z-10` 부여(영상이 absolute inset-0이라 안 하면 클릭이 막힌다)
+파일: `public/media/hero-fairway.mp4`(282KB) · `hero-fairway.jpg`(47KB, poster 겸 모바일 대체)
