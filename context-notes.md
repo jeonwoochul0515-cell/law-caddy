@@ -400,3 +400,16 @@ public 정적 파일은 그런 장치가 없다. 지난 `assets/index-*.js` 사�
   스크롤하면 배경은 제자리, 글자·스코어카드만 위로 지나간다.
   fixed라 히어로를 벗어나도 화면에 남으므로 **뒤따르는 콘텐츠에 `relative z-10` + 자체 배경색**을
   줘야 덮인다(main·footer·consult 섹션에 부여). 안 하면 전 페이지에 영상이 비친다.
+
+## 2026-07-31 position:fixed가 안 먹은 이유 — overflow-hidden 조상
+
+배경 영상을 fixed로 만들었는데도 스크롤하면 같이 밀려 올라갔다.
+원인: 배경 div가 `<header className="relative pt-16 overflow-hidden">` **안에** 있었다.
+fixed 요소는 조상에 `overflow`(hidden/auto)·`transform`·`filter`·`perspective`·`will-change`가 있으면
+뷰포트가 아니라 **그 조상을 기준으로 잡히고 클리핑된다.** 그래서 헤더가 스크롤되며 함께 사라진 것.
+
+해결:
+1. 배경 div를 **최상위 컨테이너 직속**으로 이동 (nav·header보다 앞).
+2. header의 `overflow-hidden` 제거, header 자체 배경도 제거(투명) — 뒤의 고정 영상이 비쳐야 하므로.
+3. 영상 `preload="metadata"` → `"auto"` (재생 시작이 늦어 정지 이미지처럼 보였다).
+검증: 스크롤 0/200/400에서 `hero-bg.getBoundingClientRect().top === 0` 고정 + `video.paused === false` 확인.
