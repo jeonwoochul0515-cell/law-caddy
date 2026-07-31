@@ -92,7 +92,7 @@ function ConsultSection() {
   }
 
   return (
-    <section id="consult" className="py-20 sm:py-24 px-5 sm:px-8" style={{ background: PAPER2 }}>
+    <section id="consult" className="relative z-10 py-20 sm:py-24 px-5 sm:px-8" style={{ background: PAPER2 }}>
       <div className="max-w-xl mx-auto">
         <p className="text-[12px] tracking-[0.3em] mb-4 text-center" style={{ ...serif, color: GOLD_DEEP }}>
           도입 상담
@@ -437,11 +437,18 @@ export default function LandingPage() {
           /* 움직임에 민감한 사용자에겐 배경 영상을 숨기고 포스터만 남긴다 */
           .hero-video { display: none; }
         }
-        /* 좁은 화면에서는 데이터·배터리를 아끼려 포스터 이미지만 쓴다 */
-        @media (max-width: 640px) {
-          .hero-video { display: none; }
+        /* (2026-07-31) 모바일에서도 영상을 튼다 — 최종 파일이 97KB라 데이터 부담이 없고,
+           사진만 나오면 페이지가 죽어 보인다. 정지 대체는 '동작 줄이기' 설정일 때만. */
+        /* 배경은 화면에 고정 — 스크롤하면 글자만 위로 지나간다.
+           position:fixed라 히어로를 벗어나도 남으므로, 뒤따르는 섹션이 자기 배경색으로 덮는다. */
+        .hero-bg {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
         }
         .hero-veil {
+          position: absolute;
+          inset: 0;
           background: linear-gradient(100deg, rgba(247,245,236,0.94) 0%, rgba(247,245,236,0.88) 42%, rgba(247,245,236,0.62) 72%, rgba(247,245,236,0.5) 100%);
         }
         @media (max-width: 640px) {
@@ -456,7 +463,7 @@ export default function LandingPage() {
           background-size: cover;
           background-position: center;
         }
-        @media (max-width: 640px), (prefers-reduced-motion: reduce) {
+        @media (prefers-reduced-motion: reduce) {
           .hero-still { display: block; }
         }
       `}</style>
@@ -540,7 +547,7 @@ export default function LandingPage() {
         {/* 배경 영상 — 이슬 맺힌 새벽 페어웨이.
             글자 위에 얹히므로 크림 레이어로 눌러 읽기를 방해하지 않게 한다.
             모션 최소화 설정이면 포스터 이미지만 남는다(아래 CSS). */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+        <div className="hero-bg pointer-events-none select-none" aria-hidden="true">
           <video
             className="hero-video w-full h-full object-cover"
             autoPlay
@@ -622,7 +629,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main>
+      <main className="relative z-10">
         {/* ─── 갑 제1호증 · 업무 흐름 ─── */}
         <section id="workflow" className="py-20 sm:py-28 px-5 sm:px-8" style={{ background: PAPER }}>
           <div className="max-w-6xl mx-auto">
@@ -1019,7 +1026,7 @@ export default function LandingPage() {
       {/* 푸터 — 운영 주체(사업자) 정보를 명시한다.
           전자상거래법상 유료 서비스의 표시 의무이자, 카카오 비즈니스 채널 심사에서
           "사업자와 채널·서비스의 연관성"을 확인하는 근거 자료가 된다. */}
-      <footer className="py-12 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,57,43,0.12)" }}>
+      <footer className="relative z-10 py-12 px-5 sm:px-8" style={{ background: PAPER, borderTop: "1px solid rgba(20,57,43,0.12)" }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-8">
             <div className="flex items-baseline gap-2">
