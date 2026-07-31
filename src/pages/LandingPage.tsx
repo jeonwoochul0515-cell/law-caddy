@@ -570,9 +570,9 @@ export default function LandingPage() {
               className="text-[2.4rem] sm:text-[3rem] lg:text-[3.4rem] font-bold leading-[1.24] mb-7"
               style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}
             >
-              좋은 샷은
+              좋은 캐디가
               <br />
-              준비에서 나옵니다
+              절반을 합니다
             </h1>
             <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(20,57,43,0.68)" }}>
               상담 녹음 하나로 판례 검색, 서면 초안, 수임계약, 정산까지.
