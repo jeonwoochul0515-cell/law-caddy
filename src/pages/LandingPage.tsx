@@ -452,7 +452,7 @@ export default function LandingPage() {
         }
         .hero-still {
           display: none;
-          background-image: url('/media/hero-fairway.jpg');
+          background-image: url('/media/hero-dawn-v2.jpg');
           background-size: cover;
           background-position: center;
         }
@@ -548,9 +548,9 @@ export default function LandingPage() {
             loop
             playsInline
             preload="metadata"
-            poster="/media/hero-fairway.jpg"
+            poster="/media/hero-dawn-v2.jpg"
           >
-            <source src="/media/hero-fairway.mp4" type="video/mp4" />
+            <source src="/media/hero-dawn-v2.mp4" type="video/mp4" />
           </video>
           <div className="hero-still absolute inset-0" />
           {/* 가독성 레이어 — 데스크톱은 좌측(글자)을 두껍게, 모바일은 위쪽만 덮어 배경이 보이게 */}
@@ -838,7 +838,7 @@ export default function LandingPage() {
                 매일 쓰는 사람이 만들었습니다
               </h2>
               <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(242,239,227,0.62)" }}>
-                부산에서 법률사무소 청송을 운영하는 김창희 변호사가 자신의 하루를 줄이려
+                부산에서 법률사무소청송law를 운영하는 김창희 변호사가 자신의 하루를 줄이려
                 직접 설계했고, 지금도 매일 이 화면으로 사건을 처리합니다. 10년간 1,000건
                 이상의 사건을 수행하며 다듬은 실무 감각이 서식 하나, 질문 하나에 들어
                 있습니다.
@@ -852,7 +852,7 @@ export default function LandingPage() {
                     김창희 변호사
                   </p>
                   <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "rgba(242,239,227,0.5)" }}>
-                    법률사무소 청송 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
+                    법률사무소청송law 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
                   </p>
                 </div>
                 <a
@@ -1053,11 +1053,11 @@ export default function LandingPage() {
           >
             <p className="mb-2">
               <span className="font-semibold" style={{ color: "rgba(20,57,43,0.75)" }}>
-                Law-Caddy는 법률사무소 청송이 개발·운영하는 법률사무소 업무 관리 서비스입니다.
+                Law-Caddy는 법률사무소청송law가 개발·운영하는 법률사무소 업무 관리 서비스입니다.
               </span>
             </p>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-              <span>상호 법률사무소 청송</span>
+              <span>상호 법률사무소청송law</span>
               <span>대표 김창희</span>
               <span>사업자등록번호 102-78-00061</span>
               <span>전화 051-714-1515</span>
@@ -1066,7 +1066,7 @@ export default function LandingPage() {
               주소 부산광역시 연제구 법원남로15번길 10, 2층 202호(거제동, 미르코아빌딩)
             </p>
             <p className="mt-4" style={{ color: "rgba(20,57,43,0.42)" }}>
-              &copy; {new Date().getFullYear()} 법률사무소 청송. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
+              &copy; {new Date().getFullYear()} 법률사무소청송law. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
             </p>
           </div>
         </div>
