@@ -567,16 +567,17 @@ export default function LandingPage() {
               1인 변호사 사무실 운영 SaaS
             </p>
             <h1
-              className="text-[2.1rem] sm:text-[2.6rem] lg:text-[2.9rem] font-bold leading-[1.34] mb-7"
-              style={{ ...serif, color: INK, letterSpacing: "-0.01em" }}
+              className="text-[2.4rem] sm:text-[3rem] lg:text-[3.4rem] font-bold leading-[1.24] mb-7"
+              style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}
             >
-              캐디는 클럽을 고르고,
+              좋은 샷은
               <br />
-              스윙은 선수가 합니다
+              준비에서 나옵니다
             </h1>
             <p className="text-base sm:text-lg leading-relaxed max-w-xl mb-10" style={{ color: "rgba(20,57,43,0.68)" }}>
-              사무장 없이 혼자 하는 사무실을 위해 만들었습니다. 상담 녹음 하나로 판례 검색,
-              서면 초안, 수임계약, 기일 관리, 정산까지 — 준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
+              상담 녹음 하나로 판례 검색, 서면 초안, 수임계약, 정산까지.
+              <br className="hidden sm:block" />
+              준비는 Law-Caddy가 맡고, 판단은 변호사가 합니다.
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Link
