@@ -47,6 +47,8 @@ const ScrollExpandMedia = ({
   const [mediaFullyExpanded, setMediaFullyExpanded] = useState<boolean>(prefersReduced);
   const [touchStartY, setTouchStartY] = useState<number>(0);
   const [isMobileState, setIsMobileState] = useState<boolean>(false);
+  // 화면 크기 — 모바일에서 영상을 화면 크기까지 키우는 데 쓴다(0이면 데스크톱 기본값 사용)
+  const [viewport, setViewport] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const sectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -154,16 +156,31 @@ const ScrollExpandMedia = ({
   }, [scrollProgress, mediaFullyExpanded, touchStartY, prefersReduced]);
 
   useEffect(() => {
-    const checkIfMobile = (): void => {
+    const measure = (): void => {
       setIsMobileState(window.innerWidth < 768);
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
     };
-    checkIfMobile();
-    window.addEventListener("resize", checkIfMobile);
-    return () => window.removeEventListener("resize", checkIfMobile);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, []);
 
-  const mediaWidth = 300 + scrollProgress * (isMobileState ? 650 : 1250);
-  const mediaHeight = 400 + scrollProgress * (isMobileState ? 200 : 400);
+  // 크기는 화면 크기를 목표로 삼아 늘린다.
+  //
+  // 원본은 증가폭을 픽셀로 고정했는데(모바일 가로 +650), 아래 style의 상한이 95vw라
+  // 폭 390px 폰에서는 300px → 370px에서 곧바로 상한에 걸렸다. 진행도 11% 지점에서
+  // 가로 성장이 끝나고 나머지 89%는 세로로만 400→600px 자라, 화면(844px)을 채우지
+  // 못한 채 카드가 조금 길어지는 정도로 보였다. 스크롤은 끝까지 잠기는데 연출은
+  // 약한, 손해만 보는 구간이었다.
+  //
+  // 그래서 모바일에서는 상한(95vw · 85vh)을 목표로 보간한다. 진행도 1에서 정확히
+  // 화면을 채우고, 성장이 전 구간에 고르게 퍼진다. 데스크톱은 기존 값을 유지한다.
+  const targetW = viewport.w * 0.95;
+  const targetH = viewport.h * 0.85;
+  const mediaWidth =
+    isMobileState && targetW > 300 ? 300 + scrollProgress * (targetW - 300) : 300 + scrollProgress * 1250;
+  const mediaHeight =
+    isMobileState && targetH > 400 ? 400 + scrollProgress * (targetH - 400) : 400 + scrollProgress * 400;
   const textTranslateX = scrollProgress * (isMobileState ? 180 : 150);
 
   // 제목은 두 줄로 나뉘어 서로 반대 방향으로 벌어진다 — 자르는 위치가 곧 연출이다.
