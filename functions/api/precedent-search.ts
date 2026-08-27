@@ -53,7 +53,7 @@ const LAW_API_SEARCH = "http://api.law-caddy.com/DRF/lawSearch.do";
 const LAW_API_DETAIL = "http://api.law-caddy.com/DRF/lawService.do";
 
 /** 검색 대상 타입 */
-type SearchTarget = "prec" | "detc" | "expc" | "law" | "lstrm" | "aiSearch" | "aiRltLs" | "nlrc" | "ftc" | "lstrmRltJo";
+type SearchTarget = "prec" | "detc" | "expc" | "law" | "lawBody" | "lstrm" | "aiSearch" | "aiRltLs" | "nlrc" | "ftc" | "lstrmRltJo";
 
 /** 요청 body 타입 */
 interface PrecedentSearchRequest {
@@ -67,6 +67,10 @@ interface PrecedentSearchRequest {
   detcId?: string;
   /** 법률명 필터 (JO 파라미터, 판례 검색 시 참조조문 기반 필터링) */
   jo?: string;
+  /** 진단용: 법제처 응답 원문을 그대로 돌려준다. 내부 호출에서만 동작한다. */
+  debug?: boolean;
+  /** 법령 일련번호(MST). target=lawBody 로 조문 전체를 받을 때 쓴다. */
+  mst?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -331,10 +335,34 @@ function formatDate(raw: string): string {
 // 핸들러
 // ---------------------------------------------------------------------------
 
+/** 법제처 lawService.do(법령 본문) 응답 구조 */
+interface LawBodyArticleUnit {
+  조문번호?: string | number;
+  조문제목?: string;
+  조문내용?: string;
+}
+interface LawBodyApiResponse {
+  result?: string;
+  msg?: string;
+  법령?: {
+    기본정보?: {
+      법령명_한글?: string;
+      법령명한글?: string;
+      법령ID?: string;
+      시행일자?: string | number;
+      소관부처?: { content?: string };
+      소관부처명?: string;
+    };
+    조문?: { 조문단위?: LawBodyArticleUnit | LawBodyArticleUnit[] };
+  };
+}
+
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const body = (await context.request.json()) as PrecedentSearchRequest;
     const target: SearchTarget = body.target ?? "prec";
+    const isInternalDebug =
+      body.debug === true && (context.data as Record<string, unknown>).internalCall === true;
 
     // -----------------------------------------------------------------------
     // 헌재결정례 상세 조회 (detcId 파라미터 사용)
@@ -601,6 +629,59 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // -----------------------------------------------------------------------
+    // 법령 본문(조문 전체) 조회 (target=lawBody)
+    // 법령 검색(law)은 목록만 준다. 조문 원문이 필요할 때 MST 또는 법령명으로 부른다.
+    // -----------------------------------------------------------------------
+    if (target === "lawBody") {
+      const url = new URL(LAW_API_DETAIL);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("target", "law");
+      url.searchParams.set("type", "JSON");
+      if (body.mst) url.searchParams.set("MST", body.mst);
+      else url.searchParams.set("LM", body.query);
+
+      const response = await fetchWithRetry(url.toString());
+      if (!response.ok) {
+        return Response.json({ error: "법제처 법령 본문 호출 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      }
+      const text = await response.text();
+      if (isInternalDebug) {
+        return Response.json({ debug: true, requestUrl: url.toString(), raw: text.slice(0, 3000) });
+      }
+      if (!text.trim()) return Response.json({ lawName: null, articles: [] });
+
+      let data: LawBodyApiResponse;
+      try { data = JSON.parse(text) as LawBodyApiResponse; }
+      catch { return Response.json({ error: "법제처 법령 본문 파싱 실패", detail: text.slice(0, 200) }, { status: 502 }); }
+
+      const apiError = data.result;
+      if (apiError && typeof apiError === "string") {
+        return Response.json({ error: "법제처 API 인증 실패", detail: `${apiError} — ${data.msg ?? ""}` }, { status: 502 });
+      }
+
+      const law = data.법령;
+      if (!law) return Response.json({ lawName: null, articles: [] });
+
+      const basic = law.기본정보 ?? {};
+      const rawUnits = law.조문?.조문단위;
+      const units = Array.isArray(rawUnits) ? rawUnits : rawUnits ? [rawUnits] : [];
+
+      return Response.json({
+        lawName: basic.법령명_한글 ?? basic.법령명한글 ?? null,
+        mst: basic.법령ID ?? body.mst ?? null,
+        enforcedAt: basic.시행일자 ? String(basic.시행일자) : null,
+        ministry: basic.소관부처?.content ?? basic.소관부처명 ?? null,
+        articles: units
+          .map((u) => ({
+            articleNumber: String(u.조문번호 ?? "").trim(),
+            articleTitle: String(u.조문제목 ?? "").trim(),
+            articleContent: String(u.조문내용 ?? "").trim(),
+          }))
+          .filter((a) => a.articleContent.length > 0),
+      });
+    }
+
+    // -----------------------------------------------------------------------
     // 현행법령 검색 (target=law)
     // -----------------------------------------------------------------------
     if (target === "law") {
@@ -616,6 +697,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return Response.json({ error: "법제처 법령 API 호출 실패", detail: `HTTP ${response.status}` }, { status: 502 });
       }
       const text = await response.text();
+      if (isInternalDebug) {
+        return Response.json({ debug: true, requestUrl: url.toString(), raw: text.slice(0, 3000) });
+      }
       if (!text.trim()) return Response.json({ totalCount: 0, statutes: [] });
 
       let data: LawApiLawSearchResponse;

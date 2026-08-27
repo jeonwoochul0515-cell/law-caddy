@@ -15,6 +15,26 @@ const PUBLIC_PATHS = [
   "/api/portal", // 의뢰인 포털 (읽기 전용 — 토큰으로 서버가 검증)
 ];
 
+
+/** 서비스 간 호출을 허용하는 경로. 법제처 중계 외에는 절대 늘리지 않는다. */
+const INTERNAL_PATHS = ["/api/precedent-search"];
+
+/** 길이가 같을 때 내용을 상수 시간으로 비교한다. 토큰을 한 글자씩 떠보는 공격을 막는다. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function isAuthorizedInternalCall(request: Request, path: string, env: Env): boolean {
+  if (!INTERNAL_PATHS.includes(path)) return false;
+  const expected = env.INTERNAL_API_TOKEN;
+  const provided = request.headers.get("X-Internal-Token");
+  if (!expected || !provided) return false;
+  return safeEqual(provided, expected);
+}
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request } = context;
 
@@ -35,7 +55,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   // 공개 경로는 인증 건너뛰기
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 
-  if (!isPublic) {
+  // 서비스 간 호출: 법제처 자료 중계만 공유 토큰으로 연다.
+  // 법제처는 호출 도메인을 사전 등록해야 응답하므로 다른 프로젝트가 직접 부를 수 없고,
+  // 등록이 끝난 이 도메인이 유일한 창구다. 다른 API는 이 통로로 열지 않는다.
+  const isInternalCall = isAuthorizedInternalCall(request, path, context.env);
+
+  // 진단 옵션은 내부 호출에서만 열어준다 (핸들러에서 확인)
+  (context.data as Record<string, unknown>).internalCall = isInternalCall;
+
+  if (!isPublic && !isInternalCall) {
     const authResult = await authenticateRequest(request, context.env);
 
     // Response가 반환되면 인증 실패

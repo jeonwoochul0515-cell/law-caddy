@@ -17,4 +17,7 @@ export interface Env {
   SOLAPI_API_SECRET: string;
   SOLAPI_SENDER_NUMBER: string;
   ADMIN_NOTIFY_PHONE: string;
+  // 서비스 간 호출 토큰 — 법제처 자료 중계(/api/precedent-search)만 이 토큰으로 열린다.
+  // 법제처 Open API는 도메인을 사전 등록해야 응답하므로 law-caddy가 유일한 창구다.
+  INTERNAL_API_TOKEN?: string;
 }
