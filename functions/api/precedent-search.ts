@@ -338,6 +338,8 @@ function formatDate(raw: string): string {
 /** 법제처 lawService.do(법령 본문) 응답 구조 */
 interface LawBodyArticleUnit {
   조문번호?: string | number;
+  /** 가지조문 번호. 제10조의2의 "2"에 해당한다. 없으면 본조. */
+  조문가지번호?: string | number;
   조문제목?: string;
   조문내용?: string;
 }
@@ -674,6 +676,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         articles: units
           .map((u) => ({
             articleNumber: String(u.조문번호 ?? "").trim(),
+            // 제10조의2·제10조의3처럼 가지조문은 조문번호가 같다. 이 값이 없으면
+            // 받는 쪽에서 문서 ID가 겹쳐 조문이 통째로 덮어써진다.
+            articleBranch: String(u.조문가지번호 ?? "").trim(),
             articleTitle: String(u.조문제목 ?? "").trim(),
             articleContent: String(u.조문내용 ?? "").trim(),
           }))
