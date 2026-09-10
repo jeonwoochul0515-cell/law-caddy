@@ -71,6 +71,11 @@ interface PrecedentSearchRequest {
   debug?: boolean;
   /** 법령 일련번호(MST). target=lawBody 로 조문 전체를 받을 때 쓴다. */
   mst?: string;
+  /**
+   * 법제처에 그대로 넘길 추가 파라미터. 내부 호출에서만 동작한다.
+   * 개정 공시 조회(ancYd·efYd·sort·rrClsCd)처럼 정형화되지 않은 질의에 쓴다.
+   */
+  raw?: { endpoint?: "search" | "service"; params?: Record<string, string> };
 }
 
 // ---------------------------------------------------------------------------
@@ -480,6 +485,38 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return Response.json({
         precedent: mapPrecedent(data.PrecService),
       });
+    }
+
+    // -----------------------------------------------------------------------
+    // 원시 질의 (내부 호출 전용)
+    // 법제처 파라미터를 그대로 전달한다. 개정 공시 조회처럼 목록·필터 조합이
+    // 다양한 질의를 매번 전용 분기로 만들지 않기 위한 통로다.
+    // 검색어 대신 파라미터로 조회하므로 아래 target 분기보다 먼저 처리한다.
+    // -----------------------------------------------------------------------
+    if (body.raw) {
+      if ((context.data as Record<string, unknown>).internalCall !== true) {
+        return Response.json(
+          { error: "raw 질의는 서비스 간 내부 호출에서만 쓸 수 있습니다." },
+          { status: 403 },
+        );
+      }
+      const base = body.raw.endpoint === "service" ? LAW_API_DETAIL : LAW_API_SEARCH;
+      const url = new URL(base);
+      url.searchParams.set("OC", LAW_API_OC);
+      url.searchParams.set("type", "JSON");
+      for (const [k, v] of Object.entries(body.raw.params ?? {})) {
+        url.searchParams.set(k, v);
+      }
+      const response = await fetchWithRetry(url.toString());
+      const text = await response.text();
+      if (!response.ok) {
+        return Response.json({ error: "법제처 호출 실패", detail: `HTTP ${response.status}` }, { status: 502 });
+      }
+      try {
+        return Response.json(JSON.parse(text));
+      } catch {
+        return Response.json({ error: "법제처 응답 파싱 실패", detail: text.slice(0, 300) }, { status: 502 });
+      }
     }
 
     // -----------------------------------------------------------------------
