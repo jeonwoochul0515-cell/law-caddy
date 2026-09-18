@@ -229,13 +229,16 @@ export default function AdminPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    // 검색어에서 숫자만 뽑는다. 숫자가 없으면 전화번호 대조를 건너뛴다 —
+    // "".includes("")는 항상 참이라 그냥 넘기면 전원이 걸린다.
+    const qDigits = q.replace(/\D/g, "");
     const matched = q
       ? listForTab.filter((u) =>
           (u.name ?? "").toLowerCase().includes(q) ||
           (u.firmName ?? "").toLowerCase().includes(q) ||
           (u.barLicenseNumber ?? "").includes(q) ||
           (u.email ?? "").toLowerCase().includes(q) ||
-          (u.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || " "),
+          (qDigits !== "" && (u.phone ?? "").replace(/\D/g, "").includes(qDigits)),
         )
       : [...listForTab];
     const ms = (u: User) => u.createdAt?.toMillis?.() ?? 0;

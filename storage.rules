@@ -14,7 +14,12 @@ service firebase.storage {
       return isAuthenticated() && request.auth.uid == ownerId;
     }
 
-    // 관리자 역할 확인 (Firestore에서 역할 조회)
+    // 관리자 역할 확인 (Firestore에서 역할 조회).
+    //
+    // ⚠️ (2026-09-19) 관리자가 읽는 것은 사업자등록증 하나뿐이다(가입 심사용).
+    // 이전에는 상담 녹음 음성파일·상대방 서면·사건기록 PDF·추출 텍스트·영수증까지
+    // 8곳이 열려 있었다. 관리자 화면은 그중 어느 것도 쓰지 않는다.
+    // 변호사법 제26조가 걸린 자료다. 새 경로를 만들 때 isAdmin 읽기를 관례로 붙이지 말 것.
     function isAdmin() {
       return isAuthenticated()
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
@@ -38,9 +43,6 @@ service firebase.storage {
             || request.resource.contentType.matches('application/.*')
             || request.resource.contentType.matches('text/.*'));
       allow delete: if isSelf(ownerId);
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 상대방 서면 파일 (opponent-docs/{uid}/{caseId}/{file}) ──
@@ -52,9 +54,6 @@ service firebase.storage {
         && (request.resource.contentType.matches('application/.*')
             || request.resource.contentType.matches('image/.*'));
       allow delete: if isSelf(ownerId);
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 사건기록 PDF (case-records/{uid}/{caseId}/{file}) ──
@@ -65,9 +64,6 @@ service firebase.storage {
         && request.resource.size < 100 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf');
       allow delete: if isSelf(ownerId);
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 문서 내보내기 파일 (documents/{uid}/{caseId}/{file}) ──
@@ -79,9 +75,6 @@ service firebase.storage {
         // 최대 50MB
         && request.resource.size < 50 * 1024 * 1024;
       allow delete: if isSelf(ownerId);
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 추출 텍스트 파일 (extracted-texts/{uid}/{file} 또는 extracted-texts/{uid}/{caseId}/{file}) ──
@@ -92,7 +85,6 @@ service firebase.storage {
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('text/.*');
       allow delete: if isSelf(ownerId);
-      allow read: if isAdmin();
     }
 
     // ── 사업자등록증 파일 (business-registrations/{uid}/{uid}.{ext}) ──
@@ -120,9 +112,6 @@ service firebase.storage {
         && (request.resource.contentType.matches('image/.*')
             || request.resource.contentType.matches('application/pdf'));
       allow delete: if isSelf(ownerId);
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
   }
 }

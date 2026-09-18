@@ -9,7 +9,18 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // 관리자 역할 확인
+    // 관리자 역할 확인.
+    //
+    // ⚠️ (2026-09-19) 관리자는 users와 bug_reports만 읽는다. 다른 것을 열지 말 것.
+    //
+    // 이전에는 사건·녹음·문서·사건기록·수임료·결제·서명요청 등 21곳에 admin 읽기가
+    // 열려 있었다. 관리자 계정 하나가 전국 변호사의 상담 녹음·수임계약서 전문·
+    // 의뢰인 연락처·사건기록 PDF를 전부 열 수 있었다는 뜻이다. 변호사법 제26조
+    // 비밀유지의무가 걸린 자료이고, 정작 관리자 화면(AdminPage)은 그중 한 줄도 안 쓴다.
+    // 쓰지도 않는 권한을 열어 둔 만큼 사고 때 새는 범위만 커졌다. 전부 걷어냈다.
+    //
+    // 운영상 정말 남의 자료를 봐야 한다면 Firebase 콘솔이나 서비스 계정 경로로 간다.
+    // 그쪽은 접근 기록이 남고 개별 승인을 거친다.
     function isAdmin() {
       return isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
@@ -124,17 +135,11 @@ service cloud.firestore {
       // 삭제는 본인만
       allow delete: if isOwner();
 
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
-
-      // ── 의뢰인 케어 메시지 (서브컬렉션) ──
+      // ── 의뢰인 케어 메시지 (서브컴렉션) ──
       match /clientCareMessages/{messageId} {
         // 사건 소유자만 읽기/쓰기
         allow read, write: if isAuthenticated()
           && get(/databases/$(database)/documents/cases/$(caseId)).data.ownerId == request.auth.uid;
-
-        // 관리자: 읽기 허용
-        allow read: if isAdmin();
       }
     }
 
@@ -143,9 +148,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 법률 문서 ──
@@ -153,9 +155,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 상대방 서면 ──
@@ -163,9 +162,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 사건기록 (전자소송 PDF + 자동 분류 + AI 분석 결과 임베드) ──
@@ -173,9 +169,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 사건 기한 (일정 탭) ──
@@ -183,9 +176,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-
-      // 관리자: 읽기 허용
-      allow read: if isAdmin();
     }
 
     // ── 수임료 (Fees) ──
@@ -193,15 +183,13 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
 
-      // ── 분할납부 (Installments 서브컬렉션) ──
+      // ── 분할납부 (Installments 서브컴렉션) ──
       match /installments/{installmentId} {
         allow create: if isAuthenticated()
           && get(/databases/$(database)/documents/fees/$(feeId)).data.ownerId == request.auth.uid;
         allow read, update, delete: if isAuthenticated()
           && get(/databases/$(database)/documents/fees/$(feeId)).data.ownerId == request.auth.uid;
-        allow read: if isAdmin();
       }
     }
 
@@ -210,7 +198,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
     }
 
     // ── 거래 내역 (Transactions) ──
@@ -218,7 +205,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
     }
 
     // ── 사무소 경비 (Office Expenses) ──
@@ -226,7 +212,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
     }
 
     // ── 예수금 (Deposits) ──
@@ -234,7 +219,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
     }
 
     // ── 월별 요약 (Monthly Summary) — 문서 ID = {ownerId}_{YYYY-MM} ──
@@ -244,7 +228,6 @@ service cloud.firestore {
       allow create: if isOwnerOnCreate();
       allow read, delete: if isOwner();
       allow update: if isOwnerUpdate();
-      allow read: if isAdmin();
     }
 
     // ── 월별 사용량 (Usage Monthly) — 문서 ID = {uid}_{YYYY-MM} ──
@@ -254,7 +237,6 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && (resource.data.get("uid", null) == request.auth.uid
             || resource.data.get("ownerId", null) == request.auth.uid);
-      allow read: if isAdmin();
       allow write: if false;
     }
 
@@ -263,7 +245,6 @@ service cloud.firestore {
     //  삭제해도 되지만 예전 데이터가 남아 있을 수 있어 읽기만 열어 둔다.)
     match /subscriptions/{uid} {
       allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow read: if isAdmin();
       allow write: if false;
     }
 
@@ -272,7 +253,6 @@ service cloud.firestore {
     match /paymentHistory/{paymentId} {
       allow read: if isAuthenticated()
         && resource.data.uid == request.auth.uid;
-      allow read: if isAdmin();
       allow write: if false;
     }
 
@@ -280,7 +260,6 @@ service cloud.firestore {
     match /payments/{orderId} {
       allow read: if isAuthenticated()
         && resource.data.uid == request.auth.uid;
-      allow read: if isAdmin();
 
       // 클라이언트 쓰기 차단 — 서버(서비스 계정 REST)에서만 기록
       allow write: if false;
@@ -304,7 +283,6 @@ service cloud.firestore {
       allow update: if isOwnerUpdate()
         && (request.resource.data.status == resource.data.status
             || request.resource.data.status == "expired");
-      allow read: if isAdmin();
     }
 
     // ── 버그 리포트 (베타 테스트) ──

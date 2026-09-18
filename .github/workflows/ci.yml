@@ -31,6 +31,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Firestore 에뮬레이터가 JVM 위에서 돌아간다
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: 의존성 설치
         run: npm ci
 
@@ -45,6 +51,12 @@ jobs:
 
       - name: 테스트
         run: npm run test:ci
+
+      # 변호사 사건 자료의 접근 통제가 전부 firestore.rules 하나에 걸려 있다.
+      # 규칙을 고칠 때 무엇이 깨지는지 알 길이 없었고, 실제로 관리자 읽기가
+      # 21곳에 열려 있는 것을 누구도 못 잡았다.
+      - name: 보안 규칙 권한 테스트
+        run: npm run test:rules
 
       - name: 빌드 (SSR 프리렌더·sitemap 생성 포함)
         run: npm run build

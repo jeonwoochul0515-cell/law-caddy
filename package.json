@@ -16,6 +16,7 @@
     "verify": "npm run typecheck && npm run lint && npm run test:ci && npm run build && npm run site-qa",
     "test": "vitest",
     "test:ci": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore --project law-caddy-rules-test \"vitest run --config vitest.rules.config.ts\"",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
@@ -56,6 +57,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260305.0",
     "@eslint/js": "^9.39.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
