@@ -1,26 +1,51 @@
 {
   "/": {
     "title": "Law-Caddy | 1인·소규모 법률사무소 운영 도우미",
-    "description": "사무장 없이 혼자 하는 법률사무소를 위한 운영 도구. 상담 녹음 AI 분석, 판례 검색, 서면 초안, 수임계약 전자서명, 정산까지. Starter 무료."
+    "description": "사무장 없이 혼자 하는 법률사무소를 위한 운영 도구. 상담 녹음 AI 분석, 판례 검색, 서면 초안, 수임계약 전자서명, 정산까지. Starter 무료.",
+    "lastmod": "2026-09-19",
+    "changefreq": "weekly",
+    "priority": "1.0"
   },
   "/workflow": {
     "title": "상담 녹음 한 번으로 서면까지 | Law-Caddy",
-    "description": "1인 변호사 사무실의 하루를 기준으로 설계한 업무 흐름. 상담 녹음부터 AI 분석, 서면 초안, 의뢰인 안내까지 실제 순서를 확인하세요"
+    "description": "1인 변호사 사무실의 하루를 기준으로 설계한 업무 흐름. 상담 녹음부터 AI 분석, 서면 초안, 의뢰인 안내까지 실제 순서를 확인하세요",
+    "lastmod": "2026-07-06",
+    "changefreq": "monthly",
+    "priority": "0.7"
   },
   "/ai-agents": {
     "title": "판례 검색 AI 에이전트 | Law-Caddy",
-    "description": "판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 역할을 나눈 AI 넷이 동시에 맡습니다. 각각 하는 일을 소개합니다"
+    "description": "판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 역할을 나눈 AI 넷이 동시에 맡습니다. 각각 하는 일을 소개합니다",
+    "lastmod": "2026-07-06",
+    "changefreq": "monthly",
+    "priority": "0.7"
   },
   "/automation": {
     "title": "사무장 없이 사무실 운영하기 | Law-Caddy",
-    "description": "수임계약 전자서명, 성공보수 추적, 인지대 계산, 월별 손익·세무 자료까지. 1인 사무실이 혼자 감당하던 일을 자동화합니다"
+    "description": "수임계약 전자서명, 성공보수 추적, 인지대 계산, 월별 손익·세무 자료까지. 1인 사무실이 혼자 감당하던 일을 자동화합니다",
+    "lastmod": "2026-07-06",
+    "changefreq": "monthly",
+    "priority": "0.7"
   },
   "/pricing": {
     "title": "요금 안내 — Starter 무료 | Law-Caddy",
-    "description": "가입하면 Starter가 무료로 열립니다. 월 5건 사건 분석·3건 문서 생성에 AI 분석 4종 전체 포함. 무제한이 필요하면 Pro 월 89,000원"
+    "description": "가입하면 Starter가 무료로 열립니다. 월 5건 사건 분석·3건 문서 생성에 AI 분석 4종 전체 포함. 무제한이 필요하면 Pro 월 89,000원",
+    "lastmod": "2026-07-06",
+    "changefreq": "monthly",
+    "priority": "0.8"
   },
   "/faq": {
     "title": "자주 묻는 질문 | Law-Caddy",
-    "description": "상담 녹음 적법성부터 전자서명 효력까지, 1인 변호사 사무실이 자주 묻는 질문에 답합니다"
+    "description": "상담 녹음 적법성부터 전자서명 효력까지, 1인 변호사 사무실이 자주 묻는 질문에 답합니다",
+    "lastmod": "2026-07-06",
+    "changefreq": "monthly",
+    "priority": "0.6"
+  },
+  "/privacy": {
+    "title": "개인정보처리방침 | Law-Caddy",
+    "description": "Law-Caddy가 수집하는 개인정보 항목, 처리 목적과 보유 기간, 처리위탁 업체와 국외 이전, 정보주체의 권리 행사 방법을 안내합니다",
+    "lastmod": "2026-09-19",
+    "changefreq": "yearly",
+    "priority": "0.3"
   }
 }

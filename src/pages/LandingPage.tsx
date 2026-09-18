@@ -57,11 +57,18 @@ function ConsultSection() {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [errMsg, setErrMsg] = useState("");
+  // 개인정보 보호법 제15조 — 이름·연락처를 받으므로 수집 동의가 있어야 보낼 수 있다
+  const [consented, setConsented] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const cleanName = name.trim();
     const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (!consented) {
+      setStatus("error");
+      setErrMsg("개인정보 수집·이용에 동의해 주세요.");
+      return;
+    }
     if (cleanName.length < 2) {
       setStatus("error");
       setErrMsg("성함을 입력해 주세요.");
@@ -143,6 +150,7 @@ function ConsultSection() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="성함"
+                aria-label="성함"
                 autoComplete="name"
                 className={`w-full px-4 py-3 text-sm ${focusRing}`}
                 style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
@@ -153,6 +161,7 @@ function ConsultSection() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="휴대전화 (010-1234-5678)"
+                aria-label="휴대전화번호"
                 autoComplete="tel"
                 className={`w-full px-4 py-3 text-sm ${focusRing}`}
                 style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
@@ -163,9 +172,26 @@ function ConsultSection() {
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
               placeholder="궁금한 점 (선택)"
+              aria-label="궁금한 점 (선택)"
               className={`w-full px-4 py-3 text-sm ${focusRing}`}
               style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.2)", color: INK, ...sans }}
             />
+            <label className="flex items-start gap-3 cursor-pointer py-2">
+              <input
+                type="checkbox"
+                checked={consented}
+                onChange={(e) => setConsented(e.target.checked)}
+                className={`mt-0.5 w-5 h-5 shrink-0 ${focusRing}`}
+                style={{ accentColor: INK }}
+              />
+              <span className="text-xs leading-relaxed" style={{ color: "rgba(20,57,43,0.62)" }}>
+                상담 회신을 위해 성함·휴대전화번호·문의 내용을 수집하고 1년간 보관하는 데 동의합니다.
+                안내 문자 발송은 솔라피에 위탁합니다. 동의하지 않으셔도 카카오톡으로 문의하실 수 있습니다.{" "}
+                <Link to="/privacy" className={`underline ${focusRing}`} style={{ color: GOLD_DEEP }}>
+                  개인정보처리방침
+                </Link>
+              </span>
+            </label>
             {status === "error" && (
               <p role="alert" className="text-sm font-semibold" style={{ color: SEAL }}>
                 {errMsg}
@@ -180,7 +206,11 @@ function ConsultSection() {
               {status === "busy" ? "전송 중…" : "상담 신청 남기기"}
             </button>
             <p className="text-xs text-center" style={{ color: "rgba(20,57,43,0.45)" }}>
-              입력하신 정보는 도입 상담 회신 목적으로만 사용합니다.
+              입력하신 정보는 도입 상담 회신 목적으로만 쓰며, 자세한 내용은{" "}
+              <Link to="/privacy" className={`underline ${focusRing}`} style={{ color: GOLD_DEEP }}>
+                개인정보처리방침
+              </Link>
+              에 있습니다.
             </p>
           </form>
         )}
@@ -1017,6 +1047,9 @@ export default function LandingPage() {
               >
                 카카오톡 문의
               </a>
+              <Link to="/privacy" className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
+                개인정보처리방침
+              </Link>
               <Link to="/login" className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
                 로그인
               </Link>

@@ -593,8 +593,15 @@ export default function ProfileSetupPage() {
                   <p>- 서비스 관련 공지, 고객 문의 응대</p>
                   <p className="font-medium text-[#1e2a22] mt-2">보유·이용 기간</p>
                   <p>- 회원 탈퇴 시까지 (관계 법령에 따라 보존이 필요한 경우 해당 기간까지). 탈퇴는 카카오톡 문의로 요청하시면 확인 후 처리합니다.</p>
+                  <p className="font-medium text-[#1e2a22] mt-2">처리위탁·국외 이전</p>
+                  <p>- 음성 변환·AI 분석·문자 발송·결제 등을 외부 업체에 위탁하며 일부는 국외에서 처리됩니다. 업체 목록과 처리 국가는 개인정보처리방침 5항에 있습니다.</p>
                   <p className="font-medium text-[#1e2a22] mt-2">동의 거부 권리</p>
                   <p>- 위 개인정보 수집·이용에 동의하지 않을 수 있으나, 동의를 거부할 경우 서비스 이용이 제한됩니다.</p>
+                  <p className="mt-2">
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#2e6242] underline">
+                      개인정보처리방침 전문 보기
+                    </a>
+                  </p>
                 </div>
               )}
             </div>

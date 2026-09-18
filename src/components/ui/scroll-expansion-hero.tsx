@@ -245,6 +245,9 @@ const ScrollExpandMedia = ({
               src={bgImageSrc}
               alt=""
               aria-hidden="true"
+              // 원본 비율(1280x720)을 적어 불러오기 전 자리를 잡아 둔다. 표시 크기는 CSS가 정한다.
+              width={1280}
+              height={720}
               className="w-screen h-screen"
               style={{ objectFit: "cover", objectPosition: "center" }}
             />
@@ -274,7 +277,8 @@ const ScrollExpandMedia = ({
                       muted
                       loop
                       playsInline
-                      preload="auto"
+                      // poster로 첫 화면을 먼저 보여 주므로 1MB 영상을 통째로 선수받을 이유가 없다
+                      preload="metadata"
                       className="w-full h-full object-cover rounded-xl"
                       controls={false}
                       disablePictureInPicture

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const { render, getRouteJsonLd, PUBLIC_ROUTES } = await import(
+const { render, renderNotFound, getRouteJsonLd, PUBLIC_ROUTES } = await import(
   pathToFileURL(path.join(root, "dist-ssr/entry-server.js")).href
 );
 const seoRoutes = JSON.parse(readFileSync(path.join(root, "src/data/seoRoutes.json"), "utf-8"));
@@ -77,5 +77,69 @@ for (const routePath of PUBLIC_ROUTES) {
   console.log(`[prerender] ${routePath} → ${path.relative(root, outPath)}`);
 }
 
+// 404.html — 정적 자산 요청이 빗나갔을 때 Cloudflare Pages가 내려주는 문서.
+// SPA 경로는 _redirects의 200 fallback으로 index.html을 받고 화면 안에서
+// 같은 NotFoundPage를 보여 준다. 두 경로가 같은 화면을 쓰도록 같은 컴포넌트를 렌더한다.
+{
+  const notFoundHead = `<title>찾으시는 페이지가 없습니다 | Law-Caddy</title>
+    <meta name="robots" content="noindex, follow" />`;
+  let html = template
+    .replace(/<title>[\s\S]*?<\/title>/, "")
+    .replace("<!--ROUTE_SEO-->", notFoundHead);
+  if (html.includes("<!--ROUTE_SEO-->")) {
+    throw new Error("prerender: 404 문서에서 <!--ROUTE_SEO-->를 치환하지 못했습니다.");
+  }
+  const appHtml = renderNotFound();
+  const rootOpen = '<div id="root">';
+  const startIdx = html.indexOf(rootOpen);
+  const bodyEndIdx = html.indexOf("</body>");
+  const endIdx = html.lastIndexOf("</div>", bodyEndIdx);
+  if (startIdx === -1 || bodyEndIdx === -1 || endIdx <= startIdx) {
+    throw new Error("prerender: 404 문서에서 root 자리를 찾지 못했습니다.");
+  }
+  html =
+    html.slice(0, startIdx) + `${rootOpen}${appHtml}</div>` + html.slice(endIdx + "</div>".length);
+  writeFileSync(path.join(root, "dist/404.html"), html);
+  console.log("[prerender] 404.html → dist/404.html");
+}
+
 rmSync(path.join(root, "dist-ssr"), { recursive: true, force: true });
+
+// sitemap.xml을 seoRoutes.json에서 생성한다.
+//
+// (2026-09-19) 이전에는 public/sitemap.xml을 손으로 관리했고, 그 파일에
+// /login이 들어 있었다. 그런데 App.tsx의 SeoDefaults는 seoRoutes.json에
+// 없는 경로를 전부 noindex로 내보낸다. 「색인하지 말라」고 표시한 페이지를
+// 색인하라고 내는 모순이다. 두 목록을 하나로 묶어 재발을 막는다.
+const sitemapEntries = PUBLIC_ROUTES.map((routePath) => {
+  const meta = seoRoutes[routePath];
+  const loc = `https://law-caddy.com${routePath === "/" ? "/" : `${routePath}/`}`;
+  return [
+    "  <url>",
+    `    <loc>${loc}</loc>`,
+    `    <lastmod>${meta.lastmod}</lastmod>`,
+    `    <changefreq>${meta.changefreq}</changefreq>`,
+    `    <priority>${meta.priority}</priority>`,
+    "  </url>",
+  ].join("\n");
+});
+
+const missingMeta = PUBLIC_ROUTES.filter(
+  (r) => !seoRoutes[r].lastmod || !seoRoutes[r].changefreq || !seoRoutes[r].priority,
+);
+if (missingMeta.length > 0) {
+  throw new Error(
+    `prerender: seoRoutes.json에 lastmod/changefreq/priority가 빠진 라우트 — ${missingMeta.join(", ")}`,
+  );
+}
+
+writeFileSync(
+  path.join(root, "dist/sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapEntries.join("\n")}
+</urlset>\n`,
+);
+console.log(`[prerender] sitemap.xml → ${PUBLIC_ROUTES.length}개 경로`);
+
 console.log("[prerender] 전체 공개 페이지 SSR 완료");

@@ -7,6 +7,8 @@ import AiAgentsPage from "./pages/seo/AiAgentsPage";
 import AutomationPage from "./pages/seo/AutomationPage";
 import PricingPage from "./pages/seo/PricingPage";
 import FaqPage from "./pages/seo/FaqPage";
+import PrivacyPage from "./pages/seo/PrivacyPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import { WORKFLOW_STEPS, FAQS, PLANS } from "./data/landingContent";
 
 const PAGES: Record<string, React.ComponentType> = {
@@ -16,9 +18,22 @@ const PAGES: Record<string, React.ComponentType> = {
   "/automation": AutomationPage,
   "/pricing": PricingPage,
   "/faq": FaqPage,
+  "/privacy": PrivacyPage,
 };
 
 export const PUBLIC_ROUTES = Object.keys(PAGES);
+
+/**
+ * 404 문서용 정적 HTML 본문.
+ * 색인 대상이 아니므로 PUBLIC_ROUTES·sitemap에는 들어가지 않는다.
+ */
+export function renderNotFound() {
+  return renderToStaticMarkup(
+    <StaticRouter location="/404">
+      <NotFoundPage />
+    </StaticRouter>,
+  );
+}
 
 export function render(url: string) {
   const Page = PAGES[url];

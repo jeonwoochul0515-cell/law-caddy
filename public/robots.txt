@@ -1,54 +1,55 @@
-# 검색엔진 공통 허용, 로그인 게이트 뒤 페이지는 크롤 예산 낭비 방지를 위해 제외
+# Law-Caddy robots.txt
+#
+# RFC 9309 — 크롤러는 자기 이름의 그룹을 찾으면 `User-agent: *` 그룹을 무시한다.
+# 그룹은 상속되지 않는다. 그래서 이름을 부른 봇에게 `Allow: /`만 적으면
+# 아래 Disallow 목록이 통째로 사라져 로그인 게이트 뒤 경로까지 열린다.
+# (2026-09-19) 실제로 bingbot·OAI-SearchBot·Claude-SearchBot 등이 그 상태였다.
+#
+# 해결. 연속된 User-agent 줄은 하나의 그룹을 공유하므로, 허용 봇을 전부
+# 한 그룹에 모으고 규칙을 한 번만 적는다. 봇을 추가할 때는 이 목록에 이름을
+# 한 줄 더하기만 하면 되고, Disallow를 따로 복사하지 않는다.
+#
+# Disallow 목록은 site-qa.config.json의 privatePaths와 같아야 한다. 한쪽만
+# 고치면 검사가 잡는다.
+
+# ─── 모든 크롤러 + 이름을 밝힌 검색·AI 검색 크롤러 (같은 규칙) ───
 User-agent: *
-Allow: /
-Disallow: /dashboard
-Disallow: /record
-Disallow: /freeform
-Disallow: /cases
-Disallow: /finance
-Disallow: /settings
-Disallow: /admin
-Disallow: /profile-setup
-Disallow: /pending
-Disallow: /sign/
-
-# 네이버 검색로봇 명시 허용
 User-agent: Yeti
-Allow: /
-Disallow: /dashboard
-Disallow: /record
-Disallow: /freeform
-Disallow: /cases
-Disallow: /finance
-Disallow: /settings
-Disallow: /admin
-Disallow: /profile-setup
-Disallow: /pending
-Disallow: /sign/
-
-# AI 검색/RAG 크롤러 명시 허용 (생성형 엔진 인용 대상 확보)
+User-agent: bingbot
 User-agent: OAI-SearchBot
-Allow: /
-
 User-agent: ChatGPT-User
-Allow: /
-
 User-agent: PerplexityBot
-Allow: /
-
 User-agent: Perplexity-User
-Allow: /
-
 User-agent: Claude-User
-Allow: /
-
 User-agent: Claude-SearchBot
-Allow: /
-
 User-agent: Applebot
 Allow: /
+Disallow: /dashboard
+Disallow: /record
+Disallow: /freeform
+Disallow: /cases
+Disallow: /calendar
+Disallow: /documents
+Disallow: /clients
+Disallow: /finance
+Disallow: /settings
+Disallow: /admin
+Disallow: /profile-setup
+Disallow: /pending
+Disallow: /sign/
+Disallow: /portal/
+Disallow: /payment/
 
-User-agent: bingbot
-Allow: /
+# ─── 학습 전용 수집기 차단 ───
+# 검색 결과에 인용되는 통로가 아니라 모델 학습에 쓰이는 수집기다.
+# 이 사이트는 변호사의 사건 자료를 다루므로 학습 수집은 받지 않는다.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
 
 Sitemap: https://law-caddy.com/sitemap.xml

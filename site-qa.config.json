@@ -20,8 +20,10 @@
     "^/portal/",
     "^/payment/"
   ],
+  "_dynamicPathPrefixesNote": "/login은 SPA 라우트라 정적 산출물이 없다. 프리렌더 대상이 아니고 noindex이므로 낛링크 검사에서 제외한다.",
   "dynamicPathPrefixes": [
-    "/api/"
+    "/api/",
+    "/login"
   ],
   "articlePathPrefix": null,
   "entityPages": [

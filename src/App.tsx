@@ -70,6 +70,8 @@ const AiAgentsPage = lazyWithRetry(() => import("./pages/seo/AiAgentsPage"));
 const AutomationPage = lazyWithRetry(() => import("./pages/seo/AutomationPage"));
 const PricingPage = lazyWithRetry(() => import("./pages/seo/PricingPage"));
 const FaqPage = lazyWithRetry(() => import("./pages/seo/FaqPage"));
+const PrivacyPage = lazyWithRetry(() => import("./pages/seo/PrivacyPage"));
+const NotFoundPage = lazyWithRetry(() => import("./pages/NotFoundPage"));
 
 function LazyFallback() {
   return (
@@ -250,6 +252,7 @@ export default function App() {
           <Route path="/automation" element={<AutomationPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/faq" element={<FaqPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
           {/* 인증 필요 라우트 */}
           <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
@@ -271,7 +274,8 @@ export default function App() {
 
           {/* 랜딩 + 기본 라우트 */}
           <Route path="/" element={<PublicOnly><LandingPage /></PublicOnly>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* 없는 주소는 말없이 홈으로 튀기지 않고 무슨 일인지 알린다 */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

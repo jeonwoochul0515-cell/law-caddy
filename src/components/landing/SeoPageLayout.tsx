@@ -29,7 +29,8 @@ export default function SeoPageLayout({
 }) {
   return (
     <div className="min-h-screen" style={{ background: PAPER, wordBreak: "keep-all" }}>
-      <nav
+      {/* header 랜드마크 — 보조기기가 "이 페이지의 머리말"로 건너뛸 수 있게 한다 */}
+      <header
         className="sticky top-0 z-40"
         style={{
           background: "rgba(247,245,236,0.9)",
@@ -37,7 +38,7 @@ export default function SeoPageLayout({
           borderBottom: "1px solid rgba(20,57,43,0.1)",
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <nav className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between" aria-label="주요">
           {/* 로고는 랜딩과 동일 — 이름 + 핀 깃발 점 */}
           <Link to="/" className={`flex items-baseline gap-2 ${focusRing}`}>
             <span className="text-lg font-bold tracking-tight" style={{ ...serif, color: INK }}>
@@ -52,8 +53,8 @@ export default function SeoPageLayout({
           >
             지금 시작하기
           </Link>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
       <main className={`${maxWidthClass} mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20`}>
         {children}
@@ -88,6 +89,12 @@ export default function SeoPageLayout({
               >
                 카카오톡 문의
               </a>
+              <Link
+                to="/privacy"
+                className={`inline-flex items-center min-h-11 transition-opacity hover:opacity-70 ${focusRing}`}
+              >
+                개인정보처리방침
+              </Link>
               <Link
                 to="/login"
                 className={`inline-flex items-center min-h-11 transition-opacity hover:opacity-70 ${focusRing}`}
