@@ -10,13 +10,17 @@
     "preview": "npx wrangler pages dev dist",
     "deploy": "npm run build && npx wrangler pages deploy dist --project-name law-caddy && bash scripts/post-deploy-check.sh",
     "deploy:only": "npx wrangler pages deploy dist --project-name law-caddy && bash scripts/post-deploy-check.sh",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p functions/tsconfig.json",
     "lint": "eslint .",
+    "site-qa": "node .gjc/skills/site-qa/scripts/site-qa.mjs --config site-qa.config.json",
+    "verify": "npm run typecheck && npm run lint && npm run test:ci && npm run build && npm run site-qa",
     "test": "vitest",
     "test:ci": "vitest run",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "npx lint-staged"
+    "pre-commit": "npx lint-staged",
+    "pre-push": "npm run typecheck"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -1,0 +1,53 @@
+# 배포 전에 도는 유일한 자동 검사.
+#
+# (2026-09-19) 이전에는 커밋 훅의 eslint 하나뿐이었다. 타입 검사가 어디에도
+# 없어서 컴파일되지 않는 코드가 main에 들어갔고(법제처 API 14곳·transcribe.ts),
+# 다음 사람이 빌드를 못 돌려 작업을 시작하지 못하는 일이 있었다.
+#
+# 순서는 싼 것부터다. 타입 → 린트 → 테스트 → 빌드 → 기술 검사.
+# 앞 단계가 깨지면 뒤는 어차피 의미가 없으므로 그대로 멈춘다.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입 검사 (앱)
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: 타입 검사 (Cloudflare Functions)
+        run: npx tsc --noEmit -p functions/tsconfig.json
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 테스트
+        run: npm run test:ci
+
+      - name: 빌드 (SSR 프리렌더·sitemap 생성 포함)
+        run: npm run build
+
+      - name: 기술 규격 검사 (site-qa)
+        run: node .gjc/skills/site-qa/scripts/site-qa.mjs --config site-qa.config.json
