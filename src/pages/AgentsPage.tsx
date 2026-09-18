@@ -64,7 +64,8 @@ export default function AgentsPage() {
     } catch { return null; }
   })();
 
-  const { agents, isRunning, classifiedCaseType, isClassifying, runAllAgents, restoreFromCache } = useAgents();
+  const { agents, isRunning, classifiedCaseType, isClassifying, maskedPiiCount, runAllAgents, restoreFromCache } =
+    useAgents();
   const { addCase } = useCases();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
   const [started, setStarted] = useState(false);
@@ -460,6 +461,15 @@ export default function AgentsPage() {
           )}
         </div>
       </div>
+
+      {/* 개인정보를 가리고 보냈다는 사실을 알린다.
+          변호사가 「이걸 AI에 보내도 되나」를 매번 고민하는 지점이다. */}
+      {maskedPiiCount > 0 && (
+        <p className="mt-4 text-xs text-text-dim">
+          주민번호·연락처·계좌 등 <strong className="text-text-primary">{maskedPiiCount}건</strong>을 가린 뒤
+          분석에 보냈습니다. 사무실에 보관된 원본은 그대로입니다.
+        </p>
+      )}
 
       {/* 사건 파일 자동 생성 상태 */}
       {allCompleted && !hasExistingCase && (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { callClaude } from "../services/claude";
+import { maskPII } from "../services/pii-mask";
 import {
   buildPostConsultPrompt,
   buildProgressUpdatePrompt,
@@ -127,11 +128,13 @@ export default function useClientCare({
         workBreakdown,
       };
 
-      // 상담 후 단계면 최신 녹음의 대화록 포함
+      // 상담 후 단계면 최신 녹음의 대화록 포함.
+      // 전사문은 상담 중에 오간 주민번호·연락처·계좌가 그대로 담긴 자료다.
+      // 외부 AI로 보내기 전에 가린다(변호사법 제26조).
       if (stage === "post_consult" && recordings.length > 0) {
         const latestRec = recordings[0];
         if (latestRec.transcript) {
-          ctx.transcript = latestRec.transcript.slice(0, 3000);
+          ctx.transcript = maskPII(latestRec.transcript.slice(0, 3000)).masked;
         }
       }
 

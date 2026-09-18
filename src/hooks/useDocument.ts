@@ -4,6 +4,7 @@
 import { useState, useCallback, useRef } from "react";
 import { diffWords } from "diff";
 import { callClaude } from "../services/claude";
+import { maskAgentContext } from "../services/pii-mask";
 import {
   buildPrompt,
   buildClientMessagePrompt,
@@ -150,12 +151,17 @@ export default function useDocument(): UseDocumentReturn {
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   const generateDocument = useCallback(
     async (
-      context: AgentContext,
+      rawContext: AgentContext,
       questions: CheckQuestion[],
       answers: CheckpointAnswer[],
     ): Promise<void> => {
       setStatus("generating_document");
       setError(null);
+
+      // 문서 생성도 전사문·첨부 텍스트를 그대로 실어 보낸다.
+      // 화면을 거쳐 들어오는 경로가 여럿이므로 에이전트 경로와 별개로 여기서도 거른다.
+      // 이미 가려진 값은 패턴에 걸리지 않아 두 번 가려도 문제가 없다.
+      const { context } = maskAgentContext(rawContext);
 
       try {
         // ─── Phase 1-3 서비스 연동: 추가 컨텍스트 생성 (Claude API 0회) ───
