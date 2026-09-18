@@ -39,7 +39,19 @@ export default function RecordPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuth((s) => s.user);
-  const { isRecording, duration, startRecording, stopRecording, interrupted, clearInterrupted } = useRecording();
+  const {
+    isRecording,
+    duration,
+    startRecording,
+    stopRecording,
+    interrupted,
+    clearInterrupted,
+    interruptedFile,
+    takeInterruptedFile,
+    recoveredFile,
+    takeRecoveredFile,
+    storeUnavailable,
+  } = useRecording();
 
   // 사건 상세에서 넘어온 경우 프리필
   const prefilled = location.state as {
@@ -84,6 +96,18 @@ export default function RecordPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 녹음 중이거나 저장 안 된 첨부가 있으면 탭 닫기·새로고침 전에 경고한다.
+  // 같은 제품의 문서 화면에는 있었고 가장 잃으면 안 되는 이 화면에만 없었다.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isRecording && files.length === 0) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isRecording, files.length]);
+
   // 지난번 녹음이 끊긴 채 남아 있는지 확인 (전화·앱 종료 등)
   useEffect(() => {
     let alive = true;
@@ -95,7 +119,37 @@ export default function RecordPage() {
     };
   }, []);
 
-  /** 저장돼 있던 녹음을 파일로 되살려 첨부 목록에 넣는다 */
+  /** 녹음 파일 하나를 첨부 목록에 넣는다 (같은 이름이 있으면 건너뛴다) */
+  const addRecordedFile = useCallback((file: File) => {
+    setFiles((prev) => (prev.some((f) => f.name === file.name) ? prev : [...prev, file]));
+    setRecordedNames((prev) => (prev.includes(file.name) ? prev : [...prev, file.name]));
+  }, []);
+
+  // 강제로 끊긴 녹음을 받아 둔다.
+  //
+  // (2026-09-19) 훅은 이전부터 interruptedFile을 내주고 있었는데 이 화면이
+  // 그걸 가져가지 않았다. 화면은 「저장되었습니다」라고 말하고 실제로는 30분
+  // 상담이 통째로 사라졌다. 받아 넣는 순간 훅이 디스크 조각을 정리한다.
+  useEffect(() => {
+    if (!interruptedFile) return;
+    const file = takeInterruptedFile();
+    if (file) {
+      addRecordedFile(file);
+      setSavedSession(null);
+    }
+  }, [interruptedFile, takeInterruptedFile, addRecordedFile]);
+
+  // 「이어서 녹음」으로 새 세션을 열 직전에 꺼낸 이전 조각도 같이 보관한다
+  useEffect(() => {
+    if (!recoveredFile) return;
+    const file = takeRecoveredFile();
+    if (file) {
+      addRecordedFile(file);
+      setSavedSession(null);
+    }
+  }, [recoveredFile, takeRecoveredFile, addRecordedFile]);
+
+  /** 저장돌 있던 녹음을 파일로 되살려 첨부 목록에 넣는다 */
   const handleRestore = async () => {
     setRestoring(true);
     try {
@@ -502,7 +556,8 @@ export default function RecordPage() {
                 <p className="text-sm font-semibold text-text-primary">녹음이 중단되었습니다</p>
                 <p className="text-xs text-text-dim mt-0.5 leading-relaxed">
                   전화가 오거나 다른 앱이 마이크를 사용하면 녹음이 멈춥니다.
-                  중단 직전까지의 내용은 저장되었습니다. 아래 버튼으로 이어서 녹음하세요.
+                  중단 직전까지의 녹음을 <strong className="text-text-primary">아래 첨부 목록에 넣어 두었습니다.</strong>{" "}
+                  이어서 녹음하면 두 파일이 함께 분석됩니다.
                 </p>
               </div>
               <button
@@ -512,6 +567,19 @@ export default function RecordPage() {
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+          )}
+
+          {/* 임시저장이 실제로 안 되는 경우 — 사파리 비공개 모드·저장공간 부족.
+              "5초마다 저장됩니다"라고 약속해 놓고 한 건도 저장되지 않는 상황을 숨기지 않는다. */}
+          {storeUnavailable && (
+            <div className="flex items-start gap-3 px-4 py-4 bg-warning/10 border border-warning/30 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <p className="flex-1 text-xs text-text-dim leading-relaxed">
+                <strong className="text-text-primary">이 브라우저에서는 자동 임시저장이 동작하지 않습니다.</strong>{" "}
+                비공개(시크릿) 모드이거나 저장공간이 부족한 경우입니다. 중간에 끊기면
+                복구할 수 없으니, 짧게 나눠 녹음하거나 일반 창에서 다시 열어 주세요.
+              </p>
             </div>
           )}
 

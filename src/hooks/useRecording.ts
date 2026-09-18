@@ -237,11 +237,14 @@ export default function useRecording(): UseRecordingReturn {
           resolveStopRef.current = null;
         } else {
           // 호출자 없이 멈췄다 = 강제 중단. 그때까지의 녹음을 파일로 넘긴다.
+          //
+          // (2026-09-19) 여기서 clearSession()을 불렀다. 그러면 메모리 사본은
+          // interruptedFile 하나뿐인데, 화면이 그걸 가져가지 않으면 둘 다 사라졌다.
+          // 화면이 떠나는 중(언마운트)에도 이 경로를 타므로 더 위험했다.
+          // 조각은 남겨 둔다. 다음에 들어오면 복구 배너가 살리고,
+          // 화면이 파일을 받아간 뒤(takeInterruptedFile)에만 지운다.
           const file = buildFileFromChunks();
-          if (file) {
-            setInterruptedFile(file);
-            void clearSession();
-          }
+          if (file) setInterruptedFile(file);
         }
       };
 
@@ -339,15 +342,19 @@ export default function useRecording(): UseRecordingReturn {
 
   const clearInterrupted = useCallback(() => setInterrupted(false), []);
 
+  // 화면이 파일을 손에 넣은 뒤에만 디스크 조각을 지운다. 순서가 바뀜면 둘 다 잃는다.
   const takeInterruptedFile = useCallback((): File | null => {
     const f = interruptedFile;
-    setInterruptedFile(null);
+    if (f) {
+      setInterruptedFile(null);
+      void clearSession();
+    }
     return f;
   }, [interruptedFile]);
 
   const takeRecoveredFile = useCallback((): File | null => {
     const f = recoveredFile;
-    setRecoveredFile(null);
+    if (f) setRecoveredFile(null);
     return f;
   }, [recoveredFile]);
 
