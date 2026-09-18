@@ -80,9 +80,19 @@ export function checkClientMessage(content: string): MessageWarning[] {
   return warnings;
 }
 
-/** 경고 중 발송을 막아야 하는 것(AI 언급)이 있는지 */
+/**
+ * 발송을 막는 경고인지.
+ *
+ * (2026-09-19) 예전에는 AI 언급 하나만 막았다. "승소합니다"·"보장합니다"는
+ * 경고만 뜨고 그대로 나갔다. 기준이 뒤집혀 있었다 — 광고규정 위반보다
+ * 승패 단정이 의뢰인에게 훨씬 위험하다. 그 문자 하나로 기대가 만들어지고,
+ * 결과가 다르면 직업 상 책임으로 돌아온다.
+ *
+ * fabricated_number는 막지 않는다. 변호사가 실제로 센 숫자를 적을 수도 있어
+ * 확인만 받는다.
+ */
 export function hasBlockingWarning(warnings: MessageWarning[]): boolean {
-  return warnings.some((w) => w.kind === "ai_mention");
+  return warnings.some((w) => w.kind === "ai_mention" || w.kind === "definitive");
 }
 
 /** 문자 본문 상한 (서버 functions/api/notify/client.ts의 MAX_TEXT_LENGTH와 같은 값) */

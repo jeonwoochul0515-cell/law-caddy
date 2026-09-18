@@ -7,7 +7,9 @@ import type { SuccessFeeInfo } from "../../types/accounting";
 interface SuccessFeeClaimModalProps {
   successFee: SuccessFeeInfo;
   clientName: string;
-  /** 의뢰인 휴대폰 번호 (사건에 저장된 값, 없으면 입력받음) */
+  /** 사건 문서 ID — 문자는 서버가 이 사건의 의뢰인 번호로만 보낸다 */
+  caseId: string;
+  /** 의뢰인 휴대폰 번호 (사건에 저장된 값) */
   clientPhone?: string;
   firmName: string;
   lawyerName: string;
@@ -63,6 +65,7 @@ const labelCls = "block text-xs text-text-dim mb-1.5";
 export default function SuccessFeeClaimModal({
   successFee,
   clientName,
+  caseId,
   clientPhone,
   firmName,
   lawyerName,
@@ -74,7 +77,12 @@ export default function SuccessFeeClaimModal({
   /** 산정액을 사용자가 직접 고쳤으면 자동 계산을 멈춘다 */
   const [amountOverride, setAmountOverride] = useState<string | null>(null);
   const [vatSeparate, setVatSeparate] = useState(true);
-  const [phone, setPhone] = useState(clientPhone ?? "");
+  /** 화면에 보여 줄 수신번호 (가운데 가림) — 발송은 서버가 사건에서 읽은 번호로 한다 */
+  const maskedPhone = useMemo(() => {
+    const digits = (clientPhone ?? "").replace(/\D/g, "");
+    if (digits.length < 10) return "";
+    return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
+  }, [clientPhone]);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
@@ -121,11 +129,12 @@ export default function SuccessFeeClaimModal({
   }
 
   async function handleSend() {
-    const normalized = phone.replace(/\D/g, "");
     setSending(true);
     setError(null);
     try {
-      await sendClientSms(normalized, finalMessage);
+      // 수신번호는 서버가 사건에서 직접 읽는다(임의 번호 발송 차단).
+      // 번호를 고치려면 사건 정보에서 바꿔야 한다.
+      await sendClientSms(caseId, finalMessage);
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
@@ -228,18 +237,17 @@ export default function SuccessFeeClaimModal({
             />
           </div>
 
-          {/* 3. 발송 */}
-          <div className="flex gap-2">
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="의뢰인 휴대폰 번호"
-              className={`${inputCls} flex-1`}
-            />
+          {/* 3. 발송 — 수신번호는 사건에 저장된 것을 서버가 직접 쓴다.
+              여기서 번호를 바꿀 수 있게 두면 사건과 어긋나 어느 번호로 나갔는지 추적할 수 없다. */}
+          <div className="flex gap-2 items-center">
+            <p className="flex-1 text-xs text-text-dim">
+              {maskedPhone
+                ? <>받는 사람 <strong className="text-text-primary">{clientName}</strong> ({maskedPhone})</>
+                : "사건에 의뢰인 휴대폰 번호가 없습니다. 사건 정보에서 먼저 저장해 주세요."}
+            </p>
             <button
               onClick={handleSend}
-              disabled={sending || phone.replace(/\D/g, "").length < 10}
+              disabled={sending || !maskedPhone}
               className="flex items-center gap-1.5 px-4 py-2 bg-gold-dim text-gold rounded-xl text-sm font-medium hover:bg-gold/20 transition-colors whitespace-nowrap disabled:opacity-40"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : sent ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}

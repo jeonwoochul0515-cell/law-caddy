@@ -35,6 +35,8 @@ import SuccessFeeClaimModal from "./SuccessFeeClaimModal";
 
 /** 성공보수 청구서 생성·발송에 필요한 사건·사무소 정보 */
 export interface SuccessFeeClaimContext {
+  /** 사건 문서 ID — 문자는 서버가 이 사건의 의뢰인 번호로만 보낸다 */
+  caseId: string;
   clientPhone?: string;
   firmName: string;
   lawyerName: string;
@@ -1336,6 +1338,7 @@ function SuccessFeeSection({
             <SuccessFeeClaimModal
               successFee={successFee}
               clientName={clientName}
+              caseId={claimContext.caseId}
               clientPhone={claimContext.clientPhone}
               firmName={claimContext.firmName}
               lawyerName={claimContext.lawyerName}

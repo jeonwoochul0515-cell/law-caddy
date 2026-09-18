@@ -141,13 +141,14 @@ export default function ClientCareTab({
     setSendingId("__portal__");
     setSmsError(null);
     try {
+      // 수신번호는 서버가 사건에서 직접 읽는다. 바뀜 번호를 먼저 저장해야 거기로 나간다.
+      if (normalized && normalized !== caseData.clientPhone) {
+        await updateCase(caseData.id, { clientPhone: normalized });
+      }
       await sendClientSms(
-        normalized,
+        caseData.id,
         `[${firmName}] ${caseData.clientName}님, 사건 진행 상황을 확인하실 수 있는 페이지입니다.\n${portalUrl}\n진행 내역과 다가오는 일정이 업데이트됩니다. 궁금하신 점은 편하게 연락 주세요.\n${firmName} ${lawyerName} 변호사`,
       );
-      if (normalized !== caseData.clientPhone) {
-        updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
-      }
       setPortalSent(true);
       setTimeout(() => setPortalSent(false), 3000);
     } catch (err) {
@@ -162,10 +163,10 @@ export default function ClientCareTab({
     setSendingId(id);
     setSmsError(null);
     try {
-      await sendClientSms(normalized, content);
-      if (normalized !== caseData.clientPhone) {
-        updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
+      if (normalized && normalized !== caseData.clientPhone) {
+        await updateCase(caseData.id, { clientPhone: normalized });
       }
+      await sendClientSms(caseData.id, content);
       setSentId(id);
       setTimeout(() => setSentId(null), 3000);
     } catch (err) {

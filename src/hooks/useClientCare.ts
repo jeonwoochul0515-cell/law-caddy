@@ -46,11 +46,13 @@ function buildWorkBreakdown(
   if (documents.length > 0) {
     items.push({ label: "법률 문서 작성", count: documents.length });
   }
-  // 에이전트 분석 횟수 추정 (문서당 4개 에이전트 — 2026-07-26 구조 개편 반영)
-  const agentRuns = documents.length * 4;
-  if (agentRuns > 0) {
-    items.push({ label: "AI 에이전트 분석", count: agentRuns });
-  }
+  // (2026-09-19) 「AI 에이전트 분석 N건」을 여기서 지웠다.
+  //
+  // N은 센 값이 아니라 문서 개수 × 4였다. 주석에도 "추정"이라고 적혀 있었다.
+  // 그 숫자가 의뢰인에게 나가는 문자에 "판례 12건 분석"처럼 실적으로 실렸다.
+  // 같은 제품의 프롬프트가 "에이전트라는 말을 쓰지 말라"와 "자료에 없는 숫자를
+  // 만들어 쓰지 말라"를 둘 다 금지하는데, 앱이 그 금지를 어긴 재료를 직접 넣어 줬다.
+  // 센 값만 남긴다 — 녹음 건수, 문서 건수, 타임라인 기록 건수는 실제로 세는 값이다.
   const timelineLen = timeline?.length ?? 0;
   if (timelineLen > 0) {
     items.push({ label: "타임라인 기록", count: timelineLen });

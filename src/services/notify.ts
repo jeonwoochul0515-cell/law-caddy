@@ -52,14 +52,18 @@ export async function notifyPlanExpiry(): Promise<void> {
 /**
  * 의뢰인에게 문자를 발송합니다 (서명 링크·케어 메시지 전달용).
  * 관리자 알림과 달리 사용자가 버튼으로 명시 발송하므로 실패를 그대로 throw합니다.
- * @param to 휴대폰 번호 (하이픈 있어도 됨 — 서버에서 정규화)
+ *
+ * 수신번호는 보내지 않는다. 서버가 사건의 clientPhone을 직접 읽어 거기로만 보낸다
+ * (임의 번호로 보내는 릴레이 악용 방지). 번호를 바꾸려면 사건 정보를 먼저 저장한다.
+ *
+ * @param caseId 사건 문서 ID — 이 사건의 의뢰인에게만 나간다
  */
-export async function sendClientSms(to: string, text: string): Promise<void> {
+export async function sendClientSms(caseId: string, text: string): Promise<void> {
   const headers = await authHeaders({ "Content-Type": "application/json" });
   const resp = await fetch(`${API_BASE}/api/notify/client`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ to, text }),
+    body: JSON.stringify({ caseId, text }),
   });
   if (!resp.ok) {
     const data = (await resp.json().catch(() => null)) as { error?: string } | null;

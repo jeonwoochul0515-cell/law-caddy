@@ -108,10 +108,11 @@ export default function CaseDetailPage() {
       const normalized = smsPhone.replace(/\D/g, "");
       setSmsSending(true);
       try {
-        await sendClientSms(normalized, text);
-        if (normalized !== caseData.clientPhone) {
-          updateCase(caseData.id, { clientPhone: normalized }).catch(() => {});
+        // 수신번호는 서버가 사건에서 직접 읽는다. 바뀜 번호를 먼저 저장해야 거기로 나간다.
+        if (normalized && normalized !== caseData.clientPhone) {
+          await updateCase(caseData.id, { clientPhone: normalized });
         }
+        await sendClientSms(caseData.id, text);
         setToast("문자를 발송했습니다");
       } catch (err) {
         setToast(err instanceof Error ? err.message : "문자 발송에 실패했습니다");
@@ -645,6 +646,7 @@ export default function CaseDetailPage() {
             ownerId={uid}
             clientName={caseData.clientName}
             claimContext={{
+              caseId: caseData.id,
               clientPhone: caseData.clientPhone,
               firmName: user?.firmName ?? "법률사무소",
               lawyerName: user?.name ?? "담당",
