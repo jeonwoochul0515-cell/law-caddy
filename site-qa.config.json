@@ -1,0 +1,94 @@
+{
+  "_comment": "site-qa 프로젝트 설정 (2026-09-17 작성). Law-Caddy는 변호사에게 파는 SaaS이지 법률서비스 제공자가 아니다. 따라서 변호사법 제23조 광고 고지는 이 사이트의 의무가 아니며 requiredNotices를 비워 둔다. 잘못된 의무를 넣어 FAIL을 만드는 것이 오판이다.",
+  "origin": "https://law-caddy.com",
+  "dist": "dist",
+  "lang": "ko",
+  "privatePaths": [
+    "^/dashboard",
+    "^/record",
+    "^/freeform",
+    "^/cases",
+    "^/calendar",
+    "^/documents",
+    "^/clients",
+    "^/finance",
+    "^/settings",
+    "^/admin",
+    "^/profile-setup",
+    "^/pending",
+    "^/sign/",
+    "^/portal/",
+    "^/payment/"
+  ],
+  "dynamicPathPrefixes": [
+    "/api/"
+  ],
+  "articlePathPrefix": null,
+  "entityPages": [
+    "/"
+  ],
+  "expertPages": [],
+  "canonicalExceptions": [],
+  "brand": {
+    "name": "Law-Caddy",
+    "schemaTypes": [
+      "Organization",
+      "SoftwareApplication"
+    ],
+    "forbiddenVariants": [],
+    "phone": null,
+    "address": null
+  },
+  "experts": [],
+  "naver": {
+    "ownershipMeta": true
+  },
+  "indexnow": false,
+  "cloudflare": true,
+  "jsBudgetKB": {
+    "total": 900,
+    "chunk": 500
+  },
+  "legal": {
+    "_comment": "banRegex는 이 사이트가 실제로 쓰면 안 되는 표현만. SaaS 광고이므로 '승소 보장'류 단정과 '무료 상담'(법률상담 제공 오인)을 금지한다.",
+    "banRegex": "승소를? 보장|100% 승소|최고의 변호사|1위 변호사",
+    "requiredNotices": [],
+    "privacyPath": "/privacy",
+    "privacyRegex": "위탁|제3자"
+  },
+  "emergencyNumbers": [],
+  "robots": {
+    "_comment": "기본값은 Search & AI Visibility V2 §08 B Owner Policy Profile(2026-09-11).",
+    "allow": [
+      "Googlebot",
+      "Googlebot-Image",
+      "bingbot",
+      "Yeti",
+      "OAI-SearchBot",
+      "Claude-SearchBot",
+      "Claude-User",
+      "PerplexityBot",
+      "Applebot",
+      "Google-Extended"
+    ],
+    "block": [
+      "GPTBot",
+      "ClaudeBot",
+      "Applebot-Extended"
+    ],
+    "blockLevel": "RECOMMENDED",
+    "_samplePathsNote": "A03은 「허용 봇이 *공개* 표본 경로에 닿는가」를 본다. 비공개 경로를 넣으면 정상적으로 차단된 것을 FAIL로 읽는다. 공개 라우트만 적는다.",
+    "samplePaths": [
+      "/",
+      "/pricing",
+      "/faq",
+      "/workflow",
+      "/ai-agents",
+      "/automation"
+    ]
+  },
+  "runtimeArtifacts": {
+    "sitemap": null,
+    "rss": null
+  }
+}

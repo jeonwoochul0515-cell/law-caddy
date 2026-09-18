@@ -550,7 +550,24 @@ export interface CaseVerification {
   court?: string;
   caseName?: string;
   date?: string;
+  /** 법제처 판례일련번호 — 원문 링크(precInfoP)에 쓴다 */
+  serialNumber?: string;
 }
+
+/**
+ * 법제처 판례 원문 페이지 주소.
+ * 일련번호가 있으면 상세 페이지, 없으면 사건번호 검색 결과 페이지로 보낸다.
+ */
+export function buildLawGoKrPrecedentUrl(serialNumber?: string, caseNumber?: string): string {
+  if (serialNumber && serialNumber.trim()) {
+    return `https://www.law.go.kr/LSW/precInfoP.do?precSeq=${encodeURIComponent(serialNumber.trim())}`;
+  }
+  const q = (caseNumber ?? "").replace(/\s/g, "");
+  return `https://www.law.go.kr/precSc.do?menuId=7&subMenuId=47&tabMenuId=213&query=${encodeURIComponent(q)}`;
+}
+
+/** 텍스트에서 사건번호(2017다241819, 2019고단1234 등)를 찾는 정규식 — 화면 링크 변환용 */
+export const CASE_NUMBER_PATTERN = /(\d{2,4}(?:다|도|두|누|구|나|노|드|르|므|브|스|으|재|허|헌|후|고단|고합|고정|가단|가합|가소|카단|카합|카기|타|타경|타기|바|사|아|자|차|파|하|거|너|머|러)\d{1,8})/g;
 
 /**
  * 사건번호가 실제 존재하는지 법제처 API nb 파라미터로 검증합니다.
@@ -571,7 +588,7 @@ export async function verifyCaseNumber(caseNumber: string): Promise<CaseVerifica
     const cleaned = caseNumber.replace(/\s/g, "");
     const match = precs.find((p) => p.caseNumber.replace(/\s/g, "") === cleaned);
     if (match) {
-      return { verified: true, court: match.court, caseName: match.caseName, date: match.date };
+      return { verified: true, court: match.court, caseName: match.caseName, date: match.date, serialNumber: match.serialNumber };
     }
     return { verified: false };
   } catch {

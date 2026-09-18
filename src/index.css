@@ -49,6 +49,35 @@ html, body, #root {
   font-family: 'Noto Serif KR', serif;
 }
 
+/* ── 휴대폰 사용성 ──
+   iOS 사파리는 글자 16px 미만인 입력칸에 초점이 가면 화면을 자동 확대하고 그대로 둔다.
+   좁은 화면에서는 모든 입력칸 글자를 16px로 올린다. 이 규칙은 Tailwind 유틸리티(@layer)보다
+   우선하므로 각 화면의 text-sm/text-[15px]를 일일이 고칠 필요가 없다. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* 엄지로 누를 최소 크기(44px). 아이콘 버튼·작은 링크에 붙인다.
+   예: <button class="touch-target p-2"> */
+@utility touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* 동작 줄이기 설정 존중 — 전환·애니메이션을 거의 없앤다 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* 스크롤바 */
 ::-webkit-scrollbar {
   width: 6px;

@@ -75,7 +75,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await sendSms(
       context.env,
       phone,
-      `[Law-Caddy] ${name} 변호사님, ${planLabel} 플랜이 ${dateLabel} 만료됩니다. 만료 후엔 무료 플랜으로 전환되니, 설정 > 요금제에서 연장해 주세요. law-caddy.com/settings`,
+      // 미리 연장해도 남은 기간은 그대로 이어지므로(payment/confirm.ts) "지금 연장해도 손해 없음"을 함께 알린다
+      `[Law-Caddy] ${name} 변호사님, ${planLabel} 요금제가 ${dateLabel}에 끝납니다. 끝나면 무료 요금제로 바뀝니다. 지금 연장해도 남은 기간은 그대로 이어집니다. 연장하기: law-caddy.com/settings?tab=plan`,
     );
 
     await firestorePatchDocument(context.env, `users/${uid}`, {

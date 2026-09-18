@@ -12,8 +12,9 @@ const DEV_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 /**
  * 요청의 Origin이 허용된 오리진인지 확인합니다.
+ * CORS 헤더뿐 아니라 /api/consult의 출처 검사도 이 한 곳을 쓴다 — 목록이 두 군데면 어긋난다.
  */
-function isAllowedOrigin(origin: string | null): string | null {
+export function isAllowedOrigin(origin: string | null): string | null {
   if (!origin) return null;
 
   // 프로덕션 오리진

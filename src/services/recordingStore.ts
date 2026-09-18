@@ -53,7 +53,13 @@ function tx<T>(
   });
 }
 
-/** 새 녹음 세션을 시작한다 (기존 조각은 지운다) */
+/**
+ * 새 녹음 세션을 시작한다 (기존 조각은 지운다).
+ *
+ * ⚠️ 호출 전에 저장된 세션이 남아 있는지 getSavedSession()으로 확인하고, 있으면
+ * buildSavedFile()로 먼저 꺼내 둘 것. "이어서 녹음"을 누르자마자 끊기기 전 녹음이
+ * 지워지던 사고(r1-03-01)가 그래서 났다. useRecording.startRecording이 이를 처리한다.
+ */
 export async function beginSession(mimeType: string): Promise<string> {
   const db = await openDb();
   await tx(db, STORE, "readwrite", (s) => s.clear());
@@ -70,8 +76,11 @@ export async function beginSession(mimeType: string): Promise<string> {
   return id;
 }
 
-/** 조각 하나를 즉시 저장한다. 실패해도 녹음 자체는 계속되어야 하므로 throw하지 않는다. */
-export async function appendChunk(blob: Blob, duration: number): Promise<void> {
+/**
+ * 조각 하나를 즉시 저장한다. 실패해도 녹음 자체는 계속되어야 하므로 throw하지 않고
+ * false를 돌려준다 — 화면이 "임시저장이 안 되고 있다"를 알릴 수 있게 (r2-02-22).
+ */
+export async function appendChunk(blob: Blob, duration: number): Promise<boolean> {
   try {
     const db = await openDb();
     await tx(db, STORE, "readwrite", (s) => s.add(blob));
@@ -85,8 +94,10 @@ export async function appendChunk(blob: Blob, duration: number): Promise<void> {
       );
     }
     db.close();
+    return true;
   } catch (err) {
     console.warn("[recordingStore] 조각 저장 실패:", err);
+    return false;
   }
 }
 
@@ -120,7 +131,10 @@ export async function buildSavedFile(): Promise<File | null> {
     const type = meta?.mimeType || "audio/webm";
     const blob = new Blob(chunks, { type });
     const ext = type.includes("mp4") ? "mp4" : "webm";
-    return new File([blob], `recording_${meta?.startedAt ?? Date.now()}.${ext}`, { type });
+    return new File([blob], `recording_${meta?.startedAt ?? Date.now()}.${ext}`, {
+      type,
+      lastModified: meta?.startedAt ?? Date.now(),
+    });
   } catch (err) {
     console.warn("[recordingStore] 복구 파일 생성 실패:", err);
     return null;

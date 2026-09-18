@@ -24,6 +24,8 @@ interface ProfileSetupData {
   businessCorporateNumber?: string;
   businessTaxOffice?: string;
   businessTaxType?: string;
+  /** 사업자등록증 없이 접수(소속 변호사) — 항상 승인 대기 */
+  noBusinessLicense?: boolean;
 }
 
 /** 신규 구글 유저 정보 (프로필 미완성) */
@@ -48,6 +50,8 @@ interface AuthActions {
   initialize: () => () => void;
   googleLogin: () => Promise<{ isNewUser: boolean }>;
   completeProfile: (profileData: ProfileSetupData) => Promise<User>;
+  /** 사용자 문서를 다시 읽어 상태(승인 대기→승인 등)를 갱신한다. 승인 대기 화면의 "다시 확인" 버튼용 */
+  refreshUser: () => Promise<User | null>;
   logout: () => Promise<void>;
 }
 
@@ -195,6 +199,15 @@ const useAuth = create<AuthStore>((set, get) => ({
       set({ loading: false });
       throw error;
     }
+  },
+
+  refreshUser: async () => {
+    const { user } = get();
+    if (isDemoMode || !user) return user;
+    const { getUserDoc } = await import("../services/firebase/auth");
+    const fresh = await getUserDoc(user.uid);
+    if (fresh) set({ user: fresh });
+    return fresh;
   },
 
   logout: async () => {

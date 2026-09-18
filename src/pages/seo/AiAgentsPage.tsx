@@ -9,7 +9,7 @@ export default function AiAgentsPage() {
         판례 검색부터 문서 검토까지, AI는 어떤 일을 할까요?
       </h1>
       <p className="text-[rgba(20,57,43,0.62)] text-lg leading-relaxed mb-12 max-w-3xl">
-        Law-Caddy는 판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 네 개의 전문 AI가 병렬로 나누어 맡습니다. 각 에이전트가 실제로 하는 일을 소개합니다.
+        Law-Caddy는 판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 역할을 나눈 AI 넷이 동시에 맡습니다. 각각이 실제로 하는 일을 소개합니다.
       </p>
       <div className="grid sm:grid-cols-2 gap-4">
         {AGENTS.map((agent) => (

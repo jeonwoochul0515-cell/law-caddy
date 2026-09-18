@@ -1,6 +1,6 @@
 {
   "/": {
-    "title": "Law-Caddy | 1인 변호사 사무실 운영 SaaS",
+    "title": "Law-Caddy | 1인·소규모 법률사무소 운영 도우미",
     "description": "사무장 없이 혼자 하는 법률사무소를 위한 운영 도구. 상담 녹음 AI 분석, 판례 검색, 서면 초안, 수임계약 전자서명, 정산까지. Starter 무료."
   },
   "/workflow": {
@@ -9,15 +9,15 @@
   },
   "/ai-agents": {
     "title": "판례 검색 AI 에이전트 | Law-Caddy",
-    "description": "판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 네 명의 전문 AI가 병렬로 나눠 맡습니다. 각자 하는 일을 소개합니다"
+    "description": "판례 검색, 적법성·관할 검증, 쟁점 분석, 문서 작성을 역할을 나눈 AI 넷이 동시에 맡습니다. 각각 하는 일을 소개합니다"
   },
   "/automation": {
     "title": "사무장 없이 사무실 운영하기 | Law-Caddy",
     "description": "수임계약 전자서명, 성공보수 추적, 인지대 계산, 월별 손익·세무 자료까지. 1인 사무실이 혼자 감당하던 일을 자동화합니다"
   },
   "/pricing": {
-    "title": "요금제 안내 — Starter 무료 | Law-Caddy",
-    "description": "가입하면 Starter가 무료로 열립니다. 월 5건 녹음 분석·3건 문서 생성에 AI 4인 전체 포함. 무제한이 필요하면 Pro 월 89,000원"
+    "title": "요금 안내 — Starter 무료 | Law-Caddy",
+    "description": "가입하면 Starter가 무료로 열립니다. 월 5건 사건 분석·3건 문서 생성에 AI 분석 4종 전체 포함. 무제한이 필요하면 Pro 월 89,000원"
   },
   "/faq": {
     "title": "자주 묻는 질문 | Law-Caddy",

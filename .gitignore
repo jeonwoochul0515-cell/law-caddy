@@ -42,6 +42,11 @@ docs/screenshots/
 .backup/
 stitch.zip
 
+# GJC 에이전트 세션 런타임 — 스킬은 공유하고 나머지는 로컬 상태다
+.gjc/*
+!.gjc/skills/
+.gjc/skills/**/*.bak
+
 # Supabase CLI 로컬 상태
 supabase/.temp/
 .consult-admin-token.txt

@@ -16,13 +16,18 @@ import { postProcessDocument } from "../services/post-processor";
 import { findRelevantTextbooks, formatTextbooksForPrompt } from "../config/textbook-citations";
 import { createEvidenceRegistry, formatEvidenceForPrompt } from "../services/evidence-registry";
 
-/** 문서 생성 단계 */
+/** 문서 생성 단계 (문서 본문에 관한 상태만 — 의뢰인 메시지는 messageStatus로 따로 둔다) */
 type DocumentStatus =
   | "idle"
   | "generating_document"
-  | "generating_message"
   | "completed"
   | "error";
+
+/** 의뢰인 메시지 생성 상태 — 문서 상태와 섞이지 않게 분리 */
+type MessageStatus = "idle" | "generating" | "error";
+
+/** 되돌리기 스택 상한 — 메모리 보호 */
+const MAX_HISTORY = 20;
 
 /** 문서 본문을 변경 강조와 함께 렌더링하기 위한 단어 단위 segment */
 export type DocumentSegment =
@@ -38,10 +43,18 @@ interface UseDocumentReturn {
   clientMessage: string;
   /** 현재 상태 */
   status: DocumentStatus;
-  /** 에러 메시지 */
+  /** 에러 메시지 (문서 생성 실패) */
   error: string | null;
+  /** 의뢰인 메시지 생성 상태 */
+  messageStatus: MessageStatus;
+  /** 의뢰인 메시지 생성 실패 사유 */
+  messageError: string | null;
   /** 직전 적용 대비 변경 segment (null = 강조 없음). 최초 생성/외부 설정/reset 시 null. */
   changedSegments: DocumentSegment[] | null;
+  /** 되돌릴 이전 판본이 있는지 */
+  canUndo: boolean;
+  /** 직전 판본으로 되돌리기 (AI 적용·직접 편집 모두 한 단계씩) */
+  undo: () => void;
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   generateDocument: (
     context: AgentContext,
@@ -54,6 +67,8 @@ interface UseDocumentReturn {
   updateFinalDocument: (doc: string) => void;
   /** 외부 문서(기존 서류철) 직접 설정 */
   setExternalDocument: (doc: string) => void;
+  /** 저장된 의뢰인 메시지를 화면에 복원 (생성 없이) */
+  setExternalClientMessage: (msg: string) => void;
   /** 변경 강조 표시 끄기 */
   clearHighlight: () => void;
   /** 상태 초기화 */
@@ -124,9 +139,13 @@ export default function useDocument(): UseDocumentReturn {
   const [clientMessage, setClientMessage] = useState("");
   const [status, setStatus] = useState<DocumentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [messageStatus, setMessageStatus] = useState<MessageStatus>("idle");
+  const [messageError, setMessageError] = useState<string | null>(null);
   const [changedSegments, setChangedSegments] = useState<DocumentSegment[] | null>(null);
   // 직전 본문 ref — diff 계산에서 stale state 회피
   const finalDocRef = useRef("");
+  // 되돌리기 스택 — 본문이 바뀔 때마다 직전 판본을 쌓는다
+  const [history, setHistory] = useState<string[]>([]);
 
   /** 최종 문서 생성 (체크포인트 상세 응답 포함) */
   const generateDocument = useCallback(
@@ -225,11 +244,11 @@ export default function useDocument(): UseDocumentReturn {
     [],
   );
 
-  /** 의뢰인 카카오톡 메시지 생성 */
+  /** 의뢰인 카카오톡 메시지 생성 — 실패해도 문서 상태(status)는 건드리지 않는다 */
   const generateClientMessage = useCallback(
     async (context: ClientMessageContext): Promise<void> => {
-      setStatus("generating_message");
-      setError(null);
+      setMessageStatus("generating");
+      setMessageError(null);
 
       try {
         const prompt = buildClientMessagePrompt(context);
@@ -240,23 +259,25 @@ export default function useDocument(): UseDocumentReturn {
         // 의뢰인에게 보낼 카카오톡 문자 — 쉬운 말로 옮기는 작업이라 low로 충분하다
         const message = await callClaude(prompt, userMessage, undefined, "low");
         setClientMessage(message);
-        setStatus("completed");
+        setMessageStatus("idle");
       } catch (err: unknown) {
         const message =
           err instanceof Error
             ? err.message
             : "의뢰인 메시지 생성에 실패했습니다.";
-        setError(message);
-        setStatus("error");
+        setMessageError(message);
+        setMessageStatus("error");
       }
     },
     [],
   );
 
-  /** 채팅에서 수정안 적용 — 직전 본문과 단어 단위 diff를 계산해 changedSegments에 반영 */
+  /** 채팅에서 수정안 적용·직접 편집 — 직전 본문을 되돌리기 스택에 쌓고, 단어 단위 diff를 changedSegments에 반영 */
   const updateFinalDocument = useCallback((doc: string) => {
     const prev = finalDocRef.current;
+    if (prev === doc) return;
     if (prev) {
+      setHistory((h) => [...h.slice(-(MAX_HISTORY - 1)), prev]);
       const changes = diffWords(prev, doc);
       const segments: DocumentSegment[] = changes
         .filter((c) => !c.removed)
@@ -277,7 +298,28 @@ export default function useDocument(): UseDocumentReturn {
     finalDocRef.current = doc;
     setFinalDocument(doc);
     setChangedSegments(null);
+    setHistory([]);
+    setError(null);
     setStatus("completed");
+  }, []);
+
+  /** 저장된 의뢰인 메시지를 화면에 복원 */
+  const setExternalClientMessage = useCallback((msg: string) => {
+    setClientMessage(msg);
+    setMessageStatus("idle");
+    setMessageError(null);
+  }, []);
+
+  /** 직전 판본으로 되돌리기 */
+  const undo = useCallback(() => {
+    setHistory((h) => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      finalDocRef.current = prev;
+      setFinalDocument(prev);
+      setChangedSegments(null);
+      return h.slice(0, -1);
+    });
   }, []);
 
   /** 변경 강조 표시 끄기 (사용자가 명시적으로 "강조 끄기" 누른 경우) */
@@ -292,7 +334,10 @@ export default function useDocument(): UseDocumentReturn {
     setClientMessage("");
     setStatus("idle");
     setError(null);
+    setMessageStatus("idle");
+    setMessageError(null);
     setChangedSegments(null);
+    setHistory([]);
   }, []);
 
   return {
@@ -300,11 +345,16 @@ export default function useDocument(): UseDocumentReturn {
     clientMessage,
     status,
     error,
+    messageStatus,
+    messageError,
     changedSegments,
+    canUndo: history.length > 0,
+    undo,
     generateDocument,
     generateClientMessage,
     updateFinalDocument,
     setExternalDocument,
+    setExternalClientMessage,
     clearHighlight,
     reset,
   };

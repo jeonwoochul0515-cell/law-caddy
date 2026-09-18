@@ -1,0 +1,75 @@
+/* 문서·계약서 인쇄 전용 스타일 — .print-area 안의 본문만 흰 바탕·검은 글씨·A4 여백으로 찍는다 */
+
+/* 화면에서는 인쇄용 사본을 숨긴다 */
+.print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm 25mm;
+    @bottom-center {
+      content: "- " counter(page) " -";
+      font-size: 10pt;
+      color: #000;
+    }
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 앱 화면(사이드바·채팅·배너·버튼)은 전부 감춘다 */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 고정 높이·스크롤 상자가 본문을 자르지 않게 푼다 */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: "휴먼명조", "HCR Batang", "Batang", "바탕", "맑은 고딕", serif;
+    font-size: 12pt;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: keep-all;
+  }
+
+  .print-area h1 {
+    font-size: 18pt;
+    text-align: center;
+    margin: 0 0 12pt;
+  }
+
+  /* 변경 강조(mark)는 인쇄에서 지운다 */
+  .print-area mark {
+    background: none !important;
+    color: #000 !important;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+}

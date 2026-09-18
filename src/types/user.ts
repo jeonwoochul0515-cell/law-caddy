@@ -19,6 +19,16 @@ export interface User {
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   approvedBy?: string;
+  /** 관리자가 변호사 등록번호를 대한변협에서 대조 완료했는지 (승인과 별개) */
+  verified?: boolean;
+  verifiedAt?: Timestamp;
+  verifiedBy?: string;
+  /** 거절(이용 중지) 사유 — 본인 로그인 화면에 그대로 보인다 */
+  rejectedReason?: string;
+  rejectedAt?: Timestamp;
+  rejectedBy?: string;
+  /** 사업자등록증 없이 접수한 소속 변호사(법무법인·합동사무소) */
+  noBusinessLicense?: boolean;
   phone?: string;                    // 연락처 (휴대폰)
   privacyConsented?: boolean;         // 개인정보 수집·이용 동의
   privacyConsentedAt?: Timestamp;     // 동의 일시

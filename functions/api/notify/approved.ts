@@ -41,7 +41,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const phone = readString(targetDoc.fields?.phone)?.replace(/[^0-9]/g, "");
-    const name = readString(targetDoc.fields?.name) ?? "변호사";
+    const name = readString(targetDoc.fields?.name)?.trim() || "회원";
 
     if (!phone) {
       // 전화번호 미등록 사용자는 문자를 보낼 수 없음 — 승인 자체는 이미 완료된 상태이므로 조용히 성공 처리
@@ -51,7 +51,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await sendSms(
       context.env,
       phone,
-      `[Law-Caddy] ${name} 변호사님, 가입 승인이 완료되었습니다. 지금 로그인하시면 모든 기능을 사용하실 수 있습니다. law-caddy.com`,
+      `[Law-Caddy] ${name}님, 가입 승인이 완료되었습니다. law-caddy.com 에 로그인하시면 바로 이용하실 수 있습니다. 문의 1660-4452`,
     );
 
     return Response.json({ success: true, sent: true });

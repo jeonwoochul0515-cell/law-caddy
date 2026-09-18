@@ -147,6 +147,8 @@ function RequirePending({ children }: { children: React.ReactNode }) {
   // 프로필 미완성 → 프로필 설정으로
   if (!user.profileCompleted) return <Navigate to="/profile-setup" replace />;
   if (user.status === "approved") return <Navigate to="/dashboard" replace />;
+  // 거절된 회원은 로그인 화면에서 사유와 문의 연락처를 본다
+  if (user.status === "rejected") return <Navigate to="/login" replace />;
 
   return <>{children}</>;
 }

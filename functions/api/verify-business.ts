@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 };
 
 /** 국세청 사업자등록 상태조회 */
-async function handleVerify(_context: EventContext<Env, string, unknown>, body: VerifyRequest) {
+async function handleVerify(context: EventContext<Env, string, unknown>, body: VerifyRequest) {
   if (!body.businessNumber) {
     return Response.json({ error: "사업자등록번호가 필요합니다." }, { status: 400 });
   }
@@ -39,9 +39,10 @@ async function handleVerify(_context: EventContext<Env, string, unknown>, body: 
     return Response.json({ error: "사업자등록번호는 10자리여야 합니다." }, { status: 400 });
   }
 
-  // 국세청 홈택스 사업자등록 상태조회 (공개 API, 키 불필요)
+  // 국세청 사업자등록 상태조회 (공공데이터포털). 인증키가 없으면 DEMO_KEY로 시도하고 실패 시 홈택스 폴백.
+  const serviceKey = context.env.DATA_GO_KR_API_KEY || "DEMO_KEY";
   const response = await fetch(
-    "https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=DEMO_KEY",
+    `https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=${encodeURIComponent(serviceKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

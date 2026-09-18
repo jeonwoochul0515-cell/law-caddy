@@ -67,6 +67,14 @@ function getStatusColor(status: DeadlineStatus): {
   badge: string;
 } {
   switch (status) {
+    case "done":
+      return {
+        bg: "bg-slate-50",
+        text: "text-slate-600",
+        border: "border-slate-200",
+        dot: "bg-slate-400",
+        badge: "bg-slate-100 text-slate-600 ring-slate-200",
+      };
     case "overdue":
       return {
         bg: "bg-red-50",
@@ -104,6 +112,8 @@ function getStatusColor(status: DeadlineStatus): {
 
 function getStatusLabel(status: DeadlineStatus): string {
   switch (status) {
+    case "done":
+      return "완료";
     case "overdue":
       return "지연";
     case "imminent":
@@ -221,7 +231,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
   // D-Day·상태를 오늘 날짜 기준으로 계산해 부착
   const enriched = deadlines.map((d) => {
     const dDay = calcDDay(d.dueDate);
-    return { ...d, dDay, status: calcStatus(dDay) };
+    return { ...d, dDay, status: calcStatus(dDay, d.done) };
   });
 
   const sorted = [...enriched].sort((a, b) => b.dDay - a.dDay);

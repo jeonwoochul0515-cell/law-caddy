@@ -161,9 +161,20 @@ export async function verifyFirebaseToken(
   return payload;
 }
 
+/** 길이가 같을 때 내용을 상수 시간으로 비교한다. 토큰을 한 글자씩 떠보는 공격을 막는다. */
+export function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /**
  * 요청에서 Firebase ID 토큰을 추출하고 검증합니다.
  * Authorization: Bearer <token> 헤더에서 토큰을 가져옵니다.
+ *
+ * 실패 응답은 `{ error: 한국어, code }`로 통일한다. 예전에는 detail에 "토큰 만료됨" 같은
+ * 내부 판정 문구를 그대로 실어 화면에 "HTTP 401 토큰 만료됨"이 떴다. 원인은 서버 로그로만 남긴다.
  */
 export async function authenticateRequest(
   request: Request,
@@ -173,7 +184,7 @@ export async function authenticateRequest(
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return Response.json(
-      { error: "인증이 필요합니다. Authorization 헤더가 없습니다." },
+      { error: "로그인이 필요합니다.", code: "AUTH_REQUIRED" },
       { status: 401 },
     );
   }
@@ -184,8 +195,9 @@ export async function authenticateRequest(
     const payload = await verifyFirebaseToken(token, env);
     return { uid: payload.sub, email: payload.email };
   } catch (err) {
+    console.warn("[auth] 토큰 검증 실패:", err instanceof Error ? err.message : String(err));
     return Response.json(
-      { error: "인증 실패", detail: err instanceof Error ? err.message : String(err) },
+      { error: "로그인이 만료되었습니다. 다시 로그인해 주세요.", code: "AUTH_INVALID" },
       { status: 401 },
     );
   }

@@ -19,5 +19,12 @@ export interface Env {
   ADMIN_NOTIFY_PHONE: string;
   // 서비스 간 호출 토큰 — 법제처 자료 중계(/api/precedent-search)만 이 토큰으로 열린다.
   // 법제처 Open API는 도메인을 사전 등록해야 응답하므로 law-caddy가 유일한 창구다.
+  // /api/health?test=… 진단 호출도 이 토큰(또는 관리자 로그인)이 있어야 한다.
   INTERNAL_API_TOKEN?: string;
+  // 상담 신청 저장소(KV, wrangler.toml의 CONSULTS 바인딩). 접수 저장 + 스팸 카운터.
+  CONSULTS?: KVNamespace;
+  // 상담 접수 목록(GET /api/consult) 조회용 운영자 토큰
+  CONSULT_ADMIN_TOKEN?: string;
+  // 중앙 접수함(lead-inbox) 전송 토큰 — 없으면 전송을 건너뛴다
+  LEAD_INBOX_TOKEN?: string;
 }

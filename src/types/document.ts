@@ -20,6 +20,8 @@ export interface LegalDocument {
   recordingId: string;
   ownerId: string;
   docType: DocType;
+  /** 변호사가 붙인 문서 제목 (없으면 docType을 제목으로 쓴다) */
+  title?: string;
   agentResults: {
     precedent: string;
     legal: string;
@@ -35,6 +37,8 @@ export interface LegalDocument {
   clientMessage?: string;
   status: "processing" | "checkpoint" | "generating" | "completed";
   createdAt: Timestamp;
+  /** 본문을 마지막으로 저장한 시각 */
+  updatedAt?: Timestamp;
 }
 
 export interface CheckQuestion {

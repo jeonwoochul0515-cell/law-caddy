@@ -9,85 +9,119 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // 경로의 ownerId 세그먼트가 본인인지 확인
+    function isSelf(ownerId) {
+      return isAuthenticated() && request.auth.uid == ownerId;
+    }
+
     // 관리자 역할 확인 (Firestore에서 역할 조회)
     function isAdmin() {
       return isAuthenticated()
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // ── 상담 파일: 본인만 읽기/쓰기 (녹음, 이미지, 문서 등) ──
+    // 왜 create/update와 delete를 나누는가 (2026-09-11).
+    // 예전에는 `allow write`에 request.resource.size·contentType 조건을 함께 걸었다.
+    // 삭제 요청에는 request.resource가 없어서 그 식이 오류로 평가되고, 결국 어느 경로도
+    // 파일을 지울 수 없었다(녹음·서면·기록을 지워도 Storage 원본은 영구 잔존).
+    // 크기·형식 조건은 올리기(create, update)에만, 지우기(delete)는 소유자 확인만 건다.
+
+    // ── 상담 파일: 녹음, 이미지, 문서 등 (recordings/{uid}/{caseId}/{file}) ──
     match /recordings/{ownerId}/{caseId}/{fileName} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
-        // 최대 500MB, 오디오/이미지/PDF/문서 파일 허용
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
+        // 최대 500MB, 오디오/이미지/영상/PDF/문서/텍스트 허용
         && request.resource.size < 500 * 1024 * 1024
         && (request.resource.contentType.matches('audio/.*')
             || request.resource.contentType.matches('image/.*')
             || request.resource.contentType.matches('video/.*')
-            || request.resource.contentType.matches('application/pdf')
             || request.resource.contentType.matches('application/.*')
             || request.resource.contentType.matches('text/.*'));
+      allow delete: if isSelf(ownerId);
 
       // 관리자: 읽기 허용
       allow read: if isAdmin();
     }
 
-    // ── 상대방 서면 파일: 본인만 읽기/쓰기 ──
+    // ── 상대방 서면 파일 (opponent-docs/{uid}/{caseId}/{file}) ──
     match /opponent-docs/{ownerId}/{caseId}/{fileName} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
         // 최대 50MB, PDF/이미지/문서 파일만 허용
         && request.resource.size < 50 * 1024 * 1024
-        && (request.resource.contentType.matches('application/pdf')
-            || request.resource.contentType.matches('image/.*')
-            || request.resource.contentType.matches('application/.*'));
+        && (request.resource.contentType.matches('application/.*')
+            || request.resource.contentType.matches('image/.*'));
+      allow delete: if isSelf(ownerId);
 
       // 관리자: 읽기 허용
       allow read: if isAdmin();
     }
 
-    // ── 사건기록 PDF: 본인만 읽기/쓰기 ──
+    // ── 사건기록 PDF (case-records/{uid}/{caseId}/{file}) ──
     match /case-records/{ownerId}/{caseId}/{fileName} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
         // 최대 100MB, PDF만 허용 (전자소송에서 받은 기록 단일 PDF)
         && request.resource.size < 100 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf');
+      allow delete: if isSelf(ownerId);
 
       // 관리자: 읽기 허용
       allow read: if isAdmin();
     }
 
-    // ── 문서 내보내기 파일: 본인만 읽기/쓰기 ──
+    // ── 문서 내보내기 파일 (documents/{uid}/{caseId}/{file}) ──
+    // (미사용 — 2026-09-11 기준 화면에서 이 경로로 올리는 코드가 없다. 문서 내보내기가
+    //  Storage를 쓰게 되면 그대로 쓰면 된다.)
     match /documents/{ownerId}/{caseId}/{fileName} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
         // 최대 50MB
         && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isSelf(ownerId);
 
       // 관리자: 읽기 허용
       allow read: if isAdmin();
     }
 
-    // ── 추출 텍스트 파일: 본인만 읽기/쓰기 ──
+    // ── 추출 텍스트 파일 (extracted-texts/{uid}/{file} 또는 extracted-texts/{uid}/{caseId}/{file}) ──
+    // services/file-save.ts가 caseId 유무에 따라 깊이가 달라지므로 {allPaths=**}로 받는다.
     match /extracted-texts/{ownerId}/{allPaths=**} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('text/.*');
+      allow delete: if isSelf(ownerId);
       allow read: if isAdmin();
     }
 
-    // ── 사업자등록증 파일 ──
+    // ── 사업자등록증 파일 (business-registrations/{uid}/{uid}.{ext}) ──
+    // 거절된 회원이 다시 제출할 때 같은 경로에 덮어쓴다(update).
     match /business-registrations/{ownerId}/{fileName} {
-      allow read: if isAuthenticated() && request.auth.uid == ownerId;
-      allow write: if isAuthenticated() && request.auth.uid == ownerId
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
         // 최대 10MB, PDF/이미지만 허용
         && request.resource.size < 10 * 1024 * 1024
         && (request.resource.contentType.matches('application/pdf')
             || request.resource.contentType.matches('image/.*'));
+      allow delete: if isSelf(ownerId);
 
       // 관리자: 읽기 허용 (가입 심사용)
+      allow read: if isAdmin();
+    }
+
+    // ── 사건 경비 영수증 (receipts/{uid}/{랜덤}_{시각}_{파일명}) ──
+    // pages/CaseDetailPage.tsx(경비 탭)가 올린다. 규칙이 없어 업로드가 항상 거부되던 경로다. (2026-09-11)
+    match /receipts/{ownerId}/{fileName} {
+      allow read: if isSelf(ownerId);
+      allow create, update: if isSelf(ownerId)
+        // 최대 10MB, 이미지/PDF만 허용
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('application/pdf'));
+      allow delete: if isSelf(ownerId);
+
+      // 관리자: 읽기 허용
       allow read: if isAdmin();
     }
   }

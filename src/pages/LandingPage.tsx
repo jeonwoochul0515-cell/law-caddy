@@ -19,6 +19,7 @@ import FAQItem from "../components/landing/FAQItem";
 import KakaoChatButton from "../components/landing/KakaoChatButton";
 import ScrollExpandMedia from "../components/ui/scroll-expansion-hero";
 import { KAKAO_CHANNEL_CHAT } from "../config/contact";
+import { friendlyError } from "../utils/friendlyError";
 
 /* ────────────────────────────────────────────
    디자인 토큰 — 이른 아침 페어웨이
@@ -84,11 +85,7 @@ function ConsultSection() {
       setStatus("done");
     } catch (err) {
       setStatus("error");
-      setErrMsg(
-        err instanceof Error && err.message
-          ? err.message
-          : "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-      );
+      setErrMsg(friendlyError(err, "상담 신청을 보내지 못했습니다."));
     }
   }
 
@@ -106,10 +103,28 @@ function ConsultSection() {
         </p>
         {status === "done" ? (
           <div
-            className="p-6 text-center text-sm font-semibold"
+            role="status"
+            className="p-6 text-center text-sm"
             style={{ background: "#FFFFFF", border: "1px solid rgba(20,57,43,0.15)", color: INK }}
           >
-            상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다.
+            <p className="font-semibold">상담 신청이 접수되었습니다. 남겨 주신 번호로 연락드리겠습니다.</p>
+            <p className="mt-3" style={{ color: "rgba(20,57,43,0.62)" }}>
+              급하시면 지금 바로{" "}
+              <a
+                href={KAKAO_CHANNEL_CHAT}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`underline font-semibold ${focusRing}`}
+                style={{ color: GOLD_DEEP }}
+              >
+                카카오톡 1:1 문의
+              </a>
+              로 말씀해 주세요. 가입은{" "}
+              <Link to="/login" className={`underline font-semibold ${focusRing}`} style={{ color: GOLD_DEEP }}>
+                여기서 바로
+              </Link>{" "}
+              할 수 있습니다.
+            </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-3">
@@ -302,7 +317,7 @@ const SCORECARD: {
   diff: string | null;
 }[] = [
   { hole: 1, work: "의뢰인 상담", par: "30분", score: "30분", diff: null },
-  { hole: 2, work: "판례 검색 · 쟁점 분석", par: "3시간", score: "2분", diff: "-2:58" },
+  { hole: 2, work: "판례 · 쟁점 분석", par: "3시간", score: "2분", diff: "-2:58" },
   { hole: 3, work: "서면 초안 작성", par: "2시간", score: "5분", diff: "-1:55" },
   { hole: 4, work: "의뢰인 안내 · 정산", par: "40분", score: "3분", diff: "-0:37" },
 ];
@@ -332,22 +347,22 @@ function Scorecard() {
             className="text-[13px] font-bold tracking-[0.22em]"
             style={{ ...serif, color: "#F2EFE3" }}
           >
-            SCORECARD
+            스코어카드
           </span>
-          <span className="text-[10px] tracking-[0.18em]" style={{ color: "rgba(242,239,227,0.55)" }}>
+          <span className="text-[11px] tracking-[0.12em]" style={{ color: "rgba(242,239,227,0.6)" }}>
             사건 1건 기준
           </span>
         </div>
 
-        {/* 열 머리 */}
+        {/* 열 머리 — 골프 용어(PAR·SCORE) 대신 뜻이 바로 읽히는 말로 */}
         <div
-          className="grid grid-cols-12 gap-1.5 sm:gap-2 px-3.5 sm:px-7 pt-4 pb-2 text-[10px] tracking-[0.12em] sm:tracking-[0.16em]"
-          style={{ color: "rgba(20,57,43,0.45)" }}
+          className="grid grid-cols-12 gap-1.5 sm:gap-2 px-3.5 sm:px-7 pt-4 pb-2 text-[11px] tracking-[0.08em] sm:tracking-[0.14em]"
+          style={{ color: "rgba(20,57,43,0.5)" }}
         >
           <span className="col-span-1">홀</span>
-          <span className="col-span-5">업무</span>
-          <span className="col-span-3 text-right">PAR</span>
-          <span className="col-span-3 text-right">SCORE</span>
+          <span className="col-span-6">업무</span>
+          <span className="col-span-2 text-right">기존</span>
+          <span className="col-span-3 text-right">Law-Caddy</span>
         </div>
 
         <div style={{ borderTop: "1px solid rgba(20,57,43,0.14)" }}>
@@ -366,12 +381,12 @@ function Scorecard() {
               >
                 {row.hole}
               </span>
-              <span className="col-span-5 text-[12px] sm:text-[13px] truncate" style={{ color: "#33372F" }}>
+              <span className="col-span-6 text-[12px] sm:text-[13px] truncate" style={{ color: "#33372F" }}>
                 {row.work}
               </span>
               <span
-                className="col-span-3 text-right text-[12px] sm:text-[13px] tabular-nums"
-                style={{ color: "rgba(51,55,47,0.45)" }}
+                className="col-span-2 text-right text-[12px] sm:text-[13px] tabular-nums"
+                style={{ color: "rgba(51,55,47,0.5)" }}
               >
                 {row.par}
               </span>
@@ -393,7 +408,7 @@ function Scorecard() {
           style={{ background: PAPER2, animationDelay: `${350 + SCORECARD.length * 160}ms` }}
         >
           <span className="text-[11px] tracking-[0.2em]" style={{ color: "rgba(20,57,43,0.55)" }}>
-            TOTAL
+            합계
           </span>
           <span className="flex items-baseline gap-2.5 sm:gap-7">
             <span className="text-[12px] tabular-nums line-through" style={{ color: "rgba(51,55,47,0.38)" }}>
@@ -414,7 +429,7 @@ function Scorecard() {
         className="hero-doc-line mt-4 text-[11px] pl-1"
         style={{ color: "rgba(20,57,43,0.5)", animationDelay: `${350 + (SCORECARD.length + 1) * 160}ms` }}
       >
-        캐디가 준비를 맡고, 판단과 서명은 변호사가 합니다.
+        캐디가 준비를 맡고, 판단과 서명은 변호사가 합니다. 시간은 법률사무소 청송law가 직접 재어 본 예시이며 사건에 따라 다릅니다.
       </p>
     </div>
   );
@@ -456,7 +471,7 @@ export default function LandingPage() {
               ["#workflow", "업무 흐름"],
               ["#agents", "AI 분석팀"],
               ["#platform", "사무소 운영"],
-              ["#pricing", "수임료"],
+              ["#pricing", "요금"],
               ["#faq", "질문"],
             ].map(([href, label]) => (
               <a key={href} href={href} className={`hover:text-[#2E6242] transition-colors ${focusRing}`}>
@@ -467,17 +482,17 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Link
               to="/login"
-              className={`px-4 py-2 text-sm transition-colors hover:text-[#2E6242] ${focusRing}`}
+              className={`inline-flex items-center min-h-11 px-4 text-sm transition-colors hover:text-[#2E6242] ${focusRing}`}
               style={{ color: "rgba(20,57,43,0.65)" }}
             >
               로그인
             </Link>
             <Link
               to="/login"
-              className={`px-5 py-2 text-sm font-semibold transition-colors rounded-full ${focusRing}`}
+              className={`inline-flex items-center min-h-11 px-5 text-sm font-semibold transition-colors rounded-full ${focusRing}`}
               style={{ background: INK, color: "#F7F5EC" }}
             >
-              무료로 시작
+              지금 시작하기
             </Link>
           </div>
         </div>
@@ -497,7 +512,7 @@ export default function LandingPage() {
             <a
               key={href}
               href={href}
-              className={`shrink-0 px-3 py-1.5 rounded-full whitespace-nowrap ${focusRing}`}
+              className={`shrink-0 inline-flex items-center min-h-10 px-3.5 rounded-full whitespace-nowrap ${focusRing}`}
               style={{ border: "1px solid rgba(20,57,43,0.16)" }}
             >
               {label}
@@ -509,9 +524,8 @@ export default function LandingPage() {
       {/* ─── 히어로 ─── */}
       {/* (2026-07-31) 고정 배경 영상 → 스크롤 확장 히어로로 교체.
           스크롤을 내리면 가운데 영상이 화면 전체로 펼쳐지고, 다 펼쳐진 뒤에야 본문이 드러난다.
-          표제와 부제는 처음부터 보이고, CTA·스코어카드는 펼친 뒤에 나온다.
-          ※ 펼치는 동안 페이지 스크롤이 잠기므로, 상시 노출되는 전환 동선은 상단 내비의
-            '무료로 시작' 버튼이 맡는다(내비는 이 컴포넌트 바깥의 fixed 요소라 항상 보인다). */}
+          표제·부제·한 줄 설명(lead)은 처음부터 보이고, CTA·스코어카드는 펼친 뒤에 나온다.
+          ※ (2026-09-11) 상단 메뉴 앵커를 누르면 펼침을 건너뛰고 바로 이동한다. 가로 스크롤(메뉴 띠)도 막지 않는다. */}
       <header className="relative" style={{ ...serif }}>
         <ScrollExpandMedia
           mediaType="video"
@@ -519,8 +533,9 @@ export default function LandingPage() {
           posterSrc="/media/hero-dawn-v3.jpg"
           bgImageSrc="/media/hero-dawn-v3.jpg"
           title="좋은 캐디가 절반을 합니다"
-          date="1인 변호사 사무실 운영 SaaS"
-          scrollToExpand="스크롤하면 펼쳐집니다"
+          date="1~5인 법률사무소 운영 도우미"
+          lead="상담 녹음 하나로 판례 검색·서면 초안·수임계약·정산까지 준비합니다. 판단은 변호사가 합니다."
+          scrollToExpand="아래로 내리면 이어집니다"
           textColor="#F2EFE3"
         >
           <div className="max-w-6xl mx-auto w-full" style={{ ...sans }}>
@@ -541,7 +556,7 @@ export default function LandingPage() {
                     className={`group inline-flex items-center gap-2.5 px-8 py-4 font-bold text-base rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
                     style={{ background: INK, color: "#F7F5EC", boxShadow: "0 10px 24px -12px rgba(20,57,43,0.6)" }}
                   >
-                    무료로 시작하기
+                    지금 시작하기
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                   </Link>
                   <Link
@@ -553,7 +568,7 @@ export default function LandingPage() {
                   </Link>
                 </div>
                 <p className="mt-5 text-xs" style={{ color: "rgba(20,57,43,0.45)" }}>
-                  신용카드 없이 가입 · 변호사 인증 후 사용
+                  신용카드 없이 가입 · Starter 무료 · 사업자등록증으로 즉시 시작
                 </p>
               </div>
 
@@ -724,7 +739,7 @@ export default function LandingPage() {
                 no={4}
                 stamp="하루의 변화"
                 title="같은 사건, 다른 하루"
-                lead="민사 사건 한 건을 접수하는 일반적인 흐름을 예로 들었습니다."
+                lead="민사 사건 한 건을 접수하는 일반적인 흐름을 예로 들었습니다. 시간은 법률사무소 청송law에서 직접 재어 본 예시이고, 사건과 사람에 따라 다릅니다."
               />
             </FadeIn>
 
@@ -804,10 +819,9 @@ export default function LandingPage() {
                 매일 쓰는 사람이 만들었습니다
               </h2>
               <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(242,239,227,0.62)" }}>
-                부산에서 법률사무소청송law를 운영하는 김창희 변호사가 자신의 하루를 줄이려
-                직접 설계했고, 지금도 매일 이 화면으로 사건을 처리합니다. 10년간 1,000건
-                이상의 사건을 수행하며 다듬은 실무 감각이 서식 하나, 질문 하나에 들어
-                있습니다.
+                부산에서 법률사무소 청송law를 운영하는 김창희 변호사가 자신의 하루를 줄이려
+                직접 설계했고, 지금도 매일 이 화면으로 사건을 처리합니다. 10년간 민사·형사
+                실무를 하며 다듬은 감각이 서식 하나, 질문 하나에 들어 있습니다.
               </p>
               <div
                 className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 pt-6 border-t"
@@ -818,7 +832,7 @@ export default function LandingPage() {
                     김창희 변호사
                   </p>
                   <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "rgba(242,239,227,0.5)" }}>
-                    법률사무소청송law 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
+                    법률사무소 청송law 대표 · 동아대학교 법학전문대학원 겸임교수 · 법제처 법제자문관
                   </p>
                 </div>
                 <a
@@ -841,8 +855,8 @@ export default function LandingPage() {
             <FadeIn>
               <SectionHead
                 no={5}
-                stamp="수임료"
-                title="사무장 월급의 삼십분의 일"
+                stamp="요금"
+                title="월 89,000원부터, 사무장 없이"
                 lead="가입하면 Starter가 무료로 열립니다. 더 필요해지면 그때 올리세요."
               />
             </FadeIn>
@@ -963,14 +977,14 @@ export default function LandingPage() {
                 판단은 변호사님이
               </h2>
               <p className="text-base mb-11" style={{ color: "rgba(242,239,227,0.58)" }}>
-                가입 후 7일간 Pro 플랜 전체 기능을 무료로 쓸 수 있습니다.
+                가입하면 Starter가 무료로 열립니다. 신용카드는 필요 없습니다.
               </p>
               <Link
                 to="/login"
-                className={`group inline-flex items-center gap-2.5 px-10 py-4 font-bold text-base transition-transform hover:-translate-y-0.5 ${focusRing}`}
-                style={{ background: INK, color: ON_INK }}
+                className={`group inline-flex items-center gap-2.5 px-10 py-4 font-bold text-base rounded-full transition-transform hover:-translate-y-0.5 ${focusRing}`}
+                style={{ background: ON_INK, color: INK }}
               >
-                무료로 시작하기
+                지금 시작하기
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
@@ -1019,11 +1033,11 @@ export default function LandingPage() {
           >
             <p className="mb-2">
               <span className="font-semibold" style={{ color: "rgba(20,57,43,0.75)" }}>
-                Law-Caddy는 법률사무소청송law가 개발·운영하는 법률사무소 업무 관리 서비스입니다.
+                Law-Caddy는 법률사무소 청송law가 개발·운영하는 법률사무소 업무 관리 서비스입니다.
               </span>
             </p>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-              <span>상호 법률사무소청송law</span>
+              <span>상호 법률사무소 청송law</span>
               <span>대표 김창희</span>
               <span>사업자등록번호 102-78-00061</span>
               <span>전화 051-714-1515</span>
@@ -1032,7 +1046,7 @@ export default function LandingPage() {
               주소 부산광역시 연제구 법원남로15번길 10, 2층 202호(거제동, 미르코아빌딩)
             </p>
             <p className="mt-4" style={{ color: "rgba(20,57,43,0.42)" }}>
-              &copy; {new Date().getFullYear()} 법률사무소청송law. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
+              &copy; {new Date().getFullYear()} 법률사무소 청송law. 모든 AI 산출물은 변호사의 최종 검토를 전제로 한 초안입니다.
             </p>
           </div>
         </div>

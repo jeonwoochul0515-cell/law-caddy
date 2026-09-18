@@ -37,12 +37,25 @@ export interface CostItem {
 /** 심급 */
 export type CaseInstance = "1심" | "항소심" | "상고심" | "기타";
 
+/** 상대방 지위 — 사건 유형별로 쓰는 말이 달라 자유 문자열도 허용 */
+export type OpponentRole =
+  | "원고" | "피고" | "채권자" | "채무자" | "신청인" | "피신청인"
+  | "고소인" | "피고소인" | "피의자" | "피해자" | "기타";
+
+/** 상대방 한 명 */
+export interface Opponent {
+  name: string;
+  role?: OpponentRole;
+}
+
 export interface Case {
   id: string;
   ownerId: string;
   clientName: string;
   /** 의뢰인 휴대폰 번호 (문자 발송용, 선택) — 첫 발송 때 입력받아 저장 */
   clientPhone?: string;
+  /** 의뢰인 주소 (선택 — 의뢰인 화면에서 한 번에 고친다) */
+  clientAddress?: string;
   caseType: CaseType;
   description: string;
   // ── 사건 실체 정보 (선택 — 소 제기 전 상담 단계에는 없을 수 있음) ──
@@ -52,8 +65,13 @@ export interface Case {
   courtName?: string;
   /** 재판부 (예: 민사3단독) */
   courtDivision?: string;
-  /** 상대방 당사자 이름 */
+  /**
+   * 상대방 당사자 이름 (표시용 — 여러 명이면 ", "로 이어 붙인 문자열).
+   * 상세는 opponents 배열이 원본이고, 이 값은 예전 화면·계약서 생성이 읽도록 함께 유지한다.
+   */
   opponentName?: string;
+  /** 상대방 목록 (이름·지위). 한 명이어도 배열 */
+  opponents?: Opponent[];
   /** 심급 */
   instance?: CaseInstance;
   // ── 의뢰인 포털 (읽기 전용 공유 링크) ──
@@ -70,10 +88,23 @@ export interface Case {
 }
 
 export interface TimelineEvent {
+  /** 고유 ID — 수정·삭제용. 예전 데이터에는 없을 수 있다 */
+  id?: string;
   type: "consult" | "doc" | "filing" | "response" | "note" | "client_care";
   date: Timestamp;
   label: string;
   detail: string;
+}
+
+/** opponents 배열을 표시용 문자열로 (예: "홍길동(피고), 김철수(피고)") */
+export function formatOpponents(c: Pick<Case, "opponentName" | "opponents">): string {
+  if (c.opponents && c.opponents.length > 0) {
+    return c.opponents
+      .filter((o) => o.name.trim())
+      .map((o) => (o.role ? `${o.name}(${o.role})` : o.name))
+      .join(", ");
+  }
+  return c.opponentName ?? "";
 }
 
 export interface OpponentDoc {

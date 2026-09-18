@@ -60,6 +60,16 @@ export interface CaseRecord {
   ocrStatus: OcrStatus;
   ocrEngine?: OcrEngine;
   maskedPII: boolean;                    // 주민번호·계좌·상세주소·휴대번호 마스킹 완료 여부
+  /** PDF 전체 쪽수 */
+  pagesTotal?: number;
+  /** 실제로 글자를 읽은 쪽수 — pagesTotal보다 작으면 "앞부분만 읽음" */
+  pagesRead?: number;
+  /** 글자 상한·OCR 쪽수 상한에 걸려 뒷부분을 읽지 못했는지 */
+  truncated?: boolean;
+  /** 읽기 실패 사유 (한국어, 화면 표시용) */
+  parseError?: string;
+  /** 변호사가 추출 글자를 직접 고쳤는지 */
+  textEditedAt?: Timestamp;
 
   // 후속 처리
   ragIndexedAt?: Timestamp;

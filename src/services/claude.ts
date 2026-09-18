@@ -4,7 +4,7 @@
 
 import * as Sentry from "@sentry/react";
 import { authHeaders } from "./api-auth";
-import { withRetry } from "./retry";
+import { withRetry, ApiError, describeHttpError } from "./retry";
 
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
@@ -61,12 +61,6 @@ interface ClaudeApiError {
     type: string;
     message: string;
   };
-}
-
-/** 프록시 에러 응답 */
-interface ProxyErrorResponse {
-  error: string;
-  detail?: string;
 }
 
 /** 직접 호출 가능 여부 (빌드 시 VITE_ANTHROPIC_API_KEY가 있으면 직접 호출) */
@@ -355,17 +349,35 @@ async function callClaudeDirect(
   });
 
   if (!response.ok) {
-    // 상태 코드를 반드시 메시지에 남긴다 — withRetry가 이걸로 재시도 여부를 판단한다.
-    // (예전엔 본문 파싱에 성공하면 "HTTP 529"가 지워져서 과부하가 재시도되지 않았다)
-    let detail = response.statusText;
-    try {
-      const errorBody = (await response.json()) as ClaudeApiError;
-      detail = errorBody?.error?.message ?? detail;
-    } catch { /* non-JSON error body */ }
-    throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`);
+    throw await toApiError(response, "direct");
   }
 
   return handleStreamResult("direct", await readClaudeStream(response));
+}
+
+/**
+ * 실패 응답을 화면용 오류로 바꾼다.
+ *
+ * 상태 코드는 ApiError.status에 남겨 withRetry가 재시도 여부를 판단하고,
+ * 화면에는 한국어 문장만 나간다. 서버 원문·API 키 조각은 콘솔에만 남긴다.
+ */
+async function toApiError(response: Response, label: string): Promise<ApiError> {
+  let body: { error?: string; message?: string; detail?: string } | null = null;
+  let raw = "";
+  try {
+    raw = await response.text();
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // 직접 호출(Anthropic 원본) 형식: { error: { message } }
+    const nested = (parsed as unknown as ClaudeApiError).error;
+    if (nested && typeof nested === "object" && "message" in nested) {
+      body = { error: nested.message };
+    } else {
+      body = parsed as { error?: string; message?: string; detail?: string };
+    }
+  } catch { /* non-JSON error body */ }
+  const message = describeHttpError(response.status, body, "AI 분석");
+  console.warn(`[Claude/${label}] HTTP ${response.status}:`, raw.slice(0, 300));
+  return new ApiError(response.status, message, raw.slice(0, 500));
 }
 
 /**
@@ -392,15 +404,7 @@ async function callClaudeProxy(
     });
 
     if (!response.ok) {
-      let detail = "";
-      try {
-        const errorBody = (await response.json()) as ProxyErrorResponse & { status?: number; apiKeyPrefix?: string };
-        detail = errorBody?.detail ?? errorBody?.error ?? "";
-        if (errorBody?.apiKeyPrefix) {
-          detail += ` [key: ${errorBody.apiKeyPrefix}]`;
-        }
-      } catch { /* non-JSON error body */ }
-      throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`.trim());
+      throw await toApiError(response, "proxy");
     }
 
     return handleStreamResult("proxy", await readClaudeStream(response));
@@ -457,19 +461,20 @@ export async function callClaude(
   } catch (error: unknown) {
     Sentry.captureException(error);
     const errMsg = error instanceof Error ? error.message : "알 수 없는 오류";
-    // 전역 API 에러 알림
-    if (typeof window !== "undefined") {
+    // 전역 API 에러 알림 — 요금제 한도(402)는 고장이 아니므로 "버그 리포트" 안내를 띄우지 않는다
+    const isQuota = error instanceof ApiError && error.isQuota;
+    if (typeof window !== "undefined" && !isQuota) {
       window.dispatchEvent(new CustomEvent("api-error", { detail: errMsg }));
     }
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
+        "AI 서버에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
       );
     }
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("Claude API 호출 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("AI 분석 중 알 수 없는 오류가 났습니다. 잠시 후 다시 시도해 주세요.");
   }
 }
 
@@ -494,13 +499,13 @@ export async function callClaudeChat(
     Sentry.captureException(error);
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new Error(
-        "Claude API에 연결할 수 없습니다. 네트워크 연결을 확인하세요.",
+        "AI 서버에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
       );
     }
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("Claude API 호출 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("AI 분석 중 알 수 없는 오류가 났습니다. 잠시 후 다시 시도해 주세요.");
   }
 }
 
@@ -539,14 +544,7 @@ async function callClaudeChatDirect(
   });
 
   if (!response.ok) {
-    // 상태 코드를 반드시 메시지에 남긴다 — withRetry가 이걸로 재시도 여부를 판단한다.
-    // (예전엔 본문 파싱에 성공하면 "HTTP 529"가 지워져서 과부하가 재시도되지 않았다)
-    let detail = response.statusText;
-    try {
-      const errorBody = (await response.json()) as ClaudeApiError;
-      detail = errorBody?.error?.message ?? detail;
-    } catch { /* non-JSON error body */ }
-    throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`);
+    throw await toApiError(response, "direct-chat");
   }
 
   return handleStreamResult("direct", await readClaudeStream(response));
@@ -565,12 +563,7 @@ async function callClaudeChatProxy(
     });
 
     if (!response.ok) {
-      let detail = "";
-      try {
-        const errorBody = (await response.json()) as ProxyErrorResponse;
-        detail = errorBody?.detail ?? errorBody?.error ?? "";
-      } catch { /* non-JSON error body */ }
-      throw new Error(`Claude API 호출 실패: HTTP ${response.status} ${detail}`.trim());
+      throw await toApiError(response, "proxy-chat");
     }
 
     return handleStreamResult("proxy", await readClaudeStream(response));

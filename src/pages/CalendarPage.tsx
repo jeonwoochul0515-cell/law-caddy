@@ -8,8 +8,9 @@ import { getAllDeadlines, getCases } from "../services/firebase/firestore";
 import { calcDDay, calcStatus, type CaseDeadline, type DeadlineStatus } from "../types/deadline";
 import { isDemoMode } from "../config/demo";
 
-/** 상태별 칩 색상 (다크 테마) */
+/** 상태별 칩 색상 */
 const STATUS_CHIP: Record<DeadlineStatus, string> = {
+  done: "bg-surface text-text-dim border-border",
   overdue: "bg-error/20 text-error border-error/30",
   imminent: "bg-warning/20 text-warning border-warning/30",
   upcoming: "bg-gold-dim text-gold border-gold/30",
@@ -73,7 +74,7 @@ export default function CalendarPage() {
         return {
           ...d,
           dDay,
-          status: calcStatus(dDay),
+          status: calcStatus(dDay, d.done),
           clientName: caseNames[d.caseId] ?? "",
         };
       }),

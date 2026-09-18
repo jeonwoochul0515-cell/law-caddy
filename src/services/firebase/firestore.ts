@@ -240,6 +240,54 @@ export async function updateRecording(
   }
 }
 
+/**
+ * 녹음 한 건을 조회합니다. 없거나 권한이 없으면 null.
+ */
+export async function getRecording(id: string): Promise<Recording | null> {
+  try {
+    const snap = await getDoc(doc(db!, "recordings", id));
+    if (!snap.exists()) return null;
+    return { ...snap.data(), id: snap.id } as Recording;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`녹음 조회 실패: ${error.message}`);
+    }
+    throw new Error("녹음 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 녹음 문서를 지웁니다. Storage 파일은 services/firebase/storage.ts의
+ * deleteRecordingFile로 따로 지운다 (두 단계 — 파일 삭제가 규칙에 막혀도 문서는 정리되게).
+ */
+export async function deleteRecording(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "recordings", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`녹음 삭제 실패: ${error.message}`);
+    }
+    throw new Error("녹음 삭제 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 녹음을 다른 사건으로 옮깁니다 (caseId만 바꾼다 — Storage 경로는 그대로 둔다).
+ */
+export async function moveRecordingToCase(id: string, caseId: string): Promise<void> {
+  await updateRecording(id, { caseId });
+}
+
+/**
+ * 음성 변환이 끝나지 않은 채 남아 있는 녹음 목록 (사건 기준).
+ * 화면 재진입 때 이어서 확인할 대상을 찾는 데 쓴다 (r1-03-05).
+ */
+export async function getPendingTranscriptions(caseId: string, ownerId: string): Promise<Recording[]> {
+  const all = await getRecordings(caseId, ownerId);
+  return all.filter((r) => r.sttStatus === "processing" && r.rtzrTranscribeId);
+}
+
 // ──────────────────────────────────────────────
 // Documents (법률 문서)
 // ──────────────────────────────────────────────
@@ -364,6 +412,39 @@ export async function updateDocument(
       throw new Error(`문서 업데이트 실패: ${error.message}`);
     }
     throw new Error("문서 업데이트 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 문서 제목을 바꿉니다. 빈 제목이면 필드를 지워 docType이 다시 제목이 된다.
+ */
+export async function renameDocument(id: string, title: string): Promise<void> {
+  try {
+    const { deleteField } = await import("firebase/firestore");
+    const trimmed = title.trim();
+    await updateDoc(doc(db!, "documents", id), {
+      title: trimmed ? trimmed : deleteField(),
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`문서 제목 변경 실패: ${error.message}`);
+    }
+    throw new Error("문서 제목 변경 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 문서를 삭제합니다. (Firestore 규칙은 소유자 삭제를 허용한다)
+ */
+export async function deleteDocument(id: string): Promise<void> {
+  try {
+    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
+    await firestoreDeleteDoc(doc(db!, "documents", id));
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`문서 삭제 실패: ${error.message}`);
+    }
+    throw new Error("문서 삭제 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
@@ -747,29 +828,81 @@ export async function deleteClientCareMessage(caseId: string, id: string): Promi
 // Admin (관리자 기능)
 // ──────────────────────────────────────────────
 
+/** users 컬렉션에서 status·role로 변호사 목록을 가입순으로 읽는다 (복합 색인 status+role+createdAt 사용) */
+async function getLawyersByStatus(status: User["status"]): Promise<User[]> {
+  const q = query(
+    collection(db!, "users"),
+    where("status", "==", status),
+    where("role", "==", "lawyer"),
+    orderBy("createdAt", "asc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => ({ ...docSnap.data() })) as User[];
+}
+
 /**
- * 등록번호 미검증 사용자 목록을 조회합니다 (approved 상태, 검증 미완료).
+ * 등록번호 미검증 사용자 목록을 조회합니다 (approved 상태이면서 관리자 대조(verified)가 아직 안 된 회원).
+ * verified는 색인 없이 클라이언트에서 거른다(회원 수가 적어 충분하다).
  *
  * @returns 미검증 사용자 목록 (가입순)
  */
 export async function getUnverifiedUsers(): Promise<User[]> {
   try {
-    const q = query(
-      collection(db!, "users"),
-      where("status", "==", "approved"),
-      where("role", "==", "lawyer"),
-      orderBy("createdAt", "asc")
-    );
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((docSnap) => ({
-      ...docSnap.data(),
-    })) as User[];
+    const users = await getLawyersByStatus("approved");
+    return users.filter((u) => u.verified !== true);
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`사용자 조회 실패: ${error.message}`);
     }
     throw new Error("사용자 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 승인 대기(pending) 사용자 목록 — 사업자등록증으로 변호사업이 확인되지 않았거나
+ * 사업자등록증 없이 접수한 회원. 관리자가 사람이 확인해 승인·거절한다.
+ */
+export async function getPendingUsers(): Promise<User[]> {
+  try {
+    return await getLawyersByStatus("pending");
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`승인 대기 목록 조회 실패: ${error.message}`);
+    }
+    throw new Error("승인 대기 목록 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/** 거절(이용 중지)된 사용자 목록 — 되돌리기용 */
+export async function getRejectedUsers(): Promise<User[]> {
+  try {
+    return await getLawyersByStatus("rejected");
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`거절 목록 조회 실패: ${error.message}`);
+    }
+    throw new Error("거절 목록 조회 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
+ * 승인 대기 → 승인 (status: "approved"). 승인 문자는 호출부에서 이 전환 때만 보낸다.
+ */
+export async function approveUser(uid: string, approvedBy: string): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "users", uid), {
+      status: "approved" as const,
+      approvedAt: Timestamp.now(),
+      approvedBy,
+      rejectedReason: null,
+      rejectedAt: null,
+      rejectedBy: null,
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`승인 처리 실패: ${error.message}`);
+    }
+    throw new Error("승인 처리 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
@@ -795,18 +928,39 @@ export async function verifyUser(
 }
 
 /**
- * 등록번호 불일치 → 사용자 탈퇴 (status: "rejected")
+ * 가입 거절 또는 이용 중지 (status: "rejected") — 사유는 본인 로그인 화면에 그대로 보인다.
+ * 계정·파일을 지우는 것이 아니다. 되돌리려면 restoreUserToPending을 쓴다.
  */
-export async function deactivateUser(uid: string): Promise<void> {
+export async function rejectUser(uid: string, reason: string, rejectedBy: string): Promise<void> {
   try {
     await updateDoc(doc(db!, "users", uid), {
       status: "rejected" as const,
+      rejectedReason: reason,
+      rejectedAt: Timestamp.now(),
+      rejectedBy,
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-      throw new Error(`사용자 탈퇴 실패: ${error.message}`);
+      throw new Error(`거절 처리 실패: ${error.message}`);
     }
-    throw new Error("사용자 탈퇴 중 알 수 없는 오류가 발생했습니다.");
+    throw new Error("거절 처리 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/** 거절 되돌리기 — 다시 승인 대기(pending)로. 사유는 지운다. */
+export async function restoreUserToPending(uid: string): Promise<void> {
+  try {
+    await updateDoc(doc(db!, "users", uid), {
+      status: "pending" as const,
+      rejectedReason: null,
+      rejectedAt: null,
+      rejectedBy: null,
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(`되돌리기 실패: ${error.message}`);
+    }
+    throw new Error("되돌리기 중 알 수 없는 오류가 발생했습니다.");
   }
 }
 
