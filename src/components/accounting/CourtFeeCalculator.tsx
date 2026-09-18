@@ -9,6 +9,7 @@ import {
   getDefaultUnitCost,
 } from "../../services/courtFeeCalculator";
 import type { CourtLevel } from "../../services/courtFeeCalculator";
+import { localDateStr } from "../../utils/localDate";
 
 // ─── Props ───────────────────────────────────────
 
@@ -112,7 +113,7 @@ export default function CourtFeeCalculator({
           category,
           description,
           amount,
-          date: new Date().toISOString().slice(0, 10),
+          date: localDateStr(),
           bearer: "의뢰인",
           reimbursed: false,
           paymentMethod: "계좌이체",

@@ -9,6 +9,7 @@ import type { Recording } from "../types/recording";
 import type { LegalDocument } from "../types/document";
 import type { CaseRecord } from "../types/caseRecord";
 import type { Fee, Installment, CaseExpense, Deposit } from "../types/accounting";
+import { localDateStr } from "../utils/localDate";
 
 /**
  * 사건 컨텍스트 직렬화 결과.
@@ -141,7 +142,7 @@ function formatTimeline(timeline: NonNullable<Case["timeline"]>): string {
     .sort((a, b) => (b.date?.seconds ?? 0) - (a.date?.seconds ?? 0))
     .map((e) => {
       const dateStr = e.date?.toDate?.()
-        ? e.date.toDate().toISOString().slice(0, 10)
+        ? localDateStr(e.date.toDate())
         : "?";
       return `- [${dateStr}] (${e.type}) ${e.label} — ${e.detail || ""}`.trim();
     });
@@ -157,7 +158,7 @@ function formatRecordings(recordings: Recording[]): { text: string; anyTruncated
       : original;
     if (original.length > LIMITS.RECORDING) anyTruncated = true;
     const dateStr = r.createdAt?.toDate?.()
-      ? r.createdAt.toDate().toISOString().slice(0, 10)
+      ? localDateStr(r.createdAt.toDate())
       : "?";
     return [
       `## 녹음 ${idx + 1} — ${r.fileName} (${dateStr})`,

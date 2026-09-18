@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, X, Check, Receipt } from "lucide-react";
 import type { CostItem } from "../../types/case";
+import { localDateStr } from "../../utils/localDate";
 
 const PRESETS = ["송달료", "인지대", "감정료", "증인여비", "번역료", "등록면허세"];
 
@@ -29,7 +30,7 @@ export default function CostsSection({ costs, onAdd, onUpdate, onRemove }: Costs
       description: desc.trim(),
       amount: parsedAmount,
       paid: false,
-      date: new Date().toISOString().slice(0, 10),
+      date: localDateStr(),
     });
     setDesc("");
     setAmount("");

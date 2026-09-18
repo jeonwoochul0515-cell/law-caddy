@@ -10,6 +10,7 @@ import type {
   PaymentMethodType,
   EvidenceType,
 } from "../../types/accounting";
+import { localDateStr } from "../../utils/localDate";
 
 interface OfficeExpenseModalProps {
   ownerId: string;
@@ -43,7 +44,7 @@ const EVIDENCE_TYPES: EvidenceType[] = [
 ];
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 const inputCls =

@@ -27,6 +27,7 @@ import type {
   Attachment,
   Deposit,
 } from "../../types/accounting";
+import { localDateStr } from "../../utils/localDate";
 
 // ─── 상수 ────────────────────────────────────────
 
@@ -128,7 +129,7 @@ function createInitialFormState(): ExpenseFormState {
     category: "인지대",
     description: "",
     amount: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: localDateStr(),
     bearer: "의뢰인",
     paymentMethod: "계좌이체",
     evidenceType: "없음",
@@ -337,7 +338,7 @@ export default function CaseExpenseTab({
       const newReimbursed = !expense.reimbursed;
       await onUpdate(expense.id, {
         reimbursed: newReimbursed,
-        reimbursedDate: newReimbursed ? new Date().toISOString().slice(0, 10) : undefined,
+        reimbursedDate: newReimbursed ? localDateStr() : undefined,
         reimbursedAmount: newReimbursed ? expense.amount : undefined,
       });
     } catch (err: unknown) {

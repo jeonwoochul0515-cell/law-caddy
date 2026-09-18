@@ -42,6 +42,7 @@ import { updateCase } from "../services/firebase/firestore";
 import type { FeePaymentType } from "../services/autoRevenue";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
+import { localDateStr } from "../utils/localDate";
 
 type TabKey = "overview" | "timeline" | "schedule" | "clientcare" | "finance" | "records" | "assistant";
 
@@ -184,7 +185,7 @@ export default function CaseDetailPage() {
   const tryAutoRevenue = async (paymentType: FeePaymentType, amount: number, feeId: string) => {
     if (!caseData || !fee || amount <= 0) return;
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateStr();
       await createRevenueFromFeePayment({
         ownerId: uid,
         caseId: id!,
@@ -722,7 +723,7 @@ export default function CaseDetailPage() {
                       await exportToDocx(contractResult.documentText, {
                         docType: caseData.caseType === "형사" ? "사건위임계약서(형사)" : "사건위임계약서",
                         clientName: caseData.clientName,
-                        date: new Date().toISOString().slice(0, 10),
+                        date: localDateStr(),
                       });
                     } catch (err) { console.error("DOCX 내보내기 실패:", err); }
                   }}

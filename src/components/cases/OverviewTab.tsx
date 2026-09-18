@@ -14,6 +14,7 @@ const loadDocxExport = () => import("../../services/docxExport");
 const loadHwpxExport = () => import("../../services/hwpxExport");
 import ContractPaymentSection from "./ContractPaymentSection";
 import CostsSection from "./CostsSection";
+import { localDateStr } from "../../utils/localDate";
 
 const TIMELINE_ICONS: Record<TimelineEvent["type"], React.ElementType> = {
   consult: Mic,
@@ -489,7 +490,7 @@ function DocumentItem({ doc, clientName, onNavigateToDocument }: {
                         await exportToDocx(doc.finalDocument, {
                           docType: doc.docType,
                           clientName: clientName ?? "문서",
-                          date: doc.createdAt?.toDate?.()?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+                          date: localDateStr(doc.createdAt?.toDate?.() ?? new Date()),
                         });
                       } catch (err) { console.error("DOCX 내보내기 실패:", err); }
                       finally { setExporting(false); }
@@ -508,7 +509,7 @@ function DocumentItem({ doc, clientName, onNavigateToDocument }: {
                         await exportToHwpx(doc.finalDocument, {
                           docType: doc.docType,
                           clientName: clientName ?? "문서",
-                          date: doc.createdAt?.toDate?.()?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+                          date: localDateStr(doc.createdAt?.toDate?.() ?? new Date()),
                         });
                       } catch (err) { console.error("HWPX 내보내기 실패:", err); }
                       finally { setExporting(false); }

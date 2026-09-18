@@ -30,6 +30,7 @@ import type {
   VatInfo,
 } from "../../types/accounting";
 import SuccessFeeClaimModal from "./SuccessFeeClaimModal";
+import { localDateStr } from "../../utils/localDate";
 
 // ─── Props ───────────────────────────────────
 
@@ -101,7 +102,7 @@ function parseAmount(value: string): number {
 
 /** 오늘 날짜 YYYY-MM-DD */
 function todayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 /** 예정일이 오늘보다 과거이고 미납인지 확인 */

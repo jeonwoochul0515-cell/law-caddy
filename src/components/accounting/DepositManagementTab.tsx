@@ -26,6 +26,7 @@ import type {
   CourtDepositInfo,
   PaymentMethodType,
 } from "../../types/accounting";
+import { localDateStr } from "../../utils/localDate";
 
 // ─────────────────────────────────────────────
 // Props
@@ -111,7 +112,7 @@ function calcDaysHeld(receivedDate: string): number {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 // ─────────────────────────────────────────────

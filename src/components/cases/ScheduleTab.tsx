@@ -15,6 +15,9 @@ import {
   Trash2,
   Pencil,
   X,
+  Check,
+  RotateCcw,
+  Calculator,
 } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import {
@@ -25,12 +28,15 @@ import {
 } from "../../services/firebase/firestore";
 import {
   DEADLINE_CATEGORIES,
+  LEGAL_PERIOD_PRESETS,
   calcDDay,
   calcStatus,
+  computeDueDate,
   type CaseDeadline,
   type DeadlineCategory,
   type DeadlineStatus,
 } from "../../types/deadline";
+import { localDateStr } from "../../utils/localDate";
 
 interface ScheduleTabProps {
   caseId: string;
@@ -130,10 +136,11 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
   const [deadlines, setDeadlines] = useState<CaseDeadline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "overdue" | "imminent" | "upcoming">("all");
+  const [filter, setFilter] = useState<"all" | "overdue" | "imminent" | "upcoming" | "done">("all");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   /** 수정 중인 기한 ID — null이면 신규 등록 모드 */
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -144,6 +151,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
   const [formBaseDateLabel, setFormBaseDateLabel] = useState("");
   const [formRule, setFormRule] = useState("");
 
+  // 법정기간 계산기 — 소스에 만들어 둔 computeDueDate가 화면에 연결되어 있지 않았다.
+  // 변호사가 항소기간을 손으로 세서 입력하고 있었다는 뜻이다.
+  const [showCalc, setShowCalc] = useState(false);
+  const [calcPreset, setCalcPreset] = useState(LEGAL_PERIOD_PRESETS[0].key);
+  const [calcBaseDate, setCalcBaseDate] = useState("");
+  const [calcCustomDays, setCalcCustomDays] = useState("");
+  const [calcError, setCalcError] = useState<string | null>(null);
+
   function resetForm() {
     setFormTitle("");
     setFormDueDate("");
@@ -152,6 +167,62 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
     setFormCategory("서면 제출");
     setEditingId(null);
     setShowForm(false);
+  }
+
+  /** 계산 결과를 기한 추가 폼에 채운다 */
+  function applyCalculation() {
+    setCalcError(null);
+    const preset = LEGAL_PERIOD_PRESETS.find((p) => p.key === calcPreset);
+    const days = calcPreset === "custom" ? Number(calcCustomDays) : preset?.days;
+    if (!calcBaseDate) {
+      setCalcError("기산일을 고르세요.");
+      return;
+    }
+    if (!days || !Number.isFinite(days) || days <= 0) {
+      setCalcError("기간(일)을 숫자로 적어 주세요.");
+      return;
+    }
+    try {
+      const result = computeDueDate(calcBaseDate, days);
+      setFormDueDate(result.dueDate);
+      if (preset && calcPreset !== "custom") {
+        // "항소 — 민사 (14일)" → "항소 — 민사". 일수는 근거란에 따로 들어간다.
+        const title = preset.label.replace(/\s*\(\d+일\)\s*$/, "").trim();
+        setFormTitle((prev) => prev || title || preset.label);
+        setFormCategory(preset.category);
+        setFormBaseDateLabel(`${preset.baseLabel} (${calcBaseDate})`);
+        setFormRule(`${days}일 (${preset.basis})`);
+      } else {
+        setFormBaseDateLabel(`기산일 ${calcBaseDate}`);
+        setFormRule(`${days}일`);
+      }
+      setShowForm(true);
+      setShowCalc(false);
+    } catch (err) {
+      setCalcError(err instanceof Error ? err.message : "계산하지 못했습니다.");
+    }
+  }
+
+  /** 기한 완료·되돌리기 — 이게 없어서 끝난 기한이 영원히 「지연」으로 남아 있었다 */
+  async function toggleDone(deadline: CaseDeadline) {
+    const next = !deadline.done;
+    setTogglingId(deadline.id);
+    setError(null);
+    try {
+      await updateDeadline(deadline.id, {
+        done: next,
+        doneAt: next ? localDateStr() : "",
+      });
+      setDeadlines((prev) =>
+        prev.map((d) =>
+          d.id === deadline.id ? { ...d, done: next, doneAt: next ? localDateStr() : undefined } : d,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "기한 상태를 바꾸지 못했습니다.");
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   function startEdit(deadline: CaseDeadline) {
@@ -299,6 +370,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
             { key: "overdue", label: "지연" },
             { key: "imminent", label: "임박" },
             { key: "upcoming", label: "예정" },
+            { key: "done", label: "완료" },
           ] as const
         ).map(({ key, label }) => (
           <button
@@ -383,6 +455,9 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                                 {Math.abs(deadline.dDay)}일 경과
                               </span>
                             )}
+                            {deadline.done && deadline.doneAt && (
+                              <span className="ml-2 text-[#2e6242]">{deadline.doneAt} 처리함</span>
+                            )}
                           </p>
 
                           {/* 기산일 + 근거 */}
@@ -410,8 +485,27 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                           </div>
                         </div>
 
-                        {/* 수정·삭제 버튼 */}
+                        {/* 완료·수정·삭제 버튼 */}
                         <div className="flex-shrink-0 flex items-center gap-0.5">
+                          <button
+                            onClick={() => toggleDone(deadline)}
+                            disabled={togglingId === deadline.id}
+                            className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${
+                              deadline.done
+                                ? "text-[#2e6242] hover:bg-[#2e6242]/10"
+                                : "text-[#1e2a22]/25 hover:text-[#2e6242] hover:bg-[#2e6242]/10"
+                            }`}
+                            title={deadline.done ? "완료 되돌리기" : "처리 완료로 표시"}
+                            aria-label={deadline.done ? "완료 되돌리기" : "처리 완료로 표시"}
+                          >
+                            {togglingId === deadline.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : deadline.done ? (
+                              <RotateCcw className="w-4 h-4" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                          </button>
                           <button
                             onClick={() => startEdit(deadline)}
                             className="p-1.5 rounded-lg text-[#1e2a22]/25 hover:text-[#2e6242] hover:bg-[#2e6242]/10 transition-colors"
@@ -538,13 +632,119 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setShowForm(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#ede7d8] text-[#1e2a22]/50 hover:border-[#2e6242]/30 hover:text-[#2e6242] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">기한 추가</span>
-          </button>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <button
+              onClick={() => setShowForm(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#ede7d8] text-[#1e2a22]/50 hover:border-[#2e6242]/30 hover:text-[#2e6242] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">기한 추가</span>
+            </button>
+            <button
+              onClick={() => setShowCalc((v) => !v)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#ede7d8] text-[#1e2a22]/50 hover:border-[#2e6242]/30 hover:text-[#2e6242] transition-colors"
+            >
+              <Calculator className="w-4 h-4" />
+              <span className="text-sm font-medium">법정기간 계산</span>
+            </button>
+          </div>
+        )}
+
+        {/* 법정기간 계산기 — 기산일을 고르면 초일불산입·토일 보정까지 맞춰 마감일을 낸다 */}
+        {showCalc && (
+          <div className="mt-3 rounded-xl border border-[#ede7d8] bg-white p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-[#1e2a22]">법정기간 계산</h4>
+              <button
+                onClick={() => setShowCalc(false)}
+                className="p-1 rounded-lg text-[#1e2a22]/40 hover:text-[#1e2a22] hover:bg-[#ede7d8] transition-colors"
+                aria-label="닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">기간 종류</label>
+                <select
+                  value={calcPreset}
+                  onChange={(e) => setCalcPreset(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] bg-white focus:border-[#2e6242]/40 focus:outline-none"
+                >
+                  {LEGAL_PERIOD_PRESETS.map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label} — {p.basis}
+                    </option>
+                  ))}
+                  <option value="custom">직접 입력</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
+                  {LEGAL_PERIOD_PRESETS.find((p) => p.key === calcPreset)?.baseLabel ?? "기산일"}{" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={calcBaseDate}
+                  onChange={(e) => setCalcBaseDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] focus:border-[#2e6242]/40 focus:outline-none"
+                />
+              </div>
+              {calcPreset === "custom" && (
+                <div>
+                  <label className="block text-xs font-medium text-[#1e2a22]/60 mb-1">
+                    기간 (일) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    value={calcCustomDays}
+                    onChange={(e) => setCalcCustomDays(e.target.value)}
+                    placeholder="예: 14"
+                    className="w-full px-3 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22] placeholder:text-[#1e2a22]/30 focus:border-[#2e6242]/40 focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            {calcBaseDate && (
+              <p className="text-xs text-[#1e2a22]/60">
+                {(() => {
+                  const preset = LEGAL_PERIOD_PRESETS.find((p) => p.key === calcPreset);
+                  const days = calcPreset === "custom" ? Number(calcCustomDays) : preset?.days;
+                  if (!days || !Number.isFinite(days) || days <= 0) return "기간(일)을 적어 주세요.";
+                  try {
+                    const r = computeDueDate(calcBaseDate, days);
+                    return r.rolledOver
+                      ? `마감일 ${r.dueDate} — ${r.rawDueDate}이 토·일이라 다음 평일로 넘겼습니다 (민법 §161)`
+                      : `마감일 ${r.dueDate}`;
+                  } catch {
+                    return "기산일을 확인해 주세요.";
+                  }
+                })()}
+              </p>
+            )}
+
+            {calcError && <p className="text-xs text-red-600">{calcError}</p>}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCalc(false)}
+                className="px-4 py-2 rounded-lg border border-[#ede7d8] text-sm text-[#1e2a22]/60 hover:text-[#1e2a22] transition-colors"
+              >
+                닫기
+              </button>
+              <button
+                onClick={applyCalculation}
+                className="px-4 py-2 rounded-lg bg-[#2e6242] text-white text-sm font-medium hover:bg-[#24513c] transition-colors"
+              >
+                이 날짜로 기한 만들기
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -552,9 +752,12 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#ede7d8]/60 border border-[#ede7d8]">
         <Timer className="w-4 h-4 text-[#2e6242] flex-shrink-0 mt-0.5" />
         <p className="text-xs text-[#1e2a22]/50 leading-relaxed">
-          지연·임박·예정 상태는 오늘 날짜 기준으로 자동 계산됩니다. 공휴일 및
-          토요일이 만료일인 경우 다음 영업일로 연장될 수 있으니, 정확한 기한은
-          담당 법원의 송달일 기준으로 직접 확인하시기 바랍니다.
+          지연·임박·예정 상태는 오늘 날짜 기준으로 자동 계산됩니다.{" "}
+          <strong className="text-[#1e2a22]/70">
+            법정기간 계산은 초일불산입(민법 §157)과 말일이 토·일인 경우만 반영합니다.
+          </strong>{" "}
+          공휴일은 판단하지 않으므로, 마감일이 공휴일이면 다음 영업일로 직접 옥겨 주세요.
+          정확한 기한은 담당 법원의 송달일 기준으로 확인하시기 바랍니다.
         </p>
       </div>
     </div>

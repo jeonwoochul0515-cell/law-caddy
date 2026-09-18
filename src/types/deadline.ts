@@ -1,5 +1,6 @@
 // 사건별 기한(마감일) 데이터 타입 — 일정 탭에서 사용
 import type { Timestamp } from "firebase/firestore";
+import { localDateStr } from "../utils/localDate";
 
 export const DEADLINE_CATEGORIES = [
   "서면 제출",
@@ -114,10 +115,8 @@ function parseYmd(ymd: string): Date {
   return new Date(`${ymd}T00:00:00`);
 }
 
-/** Date → YYYY-MM-DD (로컬 기준) */
-export function toYmd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+/** Date → YYYY-MM-DD (로컬 기준). 같은 일을 하던 구현이 둘이라 한 곳으로 모았다. */
+export const toYmd = localDateStr;
 
 export interface DueDateResult {
   /** 최종 마감일 (YYYY-MM-DD) */

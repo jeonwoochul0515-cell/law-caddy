@@ -8,6 +8,7 @@ import type {
   PaymentMethodType,
   EvidenceType,
 } from "../../types/accounting";
+import { localDateStr } from "../../utils/localDate";
 
 interface PurchaseTransactionModalProps {
   ownerId: string;
@@ -31,7 +32,7 @@ const EVIDENCE_TYPES: EvidenceType[] = [
 const VAT_DEDUCTIBLE_EVIDENCE = new Set<EvidenceType>(["세금계산서", "현금영수증", "카드매출전표"]);
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 const inputCls =
