@@ -7,6 +7,15 @@ import { describe, it, expect } from "vitest";
 import { localDateStr, formatKst, formatKstTime } from "../../utils/localDate";
 import { toYmd, computeDueDate, calcDDay, calcStatus } from "../../types/deadline";
 
+describe("시간대 전제", () => {
+  it("테스트는 한국 시간대에서 돌아야 한다", () => {
+    // 아래 검증들은 "로컬이 UTC와 다르다"는 전제 위에 서 있다.
+    // 이 줄이 깨지면 아래 테스트들은 통과해도 아무것도 보증하지 못한다.
+    // vitest.config.ts가 TZ를 Asia/Seoul로 고정한다.
+    expect(new Date(2026, 8, 19, 8, 0, 0).getTimezoneOffset()).toBe(-540);
+  });
+});
+
 describe("localDateStr", () => {
   it("로컬 기준 날짜를 돌려준다 — UTC로 밀리지 않는다", () => {
     // 한국시간 2026-09-19 오전 8시 = UTC 2026-09-18 23:00
