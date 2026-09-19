@@ -40,6 +40,7 @@ import { CASE_TYPES, AGENTS } from "../config/constants";
 import { SearchPool } from "../services/search-pool";
 import { formatRAGContext } from "../services/rag";
 import { maskAgentContext } from "../services/pii-mask";
+import { AGENTS_CACHE_STORAGE_KEY, canRestoreAgentCache } from "../services/agentCache";
 
 /** Claude로 사건 설명에서 법제처 검색 키워드를 추출합니다 */
 /**
@@ -164,10 +165,13 @@ export interface RunAgentsContext extends AgentContext {
   /** 한판서가 검증한 판례 참조 목록 */
   caseRefs?: CaseRef[];
   /**
-   * 결과 캐시 키 — 사건 ID + 입력 자료 요약(파일명·크기·메모 길이).
-   * 예전에는 의뢰인 이름만 봐서, 같은 이름의 다른 사람이나 새 메모를 무시했다(r2-05-04).
+   * 결과 캐시 키 — services/agentCache.ts의 buildAgentCacheKey로 만든다.
+   *
+   * ⚠️ 필수다. 이걸 빼먹어 캐시가 구조적으로 복원되지 않고, 분석 화면에
+   * 들어올 때마다 AI 넷이 다시 돌아 요금이 재청구되고 있었다.
+   * 복원할 때와 반드시 같은 값이어야 한다.
    */
-  cacheKey?: string;
+  cacheKey: string;
 }
 
 /** 법제처 판례 검색이 실제로 어떻게 끝났는지 (r1-04-14 — "없는 건지 실패한 건지") */
@@ -201,16 +205,19 @@ export function buildAnalysisCacheKey(input: {
 /** 에이전트 실행 단계 */
 type AgentStep = "idle" | "running" | "completed" | "error";
 
-/** sessionStorage 캐시 키 */
-const AGENTS_CACHE_KEY = "law-caddy-agents-results";
-
-/** 캐시 데이터 구조 */
+/** 캐시 데이터 구조 (키 생성·복원 판정은 services/agentCache.ts) */
 interface AgentsCacheData {
   agents: Record<AgentId, AgentState>;
   classifiedCaseType: CaseType | null;
   clientName: string;
-  /** 사건·입력 자료까지 반영한 키 (없으면 예전 캐시 — 무시한다) */
-  cacheKey?: string;
+  /**
+   * 사건·입력 자료까지 반영한 키.
+   *
+   * ⚠️ 필수다. 이걸 optional로 두었더니 저장 쪽이 조용히 빼먹어
+   * 캐시가 한 번도 복원되지 않았다. 이제 빼먼 컴파일이 멈춘다.
+   * (읽는 쪽은 예전 캐시를 만날 수 있으므로 canRestoreAgentCache가 런타임에도 검사한다)
+   */
+  cacheKey: string;
   caseRefs?: VerifiedCaseRef[];
   searchInfo?: PrecedentSearchInfo | null;
   timestamp: number;
@@ -508,6 +515,15 @@ export default function useAgents(): UseAgentsReturn {
   const [isClassifying, setIsClassifying] = useState(false);
   const [caseRefs, setCaseRefs] = useState<VerifiedCaseRef[]>([]);
   const [searchInfo, setSearchInfo] = useState<PrecedentSearchInfo | null>(null);
+  /**
+   * 검색 상태의 최신 값 — 캐시에 실을 때 쓴다.
+   * 상태(state)는 비동기라 runAllAgents 안에서 바로 읽으면 이전 값이 나온다.
+   */
+  const searchInfoRef = useRef<PrecedentSearchInfo | null>(null);
+  const trackSearchInfo = useCallback((info: PrecedentSearchInfo | null) => {
+    searchInfoRef.current = info;
+    setSearchInfo(info);
+  }, []);
   const [maskedPiiCount, setMaskedPiiCount] = useState(0);
   /** 마지막 실행 컨텍스트 — 개별 재시도에 쓴다 */
   const lastContextRef = useRef<RunAgentsContext | null>(null);
@@ -535,20 +551,14 @@ export default function useAgents(): UseAgentsReturn {
   /** sessionStorage에서 이전 에이전트 결과 복원 — 같은 사건·같은 자료일 때만 */
   const restoreFromCache = useCallback((cacheKey: string): boolean => {
     try {
-      const cached = sessionStorage.getItem(AGENTS_CACHE_KEY);
+      const cached = sessionStorage.getItem(AGENTS_CACHE_STORAGE_KEY);
       if (!cached) return false;
       const data = JSON.parse(cached) as AgentsCacheData;
-      if (!data.cacheKey || data.cacheKey !== cacheKey) return false;
-      if (Date.now() - data.timestamp > 30 * 60 * 1000) return false;
-      // 모든 에이전트가 완료 상태인지 확인
-      const allDone = Object.values(data.agents).every(
-        (a) => a.status === "completed" || a.status === "error",
-      );
-      if (!allDone) return false;
+      if (!canRestoreAgentCache(data, cacheKey)) return false;
       setAgents(data.agents);
       setClassifiedCaseType(data.classifiedCaseType);
       setCaseRefs(data.caseRefs ?? []);
-      setSearchInfo(data.searchInfo ?? null);
+      trackSearchInfo(data.searchInfo ?? null);
       setCurrentStep("completed");
       setIsRunning(false);
       lastCacheKeyRef.current = cacheKey;
@@ -556,7 +566,7 @@ export default function useAgents(): UseAgentsReturn {
     } catch {
       return false;
     }
-  }, []);
+  }, [trackSearchInfo]);
 
   /** 저장된 결과를 재실행 없이 화면에 올린다 (사건 문서에서 다시 열 때) */
   const loadResults = useCallback((results: Record<string, string>, caseType: CaseType | null) => {
@@ -662,11 +672,11 @@ export default function useAgents(): UseAgentsReturn {
       lastContextRef.current = context;
       lastCacheKeyRef.current = context.cacheKey ?? "";
       setCaseRefs([]);
-      setSearchInfo(null);
+      trackSearchInfo(null);
 
       const runAgent = async (agentId: AgentId, ctx: RunAgentsContext): Promise<AgentState> => {
         try {
-          const result = await runSingleAgent(agentId, ctx, setSearchInfo);
+          const result = await runSingleAgent(agentId, ctx, trackSearchInfo);
           const state: AgentState = { id: agentId, status: "completed", result };
           updateAgent(agentId, state);
           return state;
@@ -749,14 +759,17 @@ export default function useAgents(): UseAgentsReturn {
           clientName: context.clientName,
           cacheKey: context.cacheKey,
           caseRefs: verifiedRefs,
+          // 복원 쌍이 읽는 값이다. 이걸 빼면 되살렸을 때 "법제처 검색이 실패한 건지
+          // 판례가 없는 건지"를 다시 구분할 수 없게 된다(r1-04-14).
+          searchInfo: searchInfoRef.current,
           timestamp: Date.now(),
         };
-        sessionStorage.setItem(AGENTS_CACHE_KEY, JSON.stringify(cacheData));
+        sessionStorage.setItem(AGENTS_CACHE_STORAGE_KEY, JSON.stringify(cacheData));
       } catch { /* quota */ }
 
       return finalStates;
     },
-    [updateAgent, verifyPrecedentRefs],
+    [updateAgent, verifyPrecedentRefs, trackSearchInfo],
   );
 
   /** 실패한 에이전트 하나만 다시 돌린다. 성공한 결과는 그대로 둔다. */
@@ -767,7 +780,7 @@ export default function useAgents(): UseAgentsReturn {
       updateAgent(agentId, { status: "running", result: "", error: undefined });
       setIsRunning(true);
       try {
-        let result = await runSingleAgent(agentId, context, setSearchInfo);
+        let result = await runSingleAgent(agentId, context, trackSearchInfo);
         if (agentId === "precedent") {
           const refs = await verifyPrecedentRefs(result);
           result = appendVerificationBlock(result, refs);
@@ -777,12 +790,12 @@ export default function useAgents(): UseAgentsReturn {
         // 캐시도 갱신 — 뒤로가기·새로고침 때 재시도 결과가 살아 있게
         setAgents((prev) => {
           try {
-            const cached = sessionStorage.getItem(AGENTS_CACHE_KEY);
+            const cached = sessionStorage.getItem(AGENTS_CACHE_STORAGE_KEY);
             if (cached) {
               const data = JSON.parse(cached) as AgentsCacheData;
               if (data.cacheKey === lastCacheKeyRef.current) {
                 data.agents = { ...prev, [agentId]: { id: agentId, status: "completed", result } };
-                sessionStorage.setItem(AGENTS_CACHE_KEY, JSON.stringify(data));
+                sessionStorage.setItem(AGENTS_CACHE_STORAGE_KEY, JSON.stringify(data));
               }
             }
           } catch { /* quota */ }
@@ -798,7 +811,7 @@ export default function useAgents(): UseAgentsReturn {
         setIsRunning(false);
       }
     },
-    [updateAgent, verifyPrecedentRefs],
+    [updateAgent, verifyPrecedentRefs, trackSearchInfo],
   );
 
   return {

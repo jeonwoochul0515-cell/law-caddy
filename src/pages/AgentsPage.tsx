@@ -19,6 +19,7 @@ import { isHwpxFile, isHwpFile, extractHwpxText, extractHwpText } from "../servi
 import { isExcelFile, isPptxFile } from "../utils/fileType";
 import { saveExtractedText } from "../services/file-save";
 import { friendlyError } from "../utils/friendlyError";
+import { buildAgentCacheKey } from "../services/agentCache";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -34,6 +35,8 @@ const CASE_TYPE_COLORS: Record<string, string> = {
 };
 
 const SESSION_KEY = "law-caddy-agents-state";
+
+
 
 interface AgentsState {
   typedNotes?: string;
@@ -86,8 +89,10 @@ export default function AgentsPage() {
   useEffect(() => {
     if (!state || started) return;
 
-    // 이전 분석 결과가 캐시에 있으면 복원 (다시 분석하지 않음)
-    if (!rawState?.files?.length && restoreFromCache(state.clientName)) {
+    // 이전 분석 결과가 캐시에 있으면 복원한다. 같은 사건·같은 자료일 때만.
+    // 여기서 쓰는 키는 runAllAgents에 넘기는 것과 반드시 같아야 한다.
+    const cacheKey = buildAgentCacheKey({ ...state, files: rawState?.files ?? [] });
+    if (restoreFromCache(cacheKey)) {
       setStarted(true);
       setRestoredFromCache(true);
       return;
@@ -196,6 +201,8 @@ export default function AgentsPage() {
         caseDesc: fullDesc,
         transcript: "",
         previousTranscripts: state.previousTranscripts ?? "",
+        // 결과를 되살리려면 저장할 때도 같은 키를 실어야 한다
+        cacheKey,
         ...(fileContents ? { fileContents } : {}),
       };
 
