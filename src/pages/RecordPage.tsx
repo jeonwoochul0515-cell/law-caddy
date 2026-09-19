@@ -59,23 +59,33 @@ export default function RecordPage() {
     storeUnavailable,
   } = useRecording();
 
-  // 사건 상세에서 넘어온 경우 프리필
+  // 사건 상세에서 넘어온 경우 프리필.
+  // 분석 화면에서 「이전 단계」로 돌아올 때는 첨부 파일도 실려 온다.
   const prefilled = location.state as {
     caseId?: string;
     clientName?: string;
     caseDesc?: string;
+    /** 분석 화면에서 되돌아온 첨부 파일 */
+    files?: File[];
+    /** 되돌아온 파일 중 이 화면에서 녹음했던 것들의 이름 */
+    recordedNames?: string[];
+    /** 되돌아온 메모 */
+    typedNotes?: string;
   } | null;
 
   const [step, setStep] = useState<Step>("info");
-  const [files, setFiles] = useState<File[]>([]);
+  // 되돌아온 파일이 있으면 그걸로 시작한다.
+  // (2026-09-19) 예전에는 분석 화면의 「이전 단계」가 상태 없이 이동해 첫 화면으로
+  // 떨어졌고, 이 시점에는 아직 서버에 올리기 전이라 어디에도 사본이 없었다.
+  const [files, setFiles] = useState<File[]>(prefilled?.files ?? []);
   /** 이 화면에서 직접 녹음한 파일 이름들 — 첨부 목록에서 "상담 녹음"으로 구분해 보여준다 */
-  const [recordedNames, setRecordedNames] = useState<string[]>([]);
+  const [recordedNames, setRecordedNames] = useState<string[]>(prefilled?.recordedNames ?? []);
   /** 브라우저가 죽기 전에 저장된 녹음 조각 — 있으면 복구 배너를 띄운다 */
   const [savedSession, setSavedSession] = useState<RecordingSessionMeta | null>(null);
   const [restoring, setRestoring] = useState(false);
   /** 녹음 시작 전 방해금지 안내를 이미 봤는지 (세션당 한 번) */
   const [tipDismissed, setTipDismissed] = useState(false);
-  const [typedNotes, setTypedNotes] = useState("");
+  const [typedNotes, setTypedNotes] = useState(prefilled?.typedNotes ?? "");
 
   const [uploading, setUploading] = useState(false);
   const [savingOnly, setSavingOnly] = useState(false);
@@ -94,11 +104,12 @@ export default function RecordPage() {
   const [clientName, setClientName] = useState(prefilled?.clientName ?? "");
   const [caseDesc] = useState(prefilled?.caseDesc ?? "");
 
-  // 기존 사건에서 온 경우 바로 녹음 단계로 이동
+  // 기존 사건에서 왔거나 분석 화면에서 되돌아왔으면 첫 화면을 건너뛴다.
+  // 되돌아온 경우는 첨부물을 바로 볼 수 있게 자료 단계로 보낸다.
   useEffect(() => {
-    if (prefilled?.caseId && step === "info") {
-      setStep("record");
-    }
+    if (step !== "info") return;
+    if (prefilled?.files?.length) setStep("attach");
+    else if (prefilled?.caseId) setStep("record");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -301,6 +312,8 @@ export default function RecordPage() {
         navigate("/record/agents", {
           state: {
             files,
+            // 되돌아올 때 어느 것이 상담 녹음이었는지 잃지 않게 같이 넣는다
+            recordedNames,
             typedNotes: typedNotes.trim(),
             clientName,
             caseDesc,

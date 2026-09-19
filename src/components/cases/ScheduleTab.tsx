@@ -32,6 +32,7 @@ import {
   calcDDay,
   calcStatus,
   computeDueDate,
+  appendDeadlineChange,
   type CaseDeadline,
   type DeadlineCategory,
   type DeadlineStatus,
@@ -259,6 +260,14 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
     setError(null);
     try {
       if (editingId) {
+        // 마감일을 고쳐으면 이전 날짜를 이력에 쌓는다.
+        //
+        // (2026-09-19) 예전에는 덮어쓰기만 해서 원래 기일이 흔적 없이 사라졌다.
+        // 기일이 바뀜 사건에서 "원래 언제였는지"는 나중에 다투거리는 사실이다.
+        // 타입에 history가 있었지만 쓰는 곳이 없었다.
+        const before = deadlines.find((d) => d.id === editingId);
+        const nextHistory = before ? appendDeadlineChange(before, formDueDate) : null;
+
         // 빈 값은 ""로 저장해 기존 값을 지운다 (렌더링은 falsy 체크라 표시되지 않음)
         await updateDeadline(editingId, {
           title: formTitle.trim(),
@@ -266,6 +275,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
           category: formCategory,
           baseDateLabel: formBaseDateLabel.trim(),
           rule: formRule.trim(),
+          ...(nextHistory ? { history: nextHistory } : {}),
         });
       } else {
         await createDeadline({
@@ -288,7 +298,10 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("이 기한을 삭제하시겠습니까?")) return;
+    // 어느 기한을 지우는지 말해 준다. "이 기한"만 보고는 항소기간인지 메모인지 알 수 없다.
+    const target = deadlines.find((d) => d.id === id);
+    const label = target ? `「${target.title}」(${target.dueDate})를` : "이 기한을";
+    if (!confirm(`${label} 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
     setDeletingId(id);
     try {
       await deleteDeadline(id);
@@ -476,6 +489,15 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
                                 </p>
                               )}
                             </div>
+                          )}
+
+                          {/* 기일 변경 이력 — 원래 날짜를 잃지 않게 남긴다 */}
+                          {deadline.history && deadline.history.length > 0 && (
+                            <p className="mt-2 text-xs text-[#1e2a22]/50">
+                              <span className="text-[#1e2a22]/40">변경 전</span>{" "}
+                              {deadline.history.map((h) => h.fromDueDate).join(" → ")} →{" "}
+                              {deadline.dueDate}
+                            </p>
                           )}
 
                           {/* 카테고리 */}

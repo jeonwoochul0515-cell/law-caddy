@@ -5,7 +5,13 @@
 // 구간이다. 그 시간에 「납부완료」를 누르면 장부에 어제 날짜가 박힌다.
 import { describe, it, expect } from "vitest";
 import { localDateStr, formatKst, formatKstTime } from "../../utils/localDate";
-import { toYmd, computeDueDate, calcDDay, calcStatus } from "../../types/deadline";
+import {
+  toYmd,
+  computeDueDate,
+  calcDDay,
+  calcStatus,
+  appendDeadlineChange,
+} from "../../types/deadline";
 
 describe("시간대 전제", () => {
   it("테스트는 한국 시간대에서 돌아야 한다", () => {
@@ -71,6 +77,48 @@ describe("법정기간 계산", () => {
 
   it("기산일이 잘못되면 알려준다", () => {
     expect(() => computeDueDate("어제", 14)).toThrow();
+  });
+});
+
+describe("기일 변경 이력", () => {
+  const 때 = new Date(2026, 8, 19, 10, 0, 0);
+
+  it("마감일을 고치면 이전 날짜를 남긴다", () => {
+    const h = appendDeadlineChange({ dueDate: "2026-09-20" }, "2026-10-05", 때);
+    expect(h).toHaveLength(1);
+    expect(h![0].fromDueDate).toBe("2026-09-20");
+    expect(h![0].toDueDate).toBe("2026-10-05");
+  });
+
+  it("마감일이 같으면 이력을 쌓지 않는다 — 제목만 고쳐도 쌓이면 진짜 변경이 묻힌다", () => {
+    expect(appendDeadlineChange({ dueDate: "2026-09-20" }, "2026-09-20", 때)).toBeNull();
+  });
+
+  it("여러 번 바뀜면 순서대로 쌓인다", () => {
+    const first = appendDeadlineChange({ dueDate: "2026-09-20" }, "2026-10-05", 때)!;
+    const second = appendDeadlineChange(
+      { dueDate: "2026-10-05", history: first },
+      "2026-11-01",
+      때,
+    )!;
+    expect(second).toHaveLength(2);
+    expect(second.map((h) => h.fromDueDate)).toEqual(["2026-09-20", "2026-10-05"]);
+  });
+
+  it("시각·장소가 있으면 같이 남긴다", () => {
+    const h = appendDeadlineChange(
+      { dueDate: "2026-09-20", time: "14:00", location: "301호 법정" },
+      "2026-10-05",
+      때,
+    )!;
+    expect(h[0].fromTime).toBe("14:00");
+    expect(h[0].fromLocation).toBe("301호 법정");
+  });
+
+  it("시각·장소가 없으면 빈 필드를 넣지 않는다 — Firestore가 undefined를 거부한다", () => {
+    const h = appendDeadlineChange({ dueDate: "2026-09-20" }, "2026-10-05", 때)!;
+    expect("fromTime" in h[0]).toBe(false);
+    expect("fromLocation" in h[0]).toBe(false);
   });
 });
 

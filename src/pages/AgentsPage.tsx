@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle, RotateCcw } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
@@ -54,7 +54,9 @@ export default function AgentsPage() {
   const navigate = useNavigate();
 
   // location.state 우선, 없으면 sessionStorage에서 복원
-  const rawState = location.state as (AgentsState & { files?: File[] }) | null;
+  const rawState = location.state as
+    | (AgentsState & { files?: File[]; recordedNames?: string[] })
+    | null;
   const state: AgentsState | null = (() => {
     if (rawState) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -83,6 +85,12 @@ export default function AgentsPage() {
   // 예전에는 지역 변수로만 두어 에이전트에게만 전달되고, 정작 문서를 쓰는
   // 필묵(docgen)에는 넘어가지 않았다. 체크포인트 → 문서 단계까지 실어 보낸다.
   const [sttTranscript, setSttTranscript] = useState<string>("");
+  /**
+   * 이 화면에 처음 들어올 때 첨부 파일이 있었는지.
+   * 새로고침 뒤에는 File 객체가 사라지므로, 되돌아갈 때 "다시 첨부해야 한다"를
+   * 알려야 하는지 판단하는 데 쓴다.
+   */
+  const hadFilesRef = useRef(Boolean(rawState?.files?.length));
   const [extractedFileContents, setExtractedFileContents] = useState<string>("");
   const hasExistingCase = Boolean(state?.caseId);
 
@@ -323,6 +331,38 @@ export default function AgentsPage() {
     }
   };
 
+  /**
+   * 이전 단계로 돌아간다.
+   *
+   * 첨부 파일을 같이 실어 보낸다. 이 시점의 파일은 아직 서버에 올라가지 않았으므로
+   * 여기서 놓치면 어디에도 사본이 없다. 화면을 새로고침한 뒤라면 File 객체가
+   * 이미 사라졌으므로(sessionStorage에는 문자열만 남는다) 그 사실을 먼저 알린다.
+   */
+  const handleBack = () => {
+    if (!state) {
+      navigate("/record");
+      return;
+    }
+    const files = rawState?.files ?? [];
+    if (files.length === 0 && hadFilesRef.current) {
+      const ok = window.confirm(
+        "화면을 새로고침한 뒤라 첨부했던 파일을 다시 불러올 수 없습니다.\n" +
+          "돌아가면 파일을 다시 첨부해야 합니다. 그래도 돌아가시겠습니까?",
+      );
+      if (!ok) return;
+    }
+    navigate("/record", {
+      state: {
+        caseId: state.caseId,
+        clientName: state.clientName,
+        caseDesc: state.caseDesc,
+        typedNotes: state.typedNotes,
+        files,
+        recordedNames: rawState?.recordedNames ?? [],
+      },
+    });
+  };
+
   if (!state) {
     return (
       <AppLayout title="AI 분석" subtitle="에이전트 실행">
@@ -341,9 +381,11 @@ export default function AgentsPage() {
 
   return (
     <AppLayout title="AI 분석" subtitle={state.clientName}>
-      {/* 이전 단계 */}
+      {/* 이전 단계 — 첨부 파일을 들고 돌아간다.
+          (2026-09-19) 예전에는 상태 없이 navigate("/record")만 해서 첫 화면으로 떨어졌고
+          첨부 목록이 통째로 비었다. 이 시점에는 아직 서버에 올리기 전이라 사본이 없다. */}
       <button
-        onClick={() => navigate("/record")}
+        onClick={handleBack}
         className="flex items-center gap-1.5 mb-4 text-sm text-text-dim hover:text-text-primary transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />

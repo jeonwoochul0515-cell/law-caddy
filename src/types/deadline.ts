@@ -118,6 +118,33 @@ function parseYmd(ymd: string): Date {
 /** Date → YYYY-MM-DD (로컬 기준). 같은 일을 하던 구현이 둘이라 한 곳으로 모았다. */
 export const toYmd = localDateStr;
 
+/**
+ * 기한을 고칠 때 쌓을 변경 이력을 계산한다.
+ *
+ * 마감일이 그대로면 null을 돌려 이력을 쌓지 않는다(제목만 고쳐도 이력이
+ * 쌓이면 진짜 기일 변경이 무엇이었는지 묻힌다).
+ *
+ * (2026-09-19) 예전에는 덮어쓰기만 해서 원래 기일이 흔적 없이 사라졌다.
+ * 기일이 밀린 사건에서 "원래 언제였는지"는 나중에 다투거리는 사실이다.
+ */
+export function appendDeadlineChange(
+  before: Pick<CaseDeadline, "dueDate" | "time" | "location" | "history">,
+  nextDueDate: string,
+  now: Date = new Date(),
+): DeadlineChange[] | null {
+  if (before.dueDate === nextDueDate) return null;
+  return [
+    ...(before.history ?? []),
+    {
+      changedAt: now.toISOString(),
+      fromDueDate: before.dueDate,
+      toDueDate: nextDueDate,
+      ...(before.time ? { fromTime: before.time } : {}),
+      ...(before.location ? { fromLocation: before.location } : {}),
+    },
+  ];
+}
+
 export interface DueDateResult {
   /** 최종 마감일 (YYYY-MM-DD) */
   dueDate: string;
