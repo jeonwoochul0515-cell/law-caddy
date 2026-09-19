@@ -8,12 +8,16 @@ import { preprocessKoreanQuery, preprocessForSemantic } from "./korean-preproces
 // ──────────────────────────────────────────────
 // Supabase 접속 정보
 // ──────────────────────────────────────────────
-function getOptionalEnv(key: string): string {
-  return (import.meta.env[key] as string | undefined) ?? "";
-}
-
-const SUPABASE_URL = getOptionalEnv("VITE_SUPABASE_URL").replace(/\s+/g, "");
-const SUPABASE_KEY = getOptionalEnv("VITE_SUPABASE_ANON_KEY").replace(/\s+/g, "");
+// ⚠️ import.meta.env를 대괄호로 읽지 말 것.
+//
+// (2026-09-19) 예전에는 getOptionalEnv(key) → import.meta.env[key] 로 동적 접근했다.
+// Vite는 정적 점 접근(import.meta.env.VITE_X)만 값으로 치환한다. 대괄호를 쓰면
+// 어느 키를 읽을지 모르므로 **env 객체를 통째로** 번들에 심어 버렸다.
+// 그 객체에는 VITE_ANTHROPIC_API_KEY도 들어 있다. 쓰지도 않는 열쇠가 배포된
+// 자바스크립트 파일에 평문으로 실렸다는 뜻이다(카나리로 재현 확인).
+// 반드시 이름을 적은 정적 접근을 쓴다.
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\s+/g, "");
+const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").replace(/\s+/g, "");
 
 /** Supabase 설정이 없으면 RAG 검색을 건너뛴다 */
 export const isRagAvailable = Boolean(SUPABASE_URL && SUPABASE_KEY);

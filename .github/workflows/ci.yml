@@ -61,5 +61,10 @@ jobs:
       - name: 빌드 (SSR 프리렌더·sitemap 생성 포함)
         run: npm run build
 
+      # 브라우저에 실리면 안 되는 열쇠가 산출물에 섞였는지. 코드 리뷰로는 잡기 어렵다 —
+      # 한 줄의 대괄호 env 접근 하나로 관계없는 파일에서 새므로 실제 결과물을 본다.
+      - name: 번들 비밀값 검사
+        run: npm run check:secrets
+
       - name: 기술 규격 검사 (site-qa)
         run: node .gjc/skills/site-qa/scripts/site-qa.mjs --config site-qa.config.json

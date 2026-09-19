@@ -15,6 +15,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 
+/**
+ * 표제·한 줄 설명에 깔리는 글자 그림자.
+ *
+ * (2026-09-19) 영상 위에 그림자 없이 얹혀 있어, 밝은 잔디 프레임으로 넘어가는
+ * 순간 대비가 2.89:1로 떨어졌다(큰 글자 기준 3.0:1 미달). 평균으로는 4.61:1로
+ * 통과하므로 **영상 프레임에 따라 읽혔다 안 읽혔다 했다**. 색을 바꾸면 디자인이
+ * 무너지므로, 글자 밑에 어두운 바닥을 깔아 최악의 프레임에서도 기준을 넘기게 한다.
+ * 상하 두 겧9으로 가까운 윈짓과 넘치는 위진 번짐을 같이 준다.
+ */
+const HEADLINE_SHADOW = "0 1px 2px rgba(0,0,0,0.55), 0 4px 18px rgba(0,0,0,0.45)";
+
 interface ScrollExpandMediaProps {
   mediaType?: "video" | "image";
   mediaSrc: string;
@@ -337,13 +348,21 @@ const ScrollExpandMedia = ({
               >
                 <motion.span
                   className="block text-4xl md:text-5xl lg:text-6xl font-bold transition-none"
-                  style={{ color: textColor, transform: `translateX(-${textTranslateX}vw)` }}
+                  style={{
+                    color: textColor,
+                    textShadow: HEADLINE_SHADOW,
+                    transform: `translateX(-${textTranslateX}vw)`,
+                  }}
                 >
                   {firstWord}
                 </motion.span>
                 <motion.span
                   className="block text-4xl md:text-5xl lg:text-6xl font-bold text-center transition-none"
-                  style={{ color: textColor, transform: `translateX(${textTranslateX}vw)` }}
+                  style={{
+                    color: textColor,
+                    textShadow: HEADLINE_SHADOW,
+                    transform: `translateX(${textTranslateX}vw)`,
+                  }}
                 >
                   {restOfTitle}
                 </motion.span>
@@ -353,7 +372,11 @@ const ScrollExpandMedia = ({
               {lead && (
                 <p
                   className="relative z-10 mt-6 px-6 max-w-xl text-center text-base md:text-lg leading-relaxed transition-none"
-                  style={{ color: textColor, opacity: prefersReduced ? 1 : 1 - scrollProgress }}
+                  style={{
+                    color: textColor,
+                    textShadow: HEADLINE_SHADOW,
+                    opacity: prefersReduced ? 1 : 1 - scrollProgress,
+                  }}
                 >
                   {lead}
                 </p>

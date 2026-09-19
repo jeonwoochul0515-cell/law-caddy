@@ -64,9 +64,19 @@ interface ClaudeApiError {
   };
 }
 
-/** 직접 호출 가능 여부 (빌드 시 VITE_ANTHROPIC_API_KEY가 있으면 직접 호출) */
+/**
+ * 브라우저에서 직접 호출할 때 쓰는 열쇠 — **개발 환경에서만** 쓴다.
+ *
+ * ⚠️ (2026-09-19) 예전에는 isDev 조건이 없어, 빌드 환경에 VITE_ANTHROPIC_API_KEY가
+ * 있기만 하면 배포된 자바스크립트 파일에 열쇠가 그대로 박혔다. 누구나 받아
+ * 열어볼 수 있는 파일이다. 열쇠가 새면 요금제·사용량 검사도 통째로 지나친다.
+ * 같은 저장소의 rag.ts·reranker.ts는 `isDev && key` 조건을 거는데 이 파일만
+ * 빠져 있었다. 운영에서는 언제나 /api/claude 프록시를 쓴다.
+ */
 const isDev = import.meta.env.DEV;
-const DIRECT_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
+const DIRECT_API_KEY = isDev
+  ? (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined)
+  : undefined;
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEV_PROXY_URL = "/api/anthropic/v1/messages";
 const MODEL = "claude-sonnet-5";
