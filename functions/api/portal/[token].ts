@@ -8,6 +8,7 @@
 //                             lawyerName, upcoming[], recentActivity[], careMessage }
 
 import type { Env } from "../_shared/types";
+import { kstDay } from "../_shared/kst";
 import {
   firestoreQueryByField,
   firestoreGetDocument,
@@ -77,7 +78,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       firestoreQueryByField(context.env, "deadlines", "caseId", { stringValue: caseId }, 50),
     ]);
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // UTC 날짜를 쓰면 한국 오전 9시 전에 어제 마감된 기한이 「다가오는 일정」으로 의뢰인에게 보인다
+    const todayStr = kstDay();
     const upcoming = deadlineDocs
       .map((d) => ({
         title: readString(d.fields?.title) ?? "",

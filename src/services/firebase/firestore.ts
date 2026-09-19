@@ -748,11 +748,25 @@ export async function deleteCaseRecord(id: string): Promise<void> {
 
 /**
  * 사건을 삭제합니다.
+ *
+ * (2026-09-19) 예전에는 사건 문서만 지웠다. Firestore는 문서를 지워도 그 아래
+ * 서브컴렉션을 같이 지우지 않는다. 의뢰인 이름과 사건 내용이 담긴 케어 메시지가
+ * 그대로 남았고, 규칙이 부모 사건을 찾지 못해 **변호사 본인도 영영 못 읽고
+ * 못 지우는** 상태가 됐다. 지우려고 누른 것이 지울 수 없는 유령을 만들었다.
+ * 서브컴렉션을 먼저 비우고 사건을 지운다.
  */
 export async function deleteCase(caseId: string): Promise<void> {
   try {
-    const { deleteDoc: firestoreDeleteDoc } = await import("firebase/firestore");
-    await firestoreDeleteDoc(doc(db!, "cases", caseId));
+    const { deleteDoc: firestoreDeleteDoc, getDocs, collection: fsCollection } = await import(
+      "firebase/firestore"
+    );
+    const caseRef = doc(db!, "cases", caseId);
+
+    // 의뢰인 케어 메시지(서브컴렉션) 먼저 정리
+    const careSnap = await getDocs(fsCollection(caseRef, "clientCareMessages"));
+    await Promise.all(careSnap.docs.map((d) => firestoreDeleteDoc(d.ref)));
+
+    await firestoreDeleteDoc(caseRef);
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(`사건 삭제 실패: ${error.message}`);

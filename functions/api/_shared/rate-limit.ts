@@ -7,6 +7,8 @@
 // 한 사람 몫의 한도를 나눠 쓰게 되고, 반대로 한 사람이 IP를 바꿔 가며 한도를 우회할 수 있다.
 // 로그인한 요청은 uid로, 로그인 전 공개 경로(상담 신청·사업자 검증·서명·포털)는 IP로 센다.
 
+import { kstDay, secondsUntilKstMidnight } from "./kst";
+
 /** 슬라이딩 창 길이 (1분) */
 const WINDOW_MS = 60_000;
 
@@ -62,17 +64,6 @@ export function getClientIp(request: Request): string {
   );
 }
 
-/** 오늘 날짜(KST) — "YYYY-MM-DD" */
-function kstDay(now: number): string {
-  return new Date(now + 9 * 3600_000).toISOString().slice(0, 10);
-}
-
-/** 다음 KST 자정까지 남은 초 */
-function secondsUntilKstMidnight(now: number): number {
-  const kst = now + 9 * 3600_000;
-  const nextMidnight = Math.floor(kst / 86_400_000) * 86_400_000 + 86_400_000;
-  return Math.max(1, Math.ceil((nextMidnight - kst) / 1000));
-}
 
 /**
  * 오래된 엔트리를 주기적으로 정리합니다. 메모리 누수를 방지합니다.

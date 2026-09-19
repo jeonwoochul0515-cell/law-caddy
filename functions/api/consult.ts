@@ -5,6 +5,7 @@ import { sendSms } from "./_shared/solapi";
 import { isAllowedOrigin } from "./_shared/cors";
 import { safeEqual } from "./_shared/auth";
 import { getClientIp, kvIncrement, rateLimitResponse } from "./_shared/rate-limit";
+import { kstDay } from "./_shared/kst";
 
 // 응답 형식. 화면(LandingPage)은 `ok`와 `message`를 읽으므로 error와 같은 문구를 message에도 싣는다.
 const json = (data: unknown, status = 200) =>
@@ -54,10 +55,7 @@ function requestOrigin(request: Request): string | null {
   }
 }
 
-/** 오늘 날짜(KST) — KV 카운터 키에 붙인다 */
-function kstDay(): string {
-  return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
-}
+
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isAllowedOrigin(requestOrigin(request))) {

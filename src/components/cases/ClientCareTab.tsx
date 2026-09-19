@@ -100,30 +100,40 @@ export default function ClientCareTab({
   const [portalEnabled, setPortalEnabled] = useState(!!caseData.portalEnabled && !!caseData.portalToken);
   const [portalToken, setPortalToken] = useState(caseData.portalToken ?? "");
   const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const [portalCopied, setPortalCopied] = useState(false);
   const [portalSent, setPortalSent] = useState(false);
   const portalUrl = portalToken ? `${window.location.origin}/portal/${portalToken}` : "";
 
+  /**
+   * 포털 켜기/끄기.
+   *
+   * (2026-09-19) 끄기가 스위치만 내리고 주소를 남겨 두었다. 몇 달 뒤 다른 의뢰인을
+   * 위해 다시 켜면 **예전에 뿌린 그 주소가 다시 열렸다.** 전 의뢰인이나 링크를
+   * 전달받은 제3자가 의뢰인 이름·사건번호·법원명·기한을 다시 본다는 뜻이다.
+   * 이제 끌 때 토큰을 버린다. 다시 켜면 새 주소가 나오고 예전 주소는 죽는다.
+   */
   async function handlePortalToggle() {
     setPortalBusy(true);
+    setPortalError(null);
     try {
       if (portalEnabled) {
-        await updateCase(caseData.id, { portalEnabled: false });
+        await updateCase(caseData.id, { portalEnabled: false, portalToken: "" });
         setPortalEnabled(false);
+        setPortalToken("");
       } else {
-        // 기존 토큰 재사용, 없으면 새로 발급 (32자 hex)
-        let token = portalToken;
-        if (!token) {
-          const bytes = new Uint8Array(16);
-          crypto.getRandomValues(bytes);
-          token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-          setPortalToken(token);
-        }
+        // 항상 새 토큰을 발급한다 (32자 hex)
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        const token = Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
         await updateCase(caseData.id, { portalToken: token, portalEnabled: true });
+        setPortalToken(token);
         setPortalEnabled(true);
       }
-    } catch {
-      /* 실패 시 상태 유지 */
+    } catch (err) {
+      setPortalError(friendlyError(err, "공유 설정을 바꾸지 못했습니다."));
     } finally {
       setPortalBusy(false);
     }
@@ -237,6 +247,11 @@ export default function ClientCareTab({
                 의뢰인이 로그인 없이 진행 상황·다가오는 일정을 열람하는 전용 페이지입니다.
                 "사건 어떻게 되고 있나요" 전화를 줄여줍니다.
               </p>
+              <p className="text-xs text-text-dim/80 leading-relaxed max-w-md mt-1.5">
+                {portalEnabled
+                  ? "주소를 아는 사람은 누구나 열 수 있습니다. 비활성화하면 이 주소는 즉시 죽고, 다시 켜면 새 주소가 나옵니다."
+                  : "켜면 새 주소가 발급됩니다. 예전에 보낸 주소는 다시 열리지 않습니다."}
+              </p>
             </div>
           </div>
           <button
@@ -251,6 +266,8 @@ export default function ClientCareTab({
             {portalBusy ? "처리 중..." : portalEnabled ? "포털 비활성화" : "포털 링크 만들기"}
           </button>
         </div>
+
+        {portalError && <p className="text-xs text-error mt-2">{portalError}</p>}
 
         {/* 문자 발송 대상 번호 (한 번 입력하면 사건에 저장 — 포털·케어 메시지 발송 공용) */}
         <div className="mt-4 flex items-center gap-2 flex-wrap">

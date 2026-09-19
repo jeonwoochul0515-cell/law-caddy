@@ -378,4 +378,20 @@ describe("의뢰인 케어 메시지 (사건 서브컬렉션)", () => {
       getDoc(doc(db, "cases", "case-of-other", "clientCareMessages", "m2")),
     );
   });
+
+  it("부모 사건이 없어지면 주인도 못 읽고 못 지운다 — 그래서 사건을 지울 때 먼저 비운다", async () => {
+    // Firestore는 문서를 지워도 서브컴렉션을 같이 지우지 않는다. 규칙은 부모의
+    // ownerId로 권한을 판정하므로, 부모가 사라지면 남은 메시지는 아무도 건드릴 수 없는
+    // 유령이 된다. 의뢰인 이름과 사건 내용이 담긴 글이다.
+    // deleteCase()가 서브컴렉션을 먼저 비우는 이유가 이 테스트다.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "cases", "ghost-case", "clientCareMessages", "m3"), {
+        content: "부모 없는 메시지",
+      });
+    });
+    const db = env.authenticatedContext(나).firestore();
+    await assertFails(getDoc(doc(db, "cases", "ghost-case", "clientCareMessages", "m3")));
+    await assertFails(deleteDoc(doc(db, "cases", "ghost-case", "clientCareMessages", "m3")));
+  });
 });
