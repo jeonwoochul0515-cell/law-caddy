@@ -7,7 +7,12 @@ import useRecording from "../hooks/useRecording";
 import useDropZone from "../hooks/useDropZone";
 import { uploadRecordingFile } from "../services/firebase/storage";
 import { createRecording, updateRecording, addTimelineEvent } from "../services/firebase/firestore";
-import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
+import {
+  transcribeFile,
+  waitForTranscription,
+  formatTranscript,
+  getAudioDurationSeconds,
+} from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 import { getSavedSession, buildSavedFile, clearSession, type RecordingSessionMeta } from "../services/recordingStore";
 import { friendlyError } from "../utils/friendlyError";
@@ -348,53 +353,55 @@ export default function RecordPage() {
         const fileUrl = await uploadRecordingFile(file, user.uid, caseId);
 
         // 녹음 레코드 생성 (sttStatus: processing)
+        const durationSeconds = Math.round(await getAudioDurationSeconds(file));
         const recId = await createRecording({
           caseId,
           ownerId: user.uid,
           fileName: file.name,
           fileUrl,
           fileSizeMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
-          durationSeconds: 0,
+          durationSeconds,
           sttStatus: "processing",
         });
 
         // STT 전사 요청
+        //
+        // (2026-09-19) 예전에는 여기서 폴링을 손으로 돌렸고 한도가 3초×120 = 6분
+        // 고정이었다. 90분짜리 상담은 변환이 끝나기 전에 「실패」로 박혔고, 그 뒤
+        // 결과가 나와도 받을 길이 없었다. 파일 길이에 맞춰 기다리는 함수가
+        // 이미 있었는데(waitForTranscription) 이쪽만 안 쓰고 있었다.
         setSaveProgress(`"${file.name}" 음성 변환 중...`);
         try {
           const transcribeId = await transcribeFile(file);
-          await updateRecording(recId, { rtzrTranscribeId: transcribeId });
+          await updateRecording(recId, {
+            rtzrTranscribeId: transcribeId,
+            sttRequestedAt: Date.now(),
+          });
 
-          // 폴링 (최대 6분)
-          const POLL_INTERVAL = 3000;
-          const MAX_POLLS = 120;
-          let completed = false;
-
-          for (let i = 0; i < MAX_POLLS; i++) {
-            const result = await pollTranscription(transcribeId);
-            if (result.status === "completed" && result.utterances) {
-              const transcript = formatTranscript(result.utterances);
-              await updateRecording(recId, {
-                sttStatus: "completed",
-                transcript,
-                utterances: result.utterances,
-              });
-              completed = true;
-              break;
-            }
-            if (result.status === "failed") {
-              await updateRecording(recId, { sttStatus: "failed" });
-              completed = true;
-              break;
-            }
-            await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+          const outcome = await waitForTranscription(transcribeId, { durationSeconds });
+          if (outcome.status === "completed") {
+            await updateRecording(recId, {
+              sttStatus: "completed",
+              transcript: formatTranscript(outcome.utterances),
+              utterances: outcome.utterances,
+            });
+          } else if (outcome.status === "failed") {
+            await updateRecording(recId, { sttStatus: "failed", sttError: outcome.message });
+          } else {
+            // 시간 초과·중단은 실패가 아니다. 변환은 서버에서 계속 돌고 있고
+            // 요청 ID를 저장해 떠다. 다음에 사건을 열면 이어서 받을 수 있다.
+            await updateRecording(recId, {
+              sttStatus: "processing",
+              sttError:
+                "음성 변환이 아직 끝나지 않았습니다. 서버에서 계속 처리 중이므로 잠시 뒤 사건 화면에서 다시 확인해 주세요.",
+            });
           }
-
-          if (!completed) {
-            await updateRecording(recId, { sttStatus: "failed" });
-          }
-        } catch {
-          // STT 실패해도 녹음 파일은 저장됨
-          await updateRecording(recId, { sttStatus: "failed" });
+        } catch (err) {
+          // STT 요청 자체가 실패해도 녹음 파일은 사건에 남는다
+          await updateRecording(recId, {
+            sttStatus: "failed",
+            sttError: friendlyError(err, "음성 변환을 요청하지 못했습니다."),
+          });
         }
       }
 

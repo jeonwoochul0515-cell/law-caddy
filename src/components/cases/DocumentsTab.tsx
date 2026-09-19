@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { FileText, Mic, Plus, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { FileText, Mic, Plus, ChevronDown, ChevronUp, Copy, Check, Loader2, RefreshCw } from "lucide-react";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
 import type { OpponentDoc } from "../../types/case";
 import OpponentDocs from "./OpponentDocs";
+import { pollTranscription, formatTranscript } from "../../services/rtzr";
+import { updateRecording } from "../../services/firebase/firestore";
+import { friendlyError } from "../../utils/friendlyError";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   completed: { label: "완료", className: "bg-success/15 text-success" },
@@ -51,6 +54,55 @@ export default function DocumentsTab({
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [expandedRecId, setExpandedRecId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  /** 이어받기 중인 녹음 ID */
+  const [resumingId, setResumingId] = useState<string | null>(null);
+  const [resumeMessage, setResumeMessage] = useState<Record<string, string>>({});
+
+  /**
+   * 「처리중」에서 멈춰 있는 녹음을 다시 확인한다.
+   *
+   * (2026-09-19) 전사 중에 브라우저를 닫거나 대기 시간을 넘기면 녹음이 「처리중」으로
+   * 영원히 남았다. 변환은 서버에서 끝나 있는데 받을 길이 없었다.
+   * 요청 ID를 저장해 때문에 다시 물어보면 된다.
+   */
+  async function resumeTranscription(rec: Recording) {
+    if (!rec.rtzrTranscribeId) return;
+    setResumingId(rec.id);
+    setResumeMessage((prev) => ({ ...prev, [rec.id]: "" }));
+    try {
+      const result = await pollTranscription(rec.rtzrTranscribeId);
+      if (result.status === "completed" && result.utterances) {
+        await updateRecording(rec.id, {
+          sttStatus: "completed",
+          transcript: formatTranscript(result.utterances),
+          utterances: result.utterances,
+          sttError: "",
+        });
+        setResumeMessage((prev) => ({
+          ...prev,
+          [rec.id]: "대화록을 받았습니다. 화면을 새로고침하면 보입니다.",
+        }));
+      } else if (result.status === "failed") {
+        await updateRecording(rec.id, {
+          sttStatus: "failed",
+          sttError: "음성 변환 서버가 이 파일을 처리하지 못했습니다.",
+        });
+        setResumeMessage((prev) => ({ ...prev, [rec.id]: "변환에 실패한 파일입니다." }));
+      } else {
+        setResumeMessage((prev) => ({
+          ...prev,
+          [rec.id]: "아직 변환 중입니다. 잠시 뒤에 다시 눌러 주세요.",
+        }));
+      }
+    } catch (err) {
+      setResumeMessage((prev) => ({
+        ...prev,
+        [rec.id]: friendlyError(err, "변환 상태를 확인하지 못했습니다."),
+      }));
+    } finally {
+      setResumingId(null);
+    }
+  }
 
   const handleCopy = async (text: string, id: string) => {
     try {
@@ -214,6 +266,28 @@ export default function DocumentsTab({
                         : <ChevronDown className="w-4 h-4 text-text-dim shrink-0" />
                     )}
                   </button>
+
+                  {/* 전사가 끝나지 않은 녹음 — 서버에 다시 물어볼 수 있게 한다.
+                      이게 없어서 「처리중」이 영원히 남아 대화록을 못 받던 녹음이 쌓였다. */}
+                  {!hasTranscript && rec.sttStatus !== "completed" && rec.rtzrTranscribeId && (
+                    <div className="border-t border-border px-4 py-3 flex items-center gap-3 flex-wrap">
+                      <button
+                        onClick={() => resumeTranscription(rec)}
+                        disabled={resumingId === rec.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold-dim text-gold text-xs font-medium hover:bg-gold/20 transition-colors disabled:opacity-40"
+                      >
+                        {resumingId === rec.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        )}
+                        변환 결과 다시 받기
+                      </button>
+                      <p className="text-xs text-text-dim flex-1 min-w-0">
+                        {resumeMessage[rec.id] || rec.sttError || "변환이 끝나지 않은 녹음입니다."}
+                      </p>
+                    </div>
+                  )}
 
                   {isExpanded && hasTranscript && (
                     <div className="border-t border-border p-4">
