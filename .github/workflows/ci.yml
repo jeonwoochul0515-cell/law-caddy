@@ -68,5 +68,10 @@ jobs:
       - name: 번들 비밀값 검사
         run: npm run check:secrets
 
+      # 첫 화면이 실제로 받는 JS 양. site-qa의 총량 예산은 필요할 때만 받는
+      # 청크까지 더해 이 제품 구조에서는 사용자 경험과 대응하지 않는다.
+      - name: 첫 화면 JS 예산 검사
+        run: npm run check:initial
+
       - name: 기술 규격 검사 (site-qa)
         run: node .gjc/skills/site-qa/scripts/site-qa.mjs --config site-qa.config.json

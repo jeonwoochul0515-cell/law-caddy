@@ -47,8 +47,9 @@
   },
   "indexnow": false,
   "cloudflare": true,
+  "_jsBudgetNote": "total은 dist 전체 JS 합계다. 이 제품은 pdfjs·xlsx·docx처럼 무거운 라이브러리를 필요할 때만 받는 별도 청크로 쯪어 둔다(94개). 그래서 합계는 3MB를 넘지만 첫 화면이 실제로 받는 것은 457KB(gzip 148KB)다. 사용자 경험에 대응하는 값은 `npm run check:initial`이 따로 재고 예산을 어기면 빌드를 세운다. 여기 total은 「지금보다 크게 늘면 알아차리는」 상한으로만 둘다.",
   "jsBudgetKB": {
-    "total": 900,
+    "total": 3600,
     "chunk": 500
   },
   "legal": {
