@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight, ChevronLeft, Sparkles, FileText, AlertTriangle, RotateCcw } from "lucide-react";
 import AppLayout from "../components/layout/AppLayout";
 import useAgents from "../hooks/useAgents";
 import useCases from "../hooks/useCases";
@@ -18,6 +18,7 @@ import { isDocxFile, extractDocxText } from "../services/docx";
 import { isHwpxFile, isHwpFile, extractHwpxText, extractHwpText } from "../services/hwpx";
 import { isExcelFile, isPptxFile } from "../utils/fileType";
 import { saveExtractedText } from "../services/file-save";
+import { friendlyError } from "../utils/friendlyError";
 import type { AgentId, CaseType, DocType } from "../types/agent";
 
 const CASE_TYPE_COLORS: Record<string, string> = {
@@ -64,7 +65,7 @@ export default function AgentsPage() {
     } catch { return null; }
   })();
 
-  const { agents, isRunning, classifiedCaseType, isClassifying, maskedPiiCount, runAllAgents, restoreFromCache } =
+  const { agents, isRunning, classifiedCaseType, isClassifying, maskedPiiCount, runAllAgents, retryAgent, restoreFromCache } =
     useAgents();
   const { addCase } = useCases();
   const [activeTab, setActiveTab] = useState<AgentId>("precedent");
@@ -222,13 +223,21 @@ export default function AgentsPage() {
   const [generatedDesc, setGeneratedDesc] = useState<string | null>(null);
 
   const completedCount = Object.values(agents).filter((a) => a.status === "completed").length;
-  // 6인 → 4인 개편 후에도 하드코딩 6이 남아 완료 판정이 영원히 false가 되는 사고가 있었다.
-  // 반드시 AGENTS.length 기준으로 판정할 것.
-  const allCompleted = completedCount === AGENTS.length && !isRunning;
+  const errorCount = Object.values(agents).filter((a) => a.status === "error").length;
+
+  // 다음 단계를 여는 기준.
+  // ⚠️ 6인 → 4인 개편 후에도 하드코딩 6이 남아 완료 판정이 영원히 false가 되는
+  // 사고가 있었다. 반드시 AGENTS.length 기준으로 판정할 것.
+  //
+  // (2026-09-19) 예전에는 전원 성공만 인정해서, 넷 중 하나만 실패해도 30분을
+  // 기다렸다가 막다른 길이었다. 재시도 버튼도 없어 처음부터 다시 돌리는 것 말고는
+  // 방법이 없었고, 그러면 요금이 또 나간다. 끝난 것이 하나라도 있고 도는 것이
+  // 없으면 진행할 수 있게 한다. 분석이 빠졌다는 사실은 화면에 그대로 알린다.
+  const canProceed = !isRunning && completedCount > 0 && completedCount + errorCount === AGENTS.length;
 
   // 에이전트 완료 후 사건 개요가 없으면 AI로 자동 생성
   useEffect(() => {
-    if (!allCompleted || !state || generatedDesc !== null) return;
+    if (!canProceed || !state || generatedDesc !== null) return;
     // 캐시에서 복원된 경우 + 이미 사건이 있으면 AI 호출 불필요
     if (restoredFromCache && hasExistingCase) {
       setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`);
@@ -249,15 +258,15 @@ export default function AgentsPage() {
       .then((desc) => setGeneratedDesc(desc.trim()))
       .catch(() => setGeneratedDesc(state.caseDesc || `${state.clientName} 사건`));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCompleted, state, agents, generatedDesc]);
+  }, [canProceed, state, agents, generatedDesc]);
 
   // 에이전트 완료 + 사건 개요 준비 → 자동으로 사건 파일 생성
   useEffect(() => {
-    if (!allCompleted || !classifiedCaseType || !generatedDesc) return;
+    if (!canProceed || !classifiedCaseType || !generatedDesc) return;
     if (hasExistingCase || createdCaseId || isCreatingCase) return;
     handleCreateCase();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCompleted, classifiedCaseType, generatedDesc, hasExistingCase, createdCaseId, isCreatingCase]);
+  }, [canProceed, classifiedCaseType, generatedDesc, hasExistingCase, createdCaseId, isCreatingCase]);
 
   const handleCreateCase = async () => {
     if (!state || !classifiedCaseType || isCreatingCase || createdCaseId) return;
@@ -301,7 +310,7 @@ export default function AgentsPage() {
         detail: `의뢰인 ${state.clientName}의 상담이 접수되었습니다.`,
       }).catch(console.error);
     } catch (err: unknown) {
-      setCaseError(err instanceof Error ? err.message : "사건 파일 생성 중 오류가 발생했습니다.");
+      setCaseError(friendlyError(err, "사건 파일 생성 중 오류가 발생했습니다."));
     } finally {
       setIsCreatingCase(false);
     }
@@ -444,8 +453,19 @@ export default function AgentsPage() {
               )}
             </div>
           ) : agents[activeTab]?.status === "error" ? (
-            <div className="text-error text-sm py-4">
-              오류: {agents[activeTab].error ?? "알 수 없는 오류"}
+            // 이 분석 하나만 다시 돌린다. 전체 재실행은 나머지 셋의 요금을 다시 물게 한다.
+            <div className="py-4 space-y-3">
+              <p className="text-error text-sm">
+                {friendlyError(agents[activeTab].error, "분석 중 문제가 생겼습니다.")}
+              </p>
+              <button
+                onClick={() => retryAgent(activeTab)}
+                disabled={isRunning}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gold-dim text-gold text-sm font-medium hover:bg-gold/20 transition-colors disabled:opacity-40"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                이 분석만 다시 시도
+              </button>
             </div>
           ) : (
             <div className="text-text-dim text-sm py-8 text-center flex flex-col items-center gap-2">
@@ -462,6 +482,20 @@ export default function AgentsPage() {
         </div>
       </div>
 
+      {/* 분석이 빠졌으면 그 사실을 먼저 말한다.
+          빠진 채로 문서를 만들면 무엇이 빠졌는지 모른 채 법원에 내게 된다. */}
+      {canProceed && errorCount > 0 && (
+        <div className="mt-4 flex items-start gap-2 bg-surface border border-error/20 rounded-2xl p-4">
+          <AlertTriangle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+          <p className="text-sm text-text-dim leading-relaxed">
+            <strong className="text-text-primary">분석 {errorCount}건이 실패했습니다.</strong>{" "}
+            나머지 {completedCount}건으로 계속 진행하실 수 있지만, 실패한 분석의 내용은
+            문서에 반영되지 않습니다. 위에서 해당 탭을 열어 「이 분석만 다시 시도」를
+            누르면 그 하나만 다시 돕니다.
+          </p>
+        </div>
+      )}
+
       {/* 개인정보를 가리고 보냈다는 사실을 알린다.
           변호사가 「이걸 AI에 보내도 되나」를 매번 고민하는 지점이다. */}
       {maskedPiiCount > 0 && (
@@ -472,7 +506,7 @@ export default function AgentsPage() {
       )}
 
       {/* 사건 파일 자동 생성 상태 */}
-      {allCompleted && !hasExistingCase && (
+      {canProceed && !hasExistingCase && (
         <div className="mt-6">
           {isCreatingCase && (
             <div className="flex items-center gap-2 text-text-dim text-sm bg-surface border border-border rounded-2xl p-4">
@@ -511,7 +545,7 @@ export default function AgentsPage() {
       )}
 
       {/* 다음 단계: 문서 유형 선택 */}
-      {allCompleted && classifiedCaseType && (
+      {canProceed && classifiedCaseType && (
         <div className="mt-6 bg-surface border border-border rounded-2xl p-5 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-gold" />
@@ -585,7 +619,7 @@ export default function AgentsPage() {
                   });
                 } catch (err) {
                   console.error("문서 저장 실패:", err);
-                  setCaseError(err instanceof Error ? err.message : "문서 저장 중 오류가 발생했습니다.");
+                  setCaseError(friendlyError(err, "문서 저장 중 오류가 발생했습니다."));
                   setIsNavigating(false);
                 }
               }}

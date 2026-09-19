@@ -9,6 +9,7 @@ import type {
   EvidenceType,
 } from "../../types/accounting";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface PurchaseTransactionModalProps {
   ownerId: string;
@@ -114,7 +115,7 @@ export default function PurchaseTransactionModal({ ownerId, initial, onClose, on
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setError(friendlyError(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }

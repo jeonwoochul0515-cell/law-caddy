@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { KAKAO_CHANNEL_CHAT } from "../config/contact";
 import { SupportLinks } from "../components/auth/LoginForm";
+import { friendlyError } from "../utils/friendlyError";
 
 interface OcrResult {
   businessNumber: string;
@@ -188,7 +189,7 @@ export default function ProfileSetupPage() {
     } catch (err) {
       setVerifyStatus("failed");
       setBusinessVerified(false);
-      setVerifyMessage(friendlyOcrError(err instanceof Error ? err.message : ""));
+      setVerifyMessage(friendlyOcrError(friendlyError(err, "")));
     }
   };
 
@@ -315,7 +316,7 @@ export default function ProfileSetupPage() {
         }
       }, 500);
     } catch (err) {
-      setError(friendlySubmitError(err instanceof Error ? err.message : "프로필 설정에 실패했습니다."));
+      setError(friendlySubmitError(friendlyError(err, "프로필 설정에 실패했습니다.")));
     } finally {
       setLoading(false);
     }

@@ -25,6 +25,7 @@ import PlanSelector from "../components/payment/PlanSelector";
 import PaymentModal from "../components/payment/PaymentModal";
 import { getPaymentHistory, type PaymentRecord } from "../services/payment";
 import { exportAllData } from "../services/backupExport";
+import { friendlyError } from "../utils/friendlyError";
 
 export default function SettingsPage() {
   const user = useAuth((s) => s.user);
@@ -119,7 +120,7 @@ export default function SettingsPage() {
     } catch (err: unknown) {
       setProfileMsg({
         type: "error",
-        text: err instanceof Error ? err.message : "프로필 저장에 실패했습니다.",
+        text: friendlyError(err, "프로필 저장에 실패했습니다."),
       });
     } finally {
       setProfileSaving(false);
@@ -156,7 +157,7 @@ export default function SettingsPage() {
     } catch (err: unknown) {
       setPwMsg({
         type: "error",
-        text: err instanceof Error ? err.message : "비밀번호 변경에 실패했습니다.",
+        text: friendlyError(err, "비밀번호 변경에 실패했습니다."),
       });
     } finally {
       setPwSaving(false);

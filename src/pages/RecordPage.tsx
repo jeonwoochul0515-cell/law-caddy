@@ -10,6 +10,7 @@ import { createRecording, updateRecording, addTimelineEvent } from "../services/
 import { transcribeFile, pollTranscription, formatTranscript } from "../services/rtzr";
 import { getRecordings, getDocuments } from "../services/firebase/firestore";
 import { getSavedSession, buildSavedFile, clearSession, type RecordingSessionMeta } from "../services/recordingStore";
+import { friendlyError } from "../utils/friendlyError";
 
 // (2026-07-31) 녹음과 자료 첨부를 분리했다.
 // 상담 중에는 녹음 화면만 보이고, 상담이 끝난 뒤 서류를 챙겨 넣는 것이 실제 순서다.
@@ -243,7 +244,7 @@ export default function RecordPage() {
         await startRecording();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "녹음을 시작할 수 없습니다.";
+      const msg = friendlyError(err, "녹음을 시작할 수 없습니다.");
       setRecordError(msg);
     } finally {
       recordingInProgress.current = false;

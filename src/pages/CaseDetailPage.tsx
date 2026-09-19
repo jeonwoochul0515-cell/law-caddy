@@ -43,6 +43,7 @@ import type { FeePaymentType } from "../services/autoRevenue";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
 import { localDateStr } from "../utils/localDate";
+import { friendlyError } from "../utils/friendlyError";
 
 type TabKey = "overview" | "timeline" | "schedule" | "clientcare" | "finance" | "records" | "assistant";
 
@@ -116,7 +117,7 @@ export default function CaseDetailPage() {
         await sendClientSms(caseData.id, text);
         setToast("문자를 발송했습니다");
       } catch (err) {
-        setToast(err instanceof Error ? err.message : "문자 발송에 실패했습니다");
+        setToast(friendlyError(err, "문자 발송에 실패했습니다"));
       } finally {
         setSmsSending(false);
         setTimeout(() => setToast(null), 3000);

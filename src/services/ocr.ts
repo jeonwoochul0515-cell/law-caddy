@@ -3,6 +3,7 @@
 
 import * as Sentry from "@sentry/react";
 import { callClovaOcr, extractClovaText } from "./clova-ocr";
+import { friendlyError } from "../utils/friendlyError";
 
 /** 이미지 확장자 판별 */
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
@@ -135,7 +136,7 @@ export async function extractAllImageTexts(files: File[]): Promise<string> {
       Sentry.captureException(err);
       console.warn(`[OCR] ${file.name} 텍스트 추출 실패:`, err);
       results.push(
-        `[이미지: ${file.name}]\n(OCR 텍스트 추출 실패 — ${err instanceof Error ? err.message : "알 수 없는 오류"})`,
+        `[이미지: ${file.name}]\n(OCR 텍스트 추출 실패 — ${friendlyError(err, "알 수 없는 오류")})`,
       );
     }
   }

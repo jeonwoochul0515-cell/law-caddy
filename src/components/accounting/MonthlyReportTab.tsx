@@ -31,6 +31,7 @@ import {
 } from "../../services/reportGenerator";
 import { exportMonthlySummaryToExcel } from "../../services/excelExport";
 import type { MonthlySummary, Transaction } from "../../types/accounting";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface MonthlyReportTabProps {
   ownerId: string;
@@ -91,7 +92,7 @@ export default function MonthlyReportTab({ ownerId }: MonthlyReportTabProps) {
       const data = await getMonthlySummary(ownerId, selectedMonth);
       setSummary(data);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "조회 실패";
+      const msg = friendlyError(err, "조회 실패");
       setError(msg);
     } finally {
       setLoading(false);
@@ -110,7 +111,7 @@ export default function MonthlyReportTab({ ownerId }: MonthlyReportTabProps) {
       const data = await generateMonthlySummary(ownerId, selectedMonth);
       setSummary(data);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "생성 실패";
+      const msg = friendlyError(err, "생성 실패");
       setError(msg);
     } finally {
       setGenerating(false);
@@ -140,7 +141,7 @@ export default function MonthlyReportTab({ ownerId }: MonthlyReportTabProps) {
       }
       await exportMonthlySummaryToExcel(summary, monthTransactions);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Excel 내보내기 실패";
+      const msg = friendlyError(err, "Excel 내보내기 실패");
       setError(msg);
     }
   };
@@ -157,7 +158,7 @@ export default function MonthlyReportTab({ ownerId }: MonthlyReportTabProps) {
       await updateMonthlySummaryStatus(summary.id, next);
       setSummary({ ...summary, status: next });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "상태 변경 실패";
+      const msg = friendlyError(err, "상태 변경 실패");
       setError(msg);
     } finally {
       setStatusChanging(false);

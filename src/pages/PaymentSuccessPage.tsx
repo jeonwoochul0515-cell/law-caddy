@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { confirmPayment } from "../services/payment";
+import { friendlyError } from "../utils/friendlyError";
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,7 @@ export default function PaymentSuccessPage() {
       })
       .catch((err: unknown) => {
         setState("error");
-        setError(err instanceof Error ? err.message : "결제 승인에 실패했습니다.");
+        setError(friendlyError(err, "결제 승인에 실패했습니다."));
       });
   }, [searchParams]);
 

@@ -27,6 +27,7 @@ import type {
   PaymentMethodType,
 } from "../../types/accounting";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 // ─────────────────────────────────────────────
 // Props
@@ -271,7 +272,7 @@ export default function DepositManagementTab({
       setForm(createInitialForm());
       setShowForm(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "등록 실패";
+      const message = friendlyError(err, "등록 실패");
       alert(`예수금 등록 실패: ${message}`);
     } finally {
       setSubmitting(false);
@@ -316,7 +317,7 @@ export default function DepositManagementTab({
       setUsageForm(createInitialUsage());
       setUsageFormId(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "사용 등록 실패";
+      const message = friendlyError(err, "사용 등록 실패");
       alert(`사용 등록 실패: ${message}`);
     } finally {
       setBusyDepositId(null);
@@ -337,7 +338,7 @@ export default function DepositManagementTab({
       });
       setReturningId(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "반환 처리 실패";
+      const message = friendlyError(err, "반환 처리 실패");
       alert(`반환 처리 실패: ${message}`);
     } finally {
       setBusyDepositId(null);
@@ -956,7 +957,7 @@ export default function DepositManagementTab({
                                 await onDelete(deposit.id);
                                 setDeletingId(null);
                               } catch (err: unknown) {
-                                const message = err instanceof Error ? err.message : "삭제 실패";
+                                const message = friendlyError(err, "삭제 실패");
                                 alert(`예수금 삭제 실패: ${message}`);
                               } finally {
                                 setBusyDepositId(null);

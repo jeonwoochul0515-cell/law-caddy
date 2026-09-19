@@ -11,6 +11,7 @@ import type {
   EvidenceType,
 } from "../../types/accounting";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface OfficeExpenseModalProps {
   ownerId: string;
@@ -116,7 +117,7 @@ export default function OfficeExpenseModal({ ownerId, initial, onClose, onSaved 
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setError(friendlyError(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }

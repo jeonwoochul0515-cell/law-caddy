@@ -6,6 +6,7 @@ import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import * as Sentry from "@sentry/react";
 import { callClovaOcr, extractClovaText } from "./clova-ocr";
+import { friendlyError } from "../utils/friendlyError";
 
 // PDF.js 워커 설정 (Vite 호환)
 GlobalWorkerOptions.workerSrc = new URL(
@@ -167,7 +168,7 @@ export async function extractPdfText(file: File): Promise<PdfExtractResult> {
   } catch (err) {
     Sentry.captureException(err);
     console.error(`[PDF] ${file.name} OCR 폴백 실패:`, err);
-    return { text: textResult || `(PDF 텍스트 추출 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"})`, usedOcr: false, fileName: file.name };
+    return { text: textResult || `(PDF 텍스트 추출 실패: ${friendlyError(err, "알 수 없는 오류")})`, usedOcr: false, fileName: file.name };
   }
 }
 
@@ -207,7 +208,7 @@ export async function extractAllPdfTexts(files: File[]): Promise<AllPdfExtractRe
       }
     } catch (err) {
       console.warn(`[PDF] ${file.name} 텍스트 추출 실패:`, err);
-      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"})`);
+      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${friendlyError(err, "알 수 없는 오류")})`);
     }
   }
 

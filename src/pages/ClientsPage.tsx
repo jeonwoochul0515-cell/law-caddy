@@ -8,6 +8,7 @@ import useAuth from "../hooks/useAuth";
 import { getCases } from "../services/firebase/firestore";
 import type { Case } from "../types/case";
 import { isDemoMode } from "../config/demo";
+import { friendlyError } from "../utils/friendlyError";
 
 interface ClientGroup {
   name: string;
@@ -47,7 +48,7 @@ export default function ClientsPage() {
       setError(null);
       setCases(await getCases(user.uid));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "의뢰인 목록을 불러오지 못했습니다.");
+      setError(friendlyError(err, "의뢰인 목록을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }

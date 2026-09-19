@@ -38,6 +38,7 @@ import {
   createRecording,
   addTimelineEvent,
 } from "../services/firebase/firestore";
+import { friendlyError } from "../utils/friendlyError";
 
 type Phase = "input" | "processing" | "result";
 
@@ -196,7 +197,7 @@ export default function FreeformPage() {
       setPhase("result");
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "처리 중 오류가 발생했습니다.";
+        friendlyError(err, "처리 중 오류가 발생했습니다.");
       setError(msg);
       setPhase("input");
     }
@@ -265,7 +266,7 @@ export default function FreeformPage() {
       setTimeout(() => navigate(`/cases/${caseId}`), 800);
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.";
+        friendlyError(err, "저장 중 오류가 발생했습니다.");
       setError(msg);
     } finally {
       setSaving(false);

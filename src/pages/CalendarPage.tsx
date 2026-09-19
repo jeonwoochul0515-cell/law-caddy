@@ -7,6 +7,7 @@ import useAuth from "../hooks/useAuth";
 import { getAllDeadlines, getCases } from "../services/firebase/firestore";
 import { calcDDay, calcStatus, type CaseDeadline, type DeadlineStatus } from "../types/deadline";
 import { isDemoMode } from "../config/demo";
+import { friendlyError } from "../utils/friendlyError";
 
 /** 상태별 칩 색상 */
 const STATUS_CHIP: Record<DeadlineStatus, string> = {
@@ -57,7 +58,7 @@ export default function CalendarPage() {
       setDeadlines(allDeadlines);
       setCaseNames(Object.fromEntries(cases.map((c) => [c.id, c.clientName])));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "일정을 불러오지 못했습니다.");
+      setError(friendlyError(err, "일정을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }

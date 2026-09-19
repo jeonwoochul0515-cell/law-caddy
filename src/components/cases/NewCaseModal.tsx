@@ -4,6 +4,7 @@ import { X, Loader2 } from "lucide-react";
 import { createCase } from "../../services/firebase/firestore";
 import { CASE_TYPES } from "../../config/constants";
 import type { CaseInstance, CaseType } from "../../types/case";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface NewCaseModalProps {
   ownerId: string;
@@ -56,7 +57,7 @@ export default function NewCaseModal({ ownerId, onClose, onCreated }: NewCaseMod
       onCreated(caseId);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "사건 등록에 실패했습니다.");
+      setError(friendlyError(err, "사건 등록에 실패했습니다."));
     } finally {
       setSaving(false);
     }

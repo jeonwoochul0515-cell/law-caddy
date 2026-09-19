@@ -69,9 +69,23 @@ const CODE_MAP: Record<string, string> = {
   "invalid-checksum": "파일이 올라가는 중에 손상되었습니다. 다시 올려 주세요.",
 };
 
-/** HTTP 상태 번호가 메시지에 섞여 있을 때의 안내 */
+/**
+ * HTTP 상태 번호가 메시지에 섞여 있을 때의 안내.
+ *
+ * (2026-09-19) 예전에는 문장 어디에든 있는 세 자리 숫자를 전부 상태 코드로 읽었다.
+ * "보증금 500만원 처리 실패"가 "서버에서 문제가 생겼습니다"로 둔갑했고,
+ * "301호 법정"·"404호"도 같은 것을 당했다. 법률 업무는 금액·호수가 본문에 흔하다.
+ * 이제 상태 코드를 가리키는 말(HTTP·status·응답·오류) 옆에 붙은 숫자만 인정한다.
+ */
 function fromHttpStatus(text: string): string | null {
-  const m = text.match(/\b(401|402|403|404|408|413|429|5\d\d)\b/);
+  const CODES = String.raw`401|402|403|404|408|413|429|5\d\d`;
+  const m =
+    // "HTTP 500", "status: 404", "statusCode=429", "응답 503", "오류 코드 500"
+    text.match(
+      new RegExp(String.raw`(?:HTTP|status(?:Code)?|응답|오류\s*코드)\s*[:=]?\s*(${CODES})(?!\d)`, "i"),
+    ) ??
+    // "(500)", "[404]" 처럼 괄호로 둘러싸인 상태 코드
+    text.match(new RegExp(String.raw`[([](${CODES})[)\]]`));
   if (!m) return null;
   switch (m[1]) {
     case "401":
@@ -125,12 +139,16 @@ export function friendlyError(err: unknown, fallback = "처리하지 못했습�
   if (/insufficient permissions|permission/i.test(text)) return `${fallback} ${CODE_MAP["permission-denied"]}`;
   if (/unsupported field value|invalid data/i.test(text)) return `${fallback} ${CODE_MAP["invalid-argument"]}`;
 
-  // 4) HTTP 번호
+  // 4) 서비스 코드가 이미 한국어로 만들어 준 문장이면 그대로 내보람다.
+  //
+  // ⚠️ 순서가 중요하다. HTTP 번호 추측보다 먼저 본다. 사람이 써 둔 한국어 안내가
+  // 있는데 그걸 버리고 추측 문구를 내보낼 이유가 없다.
+  if (text && isKoreanSentence(text)) return text;
+
+  // 5) HTTP 번호
   const http = fromHttpStatus(text);
   if (http) return `${fallback} ${http}`;
 
-  // 5) 서비스 코드가 이미 한국어로 만들어 준 문장이면 그대로 (단, 영어 원문이 섞인 "X 실패: …"는 앞부분만)
-  if (text && isKoreanSentence(text)) return text;
   const koreanHead = text.split(/:\s/)[0];
   if (koreanHead && koreanHead !== text && isKoreanSentence(koreanHead)) return `${koreanHead}. 다시 시도해 주세요.`;
 

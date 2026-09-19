@@ -8,6 +8,7 @@ import { getOverdueItems, type OverdueItem } from "../../services/overdueDetecto
 import { buildOverdueReminderPrompt, type OverdueReminderContext } from "../../services/prompts";
 import { callClaude } from "../../services/claude";
 import useAuth from "../../hooks/useAuth";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface OverdueAlertPanelProps {
   ownerId: string;
@@ -43,7 +44,7 @@ export default function OverdueAlertPanel({ ownerId }: OverdueAlertPanelProps) {
         const overdueItems = await getOverdueItems(ownerId);
         setItems(overdueItems);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "연체 항목 조회 실패";
+        const msg = friendlyError(err, "연체 항목 조회 실패");
         setError(msg);
         console.error("연체 항목 조회 실패:", err);
       } finally {
@@ -91,7 +92,7 @@ export default function OverdueAlertPanel({ ownerId }: OverdueAlertPanelProps) {
         [key]: { loading: false, message, copied: false, error: "" },
       }));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "메시지 생성 실패";
+      const msg = friendlyError(err, "메시지 생성 실패");
       setMessageStates((prev) => ({
         ...prev,
         [key]: { loading: false, message: "", copied: false, error: msg },

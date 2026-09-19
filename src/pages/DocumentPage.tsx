@@ -42,6 +42,7 @@ import { uploadRecordingFile } from "../services/firebase/storage";
 import type { CaseType, DocType } from "../types/agent";
 import type { CheckQuestion, CheckpointAnswer } from "../types/document";
 import "../print.css";
+import { friendlyError } from "../utils/friendlyError";
 
 const SESSION_KEY = "law-caddy-document-state";
 const AUTO_REVIEW_KEY = "law-caddy-auto-review";
@@ -195,7 +196,7 @@ export default function DocumentPage() {
       return true;
     } catch (err) {
       console.error("문서 저장 실패:", err);
-      setSaveError(err instanceof Error ? err.message : "문서를 저장하지 못했습니다.");
+      setSaveError(friendlyError(err, "문서를 저장하지 못했습니다."));
       return false;
     } finally {
       if (!opts?.silent) setSaving(false);
@@ -535,7 +536,7 @@ export default function DocumentPage() {
     try {
       await renameDocument(documentId, next);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "제목을 저장하지 못했습니다.");
+      setSaveError(friendlyError(err, "제목을 저장하지 못했습니다."));
     }
   };
 
@@ -556,7 +557,7 @@ export default function DocumentPage() {
       try { sessionStorage.removeItem(SESSION_KEY); } catch { /* 무시 */ }
       navigate(state?.caseId ? `/cases/${state.caseId}` : "/documents");
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "문서를 삭제하지 못했습니다.");
+      setSaveError(friendlyError(err, "문서를 삭제하지 못했습니다."));
       setDeleting(false);
     }
   };

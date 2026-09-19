@@ -10,6 +10,7 @@ import type { MessageStage } from "../../types/clientCare";
 import type { Case } from "../../types/case";
 import type { LegalDocument } from "../../types/document";
 import type { Recording } from "../../types/recording";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface ClientCareTabProps {
   caseData: Case;
@@ -152,7 +153,7 @@ export default function ClientCareTab({
       setPortalSent(true);
       setTimeout(() => setPortalSent(false), 3000);
     } catch (err) {
-      setSmsError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
+      setSmsError(friendlyError(err, "문자 발송에 실패했습니다."));
     } finally {
       setSendingId(null);
     }
@@ -170,7 +171,7 @@ export default function ClientCareTab({
       setSentId(id);
       setTimeout(() => setSentId(null), 3000);
     } catch (err) {
-      setSmsError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
+      setSmsError(friendlyError(err, "문자 발송에 실패했습니다."));
     } finally {
       setSendingId(null);
     }

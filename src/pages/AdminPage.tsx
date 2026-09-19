@@ -33,6 +33,7 @@ import { notifyApproved } from "../services/notify";
 import { isDemoMode, DEMO_ADMIN_PENDING_USERS } from "../config/demo";
 import type { User } from "../types/user";
 import type { BugReport } from "../types/bugReport";
+import { friendlyError } from "../utils/friendlyError";
 
 type AdminTab = "pending" | "unverified" | "rejected" | "bugs";
 type SortKey = "newest" | "oldest" | "name";
@@ -116,7 +117,7 @@ export default function AdminPage() {
       setRejectedUsers(rejected);
     } catch (err) {
       setLoadError(
-        `회원 목록을 불러오지 못했습니다. 새로고침해 주세요. (${err instanceof Error ? err.message : "알 수 없는 오류"})`,
+        `회원 목록을 불러오지 못했습니다. 새로고침해 주세요. (${friendlyError(err, "알 수 없는 오류")})`,
       );
     } finally {
       setLoading(false);
@@ -145,7 +146,7 @@ export default function AdminPage() {
         }
       })
       .catch((err) => {
-        if (!canceled) setNotice({ type: "error", text: `불편 신고 목록을 불러오지 못했습니다. (${err instanceof Error ? err.message : "오류"})` });
+        if (!canceled) setNotice({ type: "error", text: `불편 신고 목록을 불러오지 못했습니다. (${friendlyError(err, "오류")})` });
       })
       .finally(() => {
         if (!canceled) setBugsLoading(false);
@@ -167,7 +168,7 @@ export default function AdminPage() {
       setBugReports((prev) =>
         prev.map((b) => (b.id === report.id ? { ...b, status: report.status } : b)),
       );
-      setNotice({ type: "error", text: `상태를 바꾸지 못했습니다. (${err instanceof Error ? err.message : "오류"})` });
+      setNotice({ type: "error", text: `상태를 바꾸지 못했습니다. (${friendlyError(err, "오류")})` });
     }
   };
 
@@ -205,7 +206,7 @@ export default function AdminPage() {
       }
       setDoneCount((c) => c + 1);
     } catch (err) {
-      setNotice({ type: "error", text: `처리하지 못했습니다. 다시 눌러 주세요. (${err instanceof Error ? err.message : "알 수 없는 오류"})` });
+      setNotice({ type: "error", text: `처리하지 못했습니다. 다시 눌러 주세요. (${friendlyError(err, "알 수 없는 오류")})` });
     } finally {
       setProcessing(null);
       setAction(null);

@@ -9,6 +9,7 @@ import {
   YEARLY_MULTIPLIER,
   type BillingPeriod,
 } from "../../services/payment";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export default function PaymentModal({
         setReady(true);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "결제위젯을 불러오지 못했습니다.");
+          setError(friendlyError(err, "결제위젯을 불러오지 못했습니다."));
         }
       }
     })();
@@ -95,7 +96,7 @@ export default function PaymentModal({
         failUrl: `${window.location.origin}/payment/fail`,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "결제 요청 중 오류가 발생했습니다.");
+      setError(friendlyError(err, "결제 요청 중 오류가 발생했습니다."));
       setSubmitting(false);
     }
   };

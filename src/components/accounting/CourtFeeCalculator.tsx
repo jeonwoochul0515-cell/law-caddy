@@ -10,6 +10,7 @@ import {
 } from "../../services/courtFeeCalculator";
 import type { CourtLevel } from "../../services/courtFeeCalculator";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 // ─── Props ───────────────────────────────────────
 
@@ -125,7 +126,7 @@ export default function CourtFeeCalculator({
 
         alert(`${category} ${formatKoreanWon(amount)}이 등록되었습니다.`);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "등록 실패";
+        const message = friendlyError(err, "등록 실패");
         alert(`${category} 등록 실패: ${message}`);
       } finally {
         setRegistering(null);

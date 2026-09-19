@@ -37,6 +37,7 @@ import {
   type DeadlineStatus,
 } from "../../types/deadline";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface ScheduleTabProps {
   caseId: string;
@@ -199,7 +200,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       setShowForm(true);
       setShowCalc(false);
     } catch (err) {
-      setCalcError(err instanceof Error ? err.message : "계산하지 못했습니다.");
+      setCalcError(friendlyError(err, "계산하지 못했습니다."));
     }
   }
 
@@ -219,7 +220,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기한 상태를 바꾸지 못했습니다.");
+      setError(friendlyError(err, "기한 상태를 바꾸지 못했습니다."));
     } finally {
       setTogglingId(null);
     }
@@ -242,7 +243,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       const result = await getDeadlines(caseId, user.uid);
       setDeadlines(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기한 목록을 불러오지 못했습니다.");
+      setError(friendlyError(err, "기한 목록을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }
@@ -293,7 +294,7 @@ export default function ScheduleTab({ caseId }: ScheduleTabProps) {
       await deleteDeadline(id);
       setDeadlines((prev) => prev.filter((d) => d.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "기한 삭제에 실패했습니다.");
+      setError(friendlyError(err, "기한 삭제에 실패했습니다."));
     } finally {
       setDeletingId(null);
     }

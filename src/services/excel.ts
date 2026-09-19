@@ -1,5 +1,6 @@
 // Excel 텍스트 추출 서비스
 // xlsx(SheetJS) 라이브러리를 사용하여 .xls/.xlsx 파일에서 텍스트를 추출
+import { friendlyError } from "../utils/friendlyError";
 
 /** 파일당 최대 문자 수 */
 const MAX_CHARS_PER_FILE = 15_000;
@@ -83,7 +84,7 @@ export async function extractAllExcelTexts(files: File[]): Promise<AllExcelExtra
       totalChars += truncated.length;
     } catch (err) {
       console.warn(`[Excel] ${file.name} 텍스트 추출 실패:`, err);
-      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"})`);
+      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${friendlyError(err, "알 수 없는 오류")})`);
     }
   }
 

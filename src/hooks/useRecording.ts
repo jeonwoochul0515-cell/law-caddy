@@ -14,6 +14,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../config/firebase";
 import { beginSession, appendChunk, buildSavedFile, getSavedSession, clearSession } from "../services/recordingStore";
+import { rawErrorText } from "../utils/friendlyError";
 
 /** useRecording 반환 타입 */
 interface UseRecordingReturn {
@@ -52,7 +53,9 @@ interface UseRecordingReturn {
 /** 마이크 오류를 사람이 읽을 한국어로 바꾼다. 다음 행동까지 함께 적는다. */
 export function describeMicError(err: unknown): string {
   const name = (err as { name?: string })?.name ?? "";
-  const message = err instanceof Error ? err.message : "";
+  // 여기서는 원문이 필요하다 — 아래 검사가 영어 패턴으로 오류 종류를 가른다.
+  // 한국어로 먼저 바꾸면 분기가 전부 빗나간다.
+  const message = rawErrorText(err);
   if (name === "NotAllowedError" || name === "PermissionDeniedError" || /permission|denied|not allowed/i.test(message)) {
     return "마이크 사용이 차단되어 있습니다. 주소창 왼쪽 자물쇠(또는 설정) 아이콘을 눌러 마이크를 '허용'으로 바꾼 뒤 다시 눌러 주세요. 급하면 휴대폰 녹음 앱으로 녹음한 파일을 다음 단계에서 첨부해도 됩니다.";
   }

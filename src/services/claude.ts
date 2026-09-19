@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/react";
 import { authHeaders } from "./api-auth";
 import { withRetry, ApiError, describeHttpError } from "./retry";
+import { friendlyError } from "../utils/friendlyError";
 
 /** 멀티턴 채팅 메시지 타입 */
 export interface ChatMessage {
@@ -460,7 +461,7 @@ export async function callClaude(
     return await callClaudeProxy(systemPrompt, userMessage, sharedPrefix, effort);
   } catch (error: unknown) {
     Sentry.captureException(error);
-    const errMsg = error instanceof Error ? error.message : "알 수 없는 오류";
+    const errMsg = friendlyError(error, "알 수 없는 오류");
     // 전역 API 에러 알림 — 요금제 한도(402)는 고장이 아니므로 "버그 리포트" 안내를 띄우지 않는다
     const isQuota = error instanceof ApiError && error.isQuota;
     if (typeof window !== "undefined" && !isQuota) {

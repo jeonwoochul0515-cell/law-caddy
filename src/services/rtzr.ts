@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/react";
 import type { Utterance } from "../types/recording";
 import { authHeaders } from "./api-auth";
 import { ApiError, describeHttpError } from "./retry";
+import { friendlyError } from "../utils/friendlyError";
 
 /** RTZR 전사 상태 */
 export type TranscriptionStatus = "transcribing" | "completed" | "failed";
@@ -381,7 +382,7 @@ export async function transcribeAndWait(
     return null;
   } catch (err) {
     console.warn("[STT] transcribeAndWait 실패:", err instanceof Error ? err.message : err);
-    onProgress?.(err instanceof Error ? err.message : "음성 변환 요청 실패");
+    onProgress?.(friendlyError(err, "음성 변환 요청 실패"));
     return null;
   }
 }

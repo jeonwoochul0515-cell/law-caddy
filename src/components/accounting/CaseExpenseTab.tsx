@@ -28,6 +28,7 @@ import type {
   Deposit,
 } from "../../types/accounting";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 // ─── 상수 ────────────────────────────────────────
 
@@ -253,7 +254,7 @@ export default function CaseExpenseTab({
           attachments: [...prev.attachments, attachment],
         }));
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "업로드 실패";
+        const message = friendlyError(err, "업로드 실패");
         alert(`영수증 업로드 실패: ${message}`);
       } finally {
         setUploading(false);
@@ -324,7 +325,7 @@ export default function CaseExpenseTab({
       setForm(createInitialFormState());
       setShowForm(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "등록 실패";
+      const message = friendlyError(err, "등록 실패");
       alert(`비용 등록 실패: ${message}`);
     } finally {
       setSubmitting(false);
@@ -342,7 +343,7 @@ export default function CaseExpenseTab({
         reimbursedAmount: newReimbursed ? expense.amount : undefined,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "정산 상태 변경 실패";
+      const message = friendlyError(err, "정산 상태 변경 실패");
       alert(`정산 처리 실패: ${message}`);
     } finally {
       setBusyExpenseId(null);
@@ -355,7 +356,7 @@ export default function CaseExpenseTab({
     try {
       await onDelete(id);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "삭제 실패";
+      const message = friendlyError(err, "삭제 실패");
       alert(`비용 삭제 실패: ${message}`);
     } finally {
       setBusyExpenseId(null);

@@ -30,6 +30,7 @@ import {
   exportVatReportToExcel,
   exportIncomeTaxPrepToExcel,
 } from "../../services/excelExport";
+import { friendlyError } from "../../utils/friendlyError";
 
 // ─────────────────────────────────────────────
 // Props
@@ -132,7 +133,7 @@ export default function TaxReportTab({ ownerId }: TaxReportTabProps) {
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "보고서 생성 중 오류가 발생했습니다.";
+        friendlyError(err, "보고서 생성 중 오류가 발생했습니다.");
       setError(message);
     } finally {
       setLoading(false);
@@ -149,7 +150,7 @@ export default function TaxReportTab({ ownerId }: TaxReportTabProps) {
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Excel 내보내기 중 오류가 발생했습니다.";
+        friendlyError(err, "Excel 내보내기 중 오류가 발생했습니다.");
       setError(message);
     }
   }, [reportType, vatReport, incomeTaxPrep]);

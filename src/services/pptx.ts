@@ -1,5 +1,6 @@
 // PowerPoint(.pptx) 텍스트 추출 서비스
 // jszip으로 ZIP 해제 → slide*.xml에서 <a:t> 텍스트 노드 추출
+import { friendlyError } from "../utils/friendlyError";
 
 /** 파일당 최대 문자 수 */
 const MAX_CHARS_PER_FILE = 15_000;
@@ -118,7 +119,7 @@ export async function extractAllPptxTexts(files: File[]): Promise<AllPptxExtract
       totalChars += truncated.length;
     } catch (err) {
       console.warn(`[PPTX] ${file.name} 텍스트 추출 실패:`, err);
-      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"})`);
+      results.push(`[파일: ${file.name}]\n(텍스트 추출 실패: ${friendlyError(err, "알 수 없는 오류")})`);
     }
   }
 

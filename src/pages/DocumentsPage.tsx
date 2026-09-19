@@ -8,6 +8,7 @@ import { getAllDocuments, getCases, deleteDocument } from "../services/firebase/
 import type { LegalDocument } from "../types/document";
 import type { Case } from "../types/case";
 import { isDemoMode } from "../config/demo";
+import { friendlyError } from "../utils/friendlyError";
 
 const STATUS_LABELS: Record<LegalDocument["status"], { label: string; cls: string }> = {
   processing: { label: "분석 중", cls: "bg-info/15 text-info" },
@@ -59,7 +60,7 @@ export default function DocumentsPage() {
       setDocuments(docs);
       setCases(Object.fromEntries(caseList.map((c) => [c.id, c])));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "문서를 불러오지 못했습니다.");
+      setError(friendlyError(err, "문서를 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }
@@ -150,7 +151,7 @@ export default function DocumentsPage() {
       await deleteDocument(d.id);
       setDocuments((prev) => prev.filter((x) => x.id !== d.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "문서를 삭제하지 못했습니다.");
+      setError(friendlyError(err, "문서를 삭제하지 못했습니다."));
     } finally {
       setDeletingId(null);
     }

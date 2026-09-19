@@ -31,6 +31,7 @@ import type {
 } from "../../types/accounting";
 import SuccessFeeClaimModal from "./SuccessFeeClaimModal";
 import { localDateStr } from "../../utils/localDate";
+import { friendlyError } from "../../utils/friendlyError";
 
 // ─── Props ───────────────────────────────────
 
@@ -402,7 +403,7 @@ function ContractSection({
     try {
       onUpdate(updated);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "변경 실패";
+      const message = friendlyError(err, "변경 실패");
       alert(`계약 정보 변경 실패: ${message}`);
     }
   };
@@ -494,7 +495,7 @@ function RetainerSection({
     try {
       onUpdate(updated);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "변경 실패";
+      const message = friendlyError(err, "변경 실패");
       alert(`착수금 정보 변경 실패: ${message}`);
     }
   };
@@ -712,7 +713,7 @@ function InstallmentSection({
     try {
       await onUpdateFee({ useInstallment: !fee.useInstallment });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "변경 실패";
+      const message = friendlyError(err, "변경 실패");
       alert(`분할납부 설정 실패: ${message}`);
     } finally {
       setSubmitting(false);
@@ -743,7 +744,7 @@ function InstallmentSection({
       setNewAmount("");
       setAdding(false);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "등록 실패";
+      const message = friendlyError(err, "등록 실패");
       alert(`분할납부 등록 실패: ${message}`);
     } finally {
       setSubmitting(false);
@@ -762,7 +763,7 @@ function InstallmentSection({
         overdue: !nextPaid && isOverdue(inst.dueDate, false),
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "변경 실패";
+      const message = friendlyError(err, "변경 실패");
       alert(`납부 상태 변경 실패: ${message}`);
     } finally {
       setBusyInstallmentId(null);
@@ -902,7 +903,7 @@ function InstallmentSection({
                               await onDeleteInstallment(inst.id);
                               setConfirmDeleteId(null);
                             } catch (err: unknown) {
-                              const message = err instanceof Error ? err.message : "삭제 실패";
+                              const message = friendlyError(err, "삭제 실패");
                               alert(`분할납부 삭제 실패: ${message}`);
                             } finally {
                               setBusyInstallmentId(null);

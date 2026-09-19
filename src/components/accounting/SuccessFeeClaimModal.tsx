@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { X, Loader2, Copy, Check, Send, Calculator } from "lucide-react";
 import { sendClientSms } from "../../services/notify";
 import type { SuccessFeeInfo } from "../../types/accounting";
+import { friendlyError } from "../../utils/friendlyError";
 
 interface SuccessFeeClaimModalProps {
   successFee: SuccessFeeInfo;
@@ -137,7 +138,7 @@ export default function SuccessFeeClaimModal({
       await sendClientSms(caseId, finalMessage);
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "문자 발송에 실패했습니다.");
+      setError(friendlyError(err, "문자 발송에 실패했습니다."));
     } finally {
       setSending(false);
     }
@@ -154,7 +155,7 @@ export default function SuccessFeeClaimModal({
       await onClaimed(total);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "청구 상태 저장에 실패했습니다.");
+      setError(friendlyError(err, "청구 상태 저장에 실패했습니다."));
     } finally {
       setConfirming(false);
     }

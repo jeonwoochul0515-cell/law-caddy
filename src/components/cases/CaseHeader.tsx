@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calendar, Trash2, AlertTriangle, Loader2, Pencil, X, Scale, Phone } from "lucide-react";
 import type { Case, CaseInstance, CaseType } from "../../types/case";
+import { friendlyError } from "../../utils/friendlyError";
 
 const CASE_TYPES: CaseType[] = ["민사", "형사", "가사", "행정", "노동", "부동산", "채권·채무", "손해배상", "기타"];
 const INSTANCES: CaseInstance[] = ["1심", "항소심", "상고심", "기타"];
@@ -93,7 +94,7 @@ export default function CaseHeader({ caseData, onStatusChange, onDelete, onUpdat
       });
       setEditing(false);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setEditError(friendlyError(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }
